@@ -1,0 +1,182 @@
+<div class="col">
+  <div class="eyebrow">Chapitre 16 · Java SE 27 Edition</div>
+  <h1>Affectation définie</h1>
+  <p class="lede">Java refuse de compiler un programme qui pourrait lire une variable locale avant de lui avoir donné une valeur, ou affecter deux fois une variable <code>final</code>. Ce chapitre définit l'analyse de flux, simple et conservatrice, qui le garantit.</p>
+  <div class="meta">
+    <span>Source : <a href="https://docs.oracle.com/javase/specs/jls/se27/html/jls-16.html" target="_blank" rel="noopener">JLS SE 27, chapitre 16</a></span>
+    <span>Sections : <b>16.1 à 16.9</b></span>
+  </div>
+
+  <h2 id="s16-0"><span class="sec">§16</span>Les deux garanties</h2>
+  <div class="two">
+    <div class="card"><b class="h">Affectation définie (DA)</b>Toute variable locale, et tout champ <code>final</code> sans initialiseur (blank final), doit être <b>définitivement assigné</b> avant tout accès à sa valeur. L'accès doit se faire par son nom simple (ou <code>this.f</code> pour un champ).</div>
+    <div class="card"><b class="h">Non-affectation définie (DU)</b>Toute variable blank final doit être <b>définitivement non assignée</b> au moment où on l'affecte. Elle ne peut donc l'être qu'une fois, et jamais dans une boucle.</div>
+  </div>
+  <p>L'analyse ne tient compte que de la <b>structure</b> des instructions et expressions, et des valeurs des <b>expressions constantes</b> (§15.29). Elle ne raisonne pas sur les valeurs à l'exécution, même évidentes pour un humain.</p>
+  <div class="code"><div class="bar"><span>Java · exemple 16-2 de la spec, reformulé</span></div><pre><code class="java">int k;
+if (n &gt; 2) k = 3;
+if (n &lt;= 2) k = 4;
+System.out.println(k);       // ERREUR : l'analyse ne sait pas que les deux conditions sont complémentaires
+
+int m;
+if (n &gt; 2) m = 3; else m = 4;
+System.out.println(m);       // OK : chaque branche affecte m
+
+int z;
+while (true) { z = 1; break; }
+System.out.println(z);       // OK : true est une expression constante, la sortie se fait par le break</code></pre></div>
+  <div class="rule"><span class="lbl">Notation de la spec</span>
+    <p>Pour chaque variable V et chaque point du programme, la spec définit « V est [non] assignée définitivement <b>avant</b> / <b>après</b> » une expression ou instruction. Pour une expression booléenne, elle distingue en plus « après quand elle est <b>vraie</b> » et « après quand elle est <b>fausse</b> ». C'est cette finesse qui rend utilisables les conditions composées.</p>
+  </div>
+
+  <h2 id="s16-1"><span class="sec">§16.1</span>Affectation définie et expressions</h2>
+  <div class="tbl"><table>
+    <thead><tr><th>Section</th><th>Expression</th><th>V est DA après, quand vraie</th><th>V est DA après, quand fausse</th></tr></thead>
+    <tbody>
+      <tr><td>§16.1.1</td><td><code>true</code> (constante)</td><td>si DA avant</td><td><b>toujours</b> (ce cas n'arrive jamais)</td></tr>
+      <tr><td>§16.1.1</td><td><code>false</code> (constante)</td><td><b>toujours</b></td><td>si DA avant</td></tr>
+      <tr><td>§16.1.2</td><td><code>a &amp;&amp; b</code></td><td>si DA après b quand vraie</td><td>si DA après a quand fausse <b>et</b> après b quand fausse</td></tr>
+      <tr><td>§16.1.3</td><td><code>a || b</code></td><td>si DA après a quand vraie <b>et</b> après b quand vraie</td><td>si DA après b quand fausse</td></tr>
+      <tr><td>§16.1.4</td><td><code>!a</code></td><td>si DA après a quand fausse</td><td>si DA après a quand vraie</td></tr>
+      <tr><td>§16.1.5</td><td><code>c ? a : b</code> (booléen)</td><td>si DA après a quand vraie et après b quand vraie</td><td>idem pour fausse</td></tr>
+      <tr><td>§16.1.6</td><td><code>switch</code> expression</td><td colspan="2">selon les valeurs de chaque branche (<code>yield</code>, expressions des règles)</td></tr>
+      <tr><td>§16.1.7</td><td>autre expression booléenne</td><td colspan="2">si DA après l'expression (pas de distinction)</td></tr>
+    </tbody>
+  </table></div>
+  <p>Pour <code>a &amp;&amp; b</code>, V est DA <b>avant</b> b si V est DA après a quand vraie : b n'est évalué que si a est vrai. Ces règles rendent légal un code idiomatique :</p>
+  <div class="code"><div class="bar"><span>Java</span></div><pre><code class="java">int r;
+if (pret &amp;&amp; (r = calculer()) &gt; 0) utiliser(r);   // OK : r est DA quand la condition est vraie
+if (pret || (r = calculer()) &gt; 0) utiliser(r);   // ERREUR : si pret est vrai, r n'est jamais affecté
+
+String ligne;
+while ((ligne = lecteur.readLine()) != null) traiter(ligne);  // OK : affectation dans la condition</code></pre></div>
+  <h3 id="s16-1-8"><span class="sec">§16.1.8</span>Expressions d'affectation</h3>
+  <p>V est DA après <code>V = e</code> (et après toute affectation dont le côté gauche est V). Pour une affectation composée <code>V op= e</code>, V doit être DA <b>avant</b> : elle lit V. Si V est blank final, elle doit être DU avant <code>V = e</code>.</p>
+  <h3 id="s16-1-9"><span class="sec">§16.1.9</span>Opérateurs ++ et --</h3>
+  <p>V doit être DA avant <code>V++</code>, <code>++V</code>… puisqu'ils lisent V. Ils sont interdits sur une variable <code>final</code>.</p>
+  <h3 id="s16-1-10"><span class="sec">§16.1.10</span>Autres expressions</h3>
+  <p>Pour les autres expressions, l'analyse suit l'ordre d'évaluation (§15.7) : V est DA après l'expression si elle l'est après la dernière sous-expression évaluée. Le corps d'une lambda est analysé avec les variables DA avant la lambda ; une variable capturée doit être DA avant la lambda.</p>
+
+  <h2 id="s16-2"><span class="sec">§16.2</span>Affectation définie et instructions</h2>
+  <p>Le principe : une instruction qui ne peut pas se terminer normalement (<code>return</code>, <code>throw</code>, <code>break</code>…) rend « vrai » n'importe quel fait d'affectation après elle, car ce point n'est jamais atteint.</p>
+  <div class="tbl"><table>
+    <thead><tr><th>Section</th><th>Instruction</th><th>V est DA après l'instruction si…</th></tr></thead>
+    <tbody>
+      <tr><td>§16.2.1</td><td>vide <code>;</code></td><td>DA avant</td></tr>
+      <tr><td>§16.2.2</td><td>bloc</td><td>DA après la dernière instruction du bloc</td></tr>
+      <tr><td>§16.2.3</td><td>classe ou interface locale</td><td>DA avant ; une variable capturée par la classe doit être DA avant sa déclaration</td></tr>
+      <tr><td>§16.2.4</td><td>déclaration locale</td><td>DA avant, ou V est déclarée ici avec initialiseur</td></tr>
+      <tr><td>§16.2.5</td><td>étiquetée <code>L: S</code></td><td>DA après S <b>et</b> avant chaque <code>break L</code></td></tr>
+      <tr><td>§16.2.6</td><td>expression</td><td>DA après l'expression</td></tr>
+      <tr><td>§16.2.7</td><td><code>if (e) S</code></td><td>DA après S <b>et</b> après e quand fausse</td></tr>
+      <tr><td>§16.2.7</td><td><code>if (e) S else T</code></td><td>DA après S <b>et</b> après T</td></tr>
+      <tr><td>§16.2.8</td><td><code>assert</code></td><td>DA avant (les assertions peuvent être désactivées)</td></tr>
+      <tr><td>§16.2.9</td><td><code>switch</code></td><td>DA après chaque branche et avant chaque <code>break</code> ; si non exhaustif, aussi DA après le sélecteur</td></tr>
+      <tr><td>§16.2.10</td><td><code>while (e) S</code></td><td>DA après e quand fausse <b>et</b> avant chaque <code>break</code> qui sort du while</td></tr>
+      <tr><td>§16.2.11</td><td><code>do S while (e);</code></td><td>DA après e quand fausse et avant chaque <code>break</code></td></tr>
+      <tr><td>§16.2.12</td><td><code>for</code></td><td>comme while, en analysant l'initialisation (§16.2.12.1) et la mise à jour (§16.2.12.2)</td></tr>
+      <tr><td>§16.2.13</td><td><code>break</code>, <code>yield</code>, <code>continue</code>, <code>return</code>, <code>throw</code></td><td><b>toujours</b> (vacuité : on n'arrive jamais après)</td></tr>
+      <tr><td>§16.2.14</td><td><code>synchronized</code></td><td>DA après le bloc</td></tr>
+      <tr><td>§16.2.15</td><td><code>try</code></td><td>sans finally : DA après le bloc try et après chaque catch ; avec finally : cela, <b>ou</b> DA après le finally</td></tr>
+    </tbody>
+  </table></div>
+  <div class="trap"><span class="lbl">Piège · try et catch</span>
+    <p>Dans un <code>catch</code> ou un <code>finally</code>, une variable affectée dans le <code>try</code> n'est <b>pas</b> DA : l'exception a pu survenir avant l'affectation. Pour la non-affectation (DU), c'est l'inverse : une blank final affectée dans le try n'est pas DU dans le catch, on ne peut donc pas la réaffecter « en secours ».</p>
+  </div>
+  <div class="code"><div class="bar"><span>Java</span></div><pre><code class="java">int n;
+try {
+    n = Integer.parseInt(s);
+} catch (NumberFormatException e) {
+    n = 0;                        // OK pour une variable ordinaire
+}
+use(n);                           // OK : DA après le try et après le catch
+
+final int f;
+try { f = Integer.parseInt(s); }
+catch (NumberFormatException e) { f = 0; }   // ERREUR : f n'est peut-être pas DU (déjà affectée ?)
+final int g = parseOuZero(s);     // solution : une méthode, ou une switch/conditionnelle</code></pre></div>
+</div>
+
+<div class="wide">
+  <figure>
+    <p class="fig-title">Figure 16.1 · Suivre l'analyse ligne à ligne</p>
+    <p class="fig-hint">L'état indique pour chaque variable si elle est DA (définitivement assignée) et DU (définitivement non assignée) au point considéré.</p>
+    <div data-w="stepper">
+<pre class="src">void f(boolean a, int n) {
+    int x;
+    final int y;
+    if (a) {
+        x = 1;
+        y = 2;
+    } else {
+        x = 3;
+        return;
+    }
+    System.out.println(x + y);
+    while (n-- &gt; 0) {
+        y = 5;
+    }
+}</pre>
+<script type="application/json">[
+ {"t":"Déclarations sans initialiseur","d":"<p>x et y sont déclarées sans valeur : elles ne sont pas DA, et elles sont DU.</p>","hl":[2,3],"p":"<div class=\"state\"><span>x : ¬DA, DU</span><span>y : ¬DA, DU</span></div>"},
+ {"t":"Branche then","d":"<p>Après <code>x = 1</code> et <code>y = 2</code>, les deux sont DA. y était DU avant son affectation : l'affectation d'une blank final est permise.</p>","hl":[4,5,6],"p":"<div class=\"state\"><span class=\"new\">x : DA</span><span class=\"new\">y : DA, ¬DU</span></div>"},
+ {"t":"Branche else","d":"<p>x est affectée, y ne l'est pas, mais la branche se termine par <code>return</code> : elle ne peut pas se terminer normalement. Après un return, <b>tout</b> est vacuement DA (§16.2.13).</p>","hl":[7,8,9],"p":"<div class=\"state\"><span>x : DA</span><span class=\"new\">y : DA (vacuité)</span></div>"},
+ {"t":"Après le if-else","d":"<p>V est DA après <code>if-else</code> si elle l'est après les deux branches (§16.2.7). x : oui et oui. y : oui (then) et oui par vacuité (else). La ligne 11 compile.</p>","hl":[11],"p":"<div class=\"state\"><span>x : DA</span><span>y : DA</span></div>"},
+ {"t":"Affectation de y dans une boucle","d":"<p>Pour affecter la blank final y, il faudrait qu'elle soit DU avant la ligne 13. Elle ne l'est pas : elle a déjà été affectée ligne 6. Et même sans cela, une affectation dans une boucle n'est jamais DU à la seconde itération. <b>Erreur de compilation</b> (cf. exemple 16-3 de la spec).</p>","hl":[12,13,14],"p":"<div class=\"state\"><span class=\"new\">y : ¬DU → erreur</span></div>"}
+]</script></div>
+  </figure>
+</div>
+
+<div class="col">
+  <h2 id="s16-3"><span class="sec">§16.3</span>Affectation définie et paramètres</h2>
+  <p>Les paramètres de méthodes, constructeurs, lambdas et les paramètres d'exception sont DA (et pas DU) dès le début de leur corps : ils reçoivent toujours une valeur.</p>
+  <h2 id="s16-4"><span class="sec">§16.4</span>Affectation définie et initialiseurs de tableaux</h2>
+  <p>Les expressions d'un initialiseur <code>{a, b, c}</code> sont analysées de gauche à droite, comme des arguments.</p>
+  <h2 id="s16-5"><span class="sec">§16.5</span>Affectation définie et constantes d'enum</h2>
+  <p>Les arguments d'une constante d'enum sont analysés dans l'ordre des constantes ; une variable est DA avant une constante si elle l'est après la précédente.</p>
+  <h2 id="s16-6"><span class="sec">§16.6</span>Affectation définie et classes anonymes</h2>
+  <p>V est DA avant un corps de classe anonyme si elle est DA après les arguments de la création. Les variables capturées doivent l'être.</p>
+  <h2 id="s16-7"><span class="sec">§16.7</span>Affectation définie et classes membres</h2>
+  <p>Dans le corps d'une classe membre, les blank finals de la classe englobante sont considérées DA si elles le sont avant la déclaration de la classe membre.</p>
+
+  <h2 id="s16-8"><span class="sec">§16.8</span>Affectation définie et initialiseurs statiques</h2>
+  <div class="rule"><span class="lbl">Règle</span>
+    <p>Un champ <code>static final</code> sans initialiseur doit être DA à la fin de l'ensemble des initialiseurs statiques et des initialiseurs de champs statiques de la classe, et y être affecté exactement une fois.</p>
+  </div>
+  <div class="code"><div class="bar"><span>Java</span></div><pre><code class="java">class Config {
+    static final Properties PROPS;
+    static final int PORT;
+    static {
+        PROPS = charger();
+        PORT = Integer.parseInt(PROPS.getProperty("port", "8080"));
+    }
+}</code></pre></div>
+
+  <h2 id="s16-9"><span class="sec">§16.9</span>Constructeurs et initialiseurs d'instance</h2>
+  <div class="rule"><span class="lbl">Règles</span>
+    <p>Un champ <code>final</code> d'instance sans initialiseur doit être DA à la fin de <b>chaque</b> constructeur qui ne commence pas par <code>this(…)</code> (en comptant les initialiseurs d'instance), et affecté au plus une fois sur chaque chemin. Avant son affectation, il ne peut pas être lu par son nom simple, ni par <code>this.f</code>.</p>
+    <p>Un constructeur qui délègue avec <code>this(…)</code> considère tous les blank finals comme DA après cet appel : c'est l'autre constructeur qui les affecte. Avec les corps flexibles (Java 25), les blank finals peuvent être affectés dans le <b>prologue</b>, avant <code>super(…)</code>, et sont alors DA dans l'épilogue.</p>
+  </div>
+  <div class="code"><div class="bar"><span>Java</span></div><pre><code class="java">class Point {
+    final int x, y;
+    Point(int x, int y) { this.x = x; this.y = y; }   // OK
+    Point() { this(0, 0); }                           // OK : délégation
+    Point(int v) {
+        if (v &gt; 0) x = v;                             // y n'est jamais affecté
+    }                                                 // ERREUR : x pas DA sur tous les chemins, y jamais
+    void bouger() { x = 1; }                          // ERREUR : affectation d'un final hors constructeur
+}</code></pre></div>
+  <div class="nn"><span class="lbl">Note non normative</span>
+    <p>L'analyse ne protège que les accès par nom simple. Une méthode appelée depuis le constructeur peut lire un champ final avant son affectation et voir sa valeur par défaut (figure 8.2). C'est une limite connue, que les corps de constructeur flexibles réduisent sans l'éliminer.</p>
+  </div>
+
+  <h2 id="s16-quiz">Vérifier ses acquis</h2>
+  <div data-w="quiz"><script type="application/json">[
+    {"q":"<code>int k; if (n &gt; 2) k = 3; if (n &lt;= 2) k = 4; print(k);</code>","o":["Compile","Erreur : k n'est pas DA","Avertissement"],"a":1,"e":"L'analyse ne raisonne pas sur les valeurs des conditions non constantes (exemple 16-2)."},
+    {"q":"<code>int r; if (ok &amp;&amp; (r = f()) &gt; 0) print(r);</code>","o":["Compile","Erreur"],"a":0,"e":"r est DA après la condition quand elle est vraie (§16.1.2)."},
+    {"q":"Une variable affectée dans un bloc try est-elle DA dans le catch ?","o":["Oui","Non"],"a":1,"e":"L'exception a pu survenir avant l'affectation (§16.2.15)."},
+    {"q":"<code>int z; while (true) { z = 1; break; } print(z);</code>","o":["Compile","Erreur"],"a":0,"e":"true est constant : on ne sort de la boucle que par le break, après lequel z est DA."},
+    {"q":"Peut-on affecter une variable <code>final</code> locale dans une boucle ?","o":["Oui, si la boucle ne tourne qu'une fois","Non : elle n'est pas DU à l'itération suivante","Oui, avec un break"],"a":1,"e":"Sauf cas où la boucle ne peut pas itérer deux fois par construction (break immédiat sur tous les chemins)."},
+    {"q":"Un constructeur qui commence par <code>this(…)</code> doit-il affecter les champs blank final ?","o":["Oui","Non, l'autre constructeur s'en charge"],"a":1,"e":"Après this(…), les blank finals sont considérés DA (§16.9)."}
+  ]</script></div>
+</div>

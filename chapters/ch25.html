@@ -1,0 +1,241 @@
+<style>
+.cx .cxc{font-family:var(--f-mono); font-size:.95rem; line-height:1.5; padding:10px 12px 4px; border:1px solid var(--rule); border-radius:8px; background:var(--paper); overflow-wrap:anywhere}
+.cx .tok{cursor:pointer; padding:2px 4px; text-align:left; line-height:1.5; margin-bottom:6px; border-radius:4px; border-bottom:2px solid var(--accent); margin-right:4px; background:transparent; color:var(--ink); font:inherit; border-top:0; border-left:0; border-right:0}
+.cx .tok.tool{border-bottom-color:var(--ember); font-weight:600}
+.cx .tok.on{background:var(--accent-soft)}
+.cx .cxe{margin-top:12px; padding:12px 14px; border-left:3px solid var(--accent); background:var(--accent-soft); border-radius:0 8px 8px 0; min-height:3em}
+.cx .cxe code{font-size:.9em}
+.bc .vm{display:flex; gap:14px; flex-wrap:wrap}
+.bc .box{border:1px solid var(--rule); border-radius:8px; padding:8px 10px; min-width:140px; background:var(--paper)}
+.bc .box b{display:block; font-family:var(--f-display); font-size:.8rem; color:var(--muted); margin-bottom:6px}
+.bc .slots{display:flex; gap:4px; font-family:var(--f-mono); font-size:.85rem}
+.bc .slots span{border:1px solid var(--accent); background:var(--accent-soft); border-radius:4px; padding:3px 8px}
+.bc .slots span.n{border-color:var(--ember); background:var(--ember-soft)}
+.bc .slots span.e{border-style:dashed; background:transparent; color:var(--muted)}
+.bc .stk{display:flex; flex-direction:column-reverse; gap:4px; font-family:var(--f-mono); font-size:.85rem; min-height:60px; justify-content:flex-start}
+.bc .stk span{border:1px solid var(--accent); background:var(--accent-soft); border-radius:4px; padding:3px 8px; text-align:center}
+.bc .stk span.n{border-color:var(--ember); background:var(--ember-soft)}
+</style>
+
+<div class="col">
+  <div class="eyebrow">Section 25 · Plateforme</div>
+  <h1>Outils du JDK</h1>
+  <p class="lede">Le JDK n'est pas qu'un compilateur : il fournit de quoi exécuter, explorer, empaqueter, documenter et diagnostiquer une application. Connaître ces outils fait souvent la différence face à un problème en production.</p>
+  <div class="meta">
+    <span>Référence : <a href="https://docs.oracle.com/en/java/javase/27/docs/specs/man/index.html" target="_blank" rel="noopener">JDK 27 Tool Specifications</a></span>
+    <span>Liens : <b>ch. 7</b> (modules), <b>ch. 12</b>, sections <b>22</b> et <b>24</b></span>
+  </div>
+
+  <h2 id="s25-1"><span class="sec">25.1</span>Panorama</h2>
+  <div class="tbl"><table>
+    <thead><tr><th>Famille</th><th>Outils</th></tr></thead>
+    <tbody>
+      <tr><td>Compiler et exécuter</td><td><code>javac</code>, <code>java</code>, <code>jshell</code></td></tr>
+      <tr><td>Explorer le code compilé</td><td><code>javap</code> (désassembleur), <code>jdeps</code> (dépendances), <code>jdeprscan</code> (API dépréciées), <code>jnativescan</code> (code natif, Java 24)</td></tr>
+      <tr><td>Empaqueter et distribuer</td><td><code>jar</code>, <code>jmod</code>, <code>jlink</code> (runtime sur mesure), <code>jpackage</code> (installeurs natifs)</td></tr>
+      <tr><td>Documenter</td><td><code>javadoc</code></td></tr>
+      <tr><td>Diagnostiquer</td><td><code>jcmd</code> (l'outil couteau suisse), <code>jfr</code>, <code>jstat</code>, <code>jstack</code>, <code>jmap</code>, <code>jinfo</code>, <code>jps</code>, <code>jhsdb</code>, <code>jconsole</code></td></tr>
+      <tr><td>Sécurité</td><td><code>keytool</code>, <code>jarsigner</code></td></tr>
+      <tr><td>Divers</td><td><code>jwebserver</code> (serveur de fichiers statiques, Java 18), <code>jrunscript</code></td></tr>
+    </tbody>
+  </table></div>
+
+  <h2 id="s25-2"><span class="sec">25.2</span>Décortiquer une ligne de commande</h2>
+  <p>Cliquez sur chaque élément pour savoir ce qu'il fait.</p>
+</div>
+
+<div class="wide">
+  <figure>
+    <p class="fig-title">Figure 25.1 · Commandes courantes, option par option</p>
+    <div data-w="cmdx"><script type="application/json">[
+      {"n":"Compiler","t":[
+        ["javac","Le compilateur. Il lit des fichiers .java et produit des fichiers .class (bytecode, JVMS ch. 4)."],
+        ["--release 21","Compile pour Java 21 : vérifie que seules les API de Java 21 sont utilisées et produit des classes de version 65. Préférable à <code>-source</code>/<code>-target</code>, qui ne contrôlent pas les API."],
+        ["-d out","Dossier de sortie des .class, en respectant l'arborescence des paquetages (§7.2)."],
+        ["-Xlint:all","Active tous les avertissements facultatifs (conversions non vérifiées, <code>serial</code>, <code>fallthrough</code>…)."],
+        ["-Werror","Transforme les avertissements en erreurs : utile en intégration continue."],
+        ["-parameters","Conserve le nom des paramètres dans le .class, lisible par réflexion (frameworks d'injection, Jackson)."],
+        ["$(find src -name '*.java')","Tous les fichiers source. Sur de gros projets, on passe plutôt une liste dans un fichier : <code>javac @sources.txt</code>."]
+      ]},
+      {"n":"Exécuter","t":[
+        ["java","Le lanceur : démarre une JVM, charge la classe principale et appelle <code>main</code> (§12.1)."],
+        ["-Xmx1g","Taille maximale du tas (section 24.7)."],
+        ["-Dapp.env=prod","Définit une propriété système, lue par <code>System.getProperty(\"app.env\")</code>."],
+        ["--enable-preview","Autorise les classes compilées avec les fonctionnalités preview (§1.5, section 27)."],
+        ["-cp out:lib/*","Chemin de classes : dossiers et JAR où chercher les classes. <code>lib/*</code> inclut tous les JAR du dossier. Séparateur <code>;</code> sous Windows."],
+        ["fr.exemple.App","Nom pleinement qualifié de la classe principale (§6.7)."],
+        ["arg1 arg2","Arguments transmis au tableau <code>String[] args</code> de <code>main</code>."]
+      ]},
+      {"n":"Fichier source","t":[
+        ["java","Mode « fichier source » (JEP 330, Java 11 ; plusieurs fichiers depuis Java 22, JEP 458) : compile en mémoire puis exécute, sans étape javac."],
+        ["--enable-preview","Nécessaire avec <code>--source</code> si le fichier utilise une preview."],
+        ["--source 27","Version du langage. Obligatoire avec <code>--enable-preview</code> en mode fichier source."],
+        ["Hello.java","Un fichier source, éventuellement compact (sans classe déclarée, JEP 512). Les autres classes du même dossier sont compilées à la demande."]
+      ]},
+      {"n":"Modules","t":[
+        ["java","Lancement en mode modulaire (ch. 7)."],
+        ["-p mods","Chemin de modules (<code>--module-path</code>) : les JAR et dossiers qui contiennent des modules nommés."],
+        ["--add-opens java.base/java.lang=ALL-UNNAMED","Ouvre un paquetage d'un module à la réflexion profonde. Solution de contournement pour d'anciennes bibliothèques ; à supprimer dès que possible."],
+        ["-m fr.exemple.app/fr.exemple.app.Main","Module et classe principale à exécuter (<code>--module</code>)."]
+      ]},
+      {"n":"jlink","t":[
+        ["jlink","Assemble un runtime Java réduit aux modules nécessaires (Java 9)."],
+        ["--add-modules java.base,java.net.http","Modules racines à inclure ; leurs dépendances sont ajoutées automatiquement. <code>jdeps --print-module-deps app.jar</code> calcule cette liste."],
+        ["--strip-debug","Supprime les informations de débogage : image plus petite."],
+        ["--no-header-files --no-man-pages","Retire les en-têtes C et les pages de manuel."],
+        ["--output runtime","Dossier de l'image produite, qui contient un <code>bin/java</code> autonome, souvent sous 50 Mo."]
+      ]}
+    ]</script></div>
+  </figure>
+</div>
+
+<div class="col">
+  <h2 id="s25-3"><span class="sec">25.3</span>jar et manifeste</h2>
+  <div class="code"><div class="bar"><span>Shell</span></div><pre><code class="sh">jar --create --file app.jar --main-class fr.exemple.App -C out .   # JAR exécutable
+java -jar app.jar
+jar --list --file app.jar
+jar --describe-module --file app.jar                                  # si c'est un module</code></pre></div>
+  <p>Le fichier <code>META-INF/MANIFEST.MF</code> déclare notamment <code>Main-Class</code>, <code>Class-Path</code>, <code>Add-Opens</code>, <code>Enable-Native-Access</code> et <code>Multi-Release: true</code>. Un JAR <b>multi-version</b> contient, sous <code>META-INF/versions/N/</code>, des variantes de classes chargées seulement par une JVM de version N ou plus.</p>
+
+  <h2 id="s25-4"><span class="sec">25.4</span>jshell</h2>
+  <p>La boucle interactive de Java (Java 9). Les points-virgules sont facultatifs, les expressions s'affichent, les exceptions vérifiées n'ont pas besoin d'être déclarées.</p>
+  <div class="code"><div class="bar"><span>jshell</span></div><pre><code class="sh">$ jshell --enable-preview
+jshell&gt; var l = List.of(3, 1, 2)
+l ==&gt; [3, 1, 2]
+jshell&gt; l.stream().sorted().toList()
+$2 ==&gt; [1, 2, 3]
+jshell&gt; int carre(int x) { return x * x; }
+|  created method carre(int)
+jshell&gt; /vars          # aussi : /methods /types /imports /list /edit /save f.jsh /open f.jsh
+jshell&gt; /exit</code></pre></div>
+
+  <h2 id="s25-5"><span class="sec">25.5</span>javap : lire le bytecode</h2>
+  <p><code>javap -c -p Classe.class</code> affiche les instructions de la JVM. C'est le moyen le plus sûr de vérifier ce que le compilateur a réellement produit : méthodes synthétiques, ponts (§15.12.4.5), concaténation de chaînes via <code>invokedynamic</code>, auto-boxing… La JVM est une <b>machine à pile</b> : chaque cadre possède un tableau de variables locales et une pile d'opérandes.</p>
+</div>
+
+<div class="wide">
+  <figure>
+    <p class="fig-title">Figure 25.2 · Exécution de <code>somme(3, 4)</code> instruction par instruction</p>
+    <p class="fig-hint">Source : <code>static int somme(int a, int b) { int c = a + b; return c * 2; }</code></p>
+    <div data-w="stepper" class="bc"><pre class="src">static int somme(int, int);
+  Code:
+     0: iload_0
+     1: iload_1
+     2: iadd
+     3: istore_2
+     4: iload_2
+     5: iconst_2
+     6: imul
+     7: ireturn</pre>
+<script type="application/json">[
+ {"t":"Entrée dans la méthode","d":"<p>Le cadre est créé. Les arguments occupent les premières variables locales : <code>a</code> en 0, <code>b</code> en 1 (pour une méthode d'instance, <code>this</code> serait en 0). La place de <code>c</code> (2) est réservée. La pile d'opérandes est vide.</p>","hl":[1],"p":"<div class=\"vm\"><div class=\"box\"><b>Variables locales</b><div class=\"slots\"><span>0 : 3</span><span>1 : 4</span><span class=\"e\">2 : ?</span></div></div><div class=\"box\"><b>Pile d'opérandes</b><div class=\"stk\"></div></div></div>"},
+ {"t":"iload_0","d":"<p>Empile la variable locale 0 (de type <code>int</code>).</p>","hl":[3],"p":"<div class=\"vm\"><div class=\"box\"><b>Variables locales</b><div class=\"slots\"><span>0 : 3</span><span>1 : 4</span><span class=\"e\">2 : ?</span></div></div><div class=\"box\"><b>Pile d'opérandes</b><div class=\"stk\"><span class=\"n\">3</span></div></div></div>"},
+ {"t":"iload_1","d":"<p>Empile la variable locale 1.</p>","hl":[4],"p":"<div class=\"vm\"><div class=\"box\"><b>Variables locales</b><div class=\"slots\"><span>0 : 3</span><span>1 : 4</span><span class=\"e\">2 : ?</span></div></div><div class=\"box\"><b>Pile d'opérandes</b><div class=\"stk\"><span>3</span><span class=\"n\">4</span></div></div></div>"},
+ {"t":"iadd","d":"<p>Dépile deux <code>int</code>, empile leur somme (avec débordement silencieux, §15.18.2).</p>","hl":[5],"p":"<div class=\"vm\"><div class=\"box\"><b>Variables locales</b><div class=\"slots\"><span>0 : 3</span><span>1 : 4</span><span class=\"e\">2 : ?</span></div></div><div class=\"box\"><b>Pile d'opérandes</b><div class=\"stk\"><span class=\"n\">7</span></div></div></div>"},
+ {"t":"istore_2","d":"<p>Dépile et range dans la variable locale 2 : c'est l'affectation <code>c = a + b</code>.</p>","hl":[6],"p":"<div class=\"vm\"><div class=\"box\"><b>Variables locales</b><div class=\"slots\"><span>0 : 3</span><span>1 : 4</span><span class=\"n\">2 : 7</span></div></div><div class=\"box\"><b>Pile d'opérandes</b><div class=\"stk\"></div></div></div>"},
+ {"t":"iload_2","d":"<p>Le compilateur ne fait aucune optimisation : il relit <code>c</code> juste après l'avoir rangée. C'est le JIT (section 24.4) qui simplifiera.</p>","hl":[7],"p":"<div class=\"vm\"><div class=\"box\"><b>Variables locales</b><div class=\"slots\"><span>0 : 3</span><span>1 : 4</span><span>2 : 7</span></div></div><div class=\"box\"><b>Pile d'opérandes</b><div class=\"stk\"><span class=\"n\">7</span></div></div></div>"},
+ {"t":"iconst_2","d":"<p>Empile la constante 2. Les petites constantes (-1 à 5) ont leur propre instruction d'un octet ; au-delà : <code>bipush</code>, <code>sipush</code>, puis <code>ldc</code> (pool de constantes).</p>","hl":[8],"p":"<div class=\"vm\"><div class=\"box\"><b>Variables locales</b><div class=\"slots\"><span>0 : 3</span><span>1 : 4</span><span>2 : 7</span></div></div><div class=\"box\"><b>Pile d'opérandes</b><div class=\"stk\"><span>7</span><span class=\"n\">2</span></div></div></div>"},
+ {"t":"imul","d":"<p>Dépile deux <code>int</code>, empile le produit.</p>","hl":[9],"p":"<div class=\"vm\"><div class=\"box\"><b>Variables locales</b><div class=\"slots\"><span>0 : 3</span><span>1 : 4</span><span>2 : 7</span></div></div><div class=\"box\"><b>Pile d'opérandes</b><div class=\"stk\"><span class=\"n\">14</span></div></div></div>"},
+ {"t":"ireturn","d":"<p>Dépile la valeur et la renvoie à l'appelant, qui la retrouve au sommet de sa propre pile d'opérandes. Le cadre est détruit. Le préfixe <code>i</code> indique le type : <code>lreturn</code>, <code>dreturn</code>, <code>areturn</code> (référence), <code>return</code> (void).</p>","hl":[10],"p":"<div class=\"vm\"><div class=\"box\"><b>Résultat</b><div class=\"slots\"><span class=\"n\">14</span></div></div></div>"}
+]</script></div>
+  </figure>
+</div>
+
+<div class="col">
+  <div class="tbl"><table>
+    <thead><tr><th>Instruction d'appel</th><th>Utilisée pour</th></tr></thead>
+    <tbody>
+      <tr><td><code>invokestatic</code></td><td>méthodes <code>static</code></td></tr>
+      <tr><td><code>invokevirtual</code></td><td>méthodes d'instance de classe (liaison dynamique, §15.12.4.4)</td></tr>
+      <tr><td><code>invokeinterface</code></td><td>méthodes appelées via un type interface</td></tr>
+      <tr><td><code>invokespecial</code></td><td>constructeurs, méthodes <code>private</code>, appels <code>super.m()</code></td></tr>
+      <tr><td><code>invokedynamic</code></td><td>lambdas, concaténation de chaînes, <code>switch</code> sur motifs, méthodes des records : la liaison est décidée au premier appel par une méthode d'amorçage</td></tr>
+    </tbody>
+  </table></div>
+
+  <h2 id="s25-6"><span class="sec">25.6</span>Documenter avec javadoc</h2>
+  <div class="code"><div class="bar"><span>Java 23+ · commentaires Markdown (JEP 467)</span></div><pre><code class="java">/// Calcule la **somme** de deux entiers.
+///
+/// - débordement silencieux, comme l'opérateur `+`
+/// - voir aussi [Math#addExact(int, int)]
+///
+/// @param a premier terme
+/// @param b second terme
+/// @return `a + b`
+static int somme(int a, int b) { return a + b; }</code></pre></div>
+  <p>La forme classique <code>/** … */</code> avec HTML reste valable. La balise <code>{@snippet …}</code> (Java 18, JEP 413) insère des exemples de code vérifiables, éventuellement tirés d'un fichier source réel. Générer : <code>javadoc -d doc --module-source-path src --module fr.exemple.app</code>.</p>
+
+  <h2 id="s25-7"><span class="sec">25.7</span>Diagnostiquer une JVM en marche</h2>
+  <p><code>jcmd</code> regroupe la plupart des commandes de diagnostic ; <code>jcmd &lt;pid&gt; help</code> les liste. <code>jps</code> ou <code>jcmd</code> sans argument donnent les identifiants de processus Java.</p>
+</div>
+
+<div class="wide">
+  <figure>
+    <p class="fig-title">Figure 25.3 · Quel outil pour quel symptôme ?</p>
+    <div data-w="explorer"><script type="application/json">{"items":[
+      {"k":"Application figée","sub":"interblocage, attente","d":"<p>Prenez plusieurs images des threads à quelques secondes d'intervalle : un thread bloqué au même endroit est suspect. Les interblocages de moniteurs et de verrous <code>java.util.concurrent</code> sont détectés et signalés en fin de rapport. Le format JSON inclut les threads virtuels.</p>","code":"jcmd <pid> Thread.print\njcmd <pid> Thread.dump_to_file -format=json threads.json"},
+      {"k":"Mémoire qui monte","sub":"fuite suspectée","d":"<p>D'abord l'histogramme des classes (rapide), puis une image complète du tas à ouvrir dans Eclipse MAT ou VisualVM pour suivre les chemins vers les racines.</p>","code":"jcmd <pid> GC.class_histogram | head -20\njcmd <pid> GC.heap_dump /tmp/app.hprof\njmap -histo:live <pid>"},
+      {"k":"Pauses de GC","sub":"latence","d":"<p>Statistiques des générations en continu, ou journal de GC détaillé (section 24.7).</p>","code":"jstat -gcutil <pid> 1000      # toutes les secondes\njcmd <pid> GC.heap_info\njava -Xlog:gc*:file=gc.log ..."},
+      {"k":"CPU à 100 %","sub":"où passe le temps ?","d":"<p>JFR échantillonne les piles avec un surcoût d'environ 1 %, utilisable en production. Depuis Java 25, l'échantillonnage en temps CPU (JEP 509, Linux, expérimental) mesure plus fidèlement le coût réel.</p>","code":"jcmd <pid> JFR.start duration=60s filename=rec.jfr\njfr view hot-methods rec.jfr\njfr summary rec.jfr"},
+      {"k":"Méthode lente","sub":"chronométrer sans modifier le code","d":"<p>Depuis Java 25 (JEP 520), JFR peut chronométrer ou tracer des méthodes choisies par filtre, sans agent ni recompilation.</p>","code":"java '-XX:StartFlightRecording:jdk.MethodTiming#filter=fr.exemple.Service::traiter,filename=t.jfr' -jar app.jar\njfr view method-timing t.jfr"},
+      {"k":"Mémoire native","sub":"le processus dépasse -Xmx","d":"<p>Le suivi de la mémoire native détaille tas, Metaspace, threads, code cache, GC…</p>","code":"java -XX:NativeMemoryTracking=summary -jar app.jar\njcmd <pid> VM.native_memory summary"},
+      {"k":"Configuration réelle","sub":"quelles options ?","d":"<p>Options effectives, propriétés système, version, ligne de commande.</p>","code":"jcmd <pid> VM.flags\njcmd <pid> VM.system_properties\njcmd <pid> VM.command_line\njava -XX:+PrintFlagsFinal -version"},
+      {"k":"Classes et dépendances","sub":"avant une migration","d":"<p><code>jdeps</code> liste les dépendances entre paquetages et modules, et signale l'usage d'API internes du JDK. <code>jdeprscan</code> repère les API dépréciées pour suppression.</p>","code":"jdeps --jdk-internals app.jar\njdeps --print-module-deps --ignore-missing-deps app.jar\njdeprscan --release 27 app.jar"}
+    ],"sel":0}</script></div>
+  </figure>
+</div>
+
+<div class="col">
+  <div class="rule"><span class="lbl">JDK Flight Recorder</span>
+    <p>JFR enregistre en continu des événements de la JVM et du JDK (GC, allocations, verrous, E/S, exceptions, compilation) dans un tampon circulaire. On peut l'activer en permanence en production (<code>-XX:StartFlightRecording</code>), puis vider le tampon après un incident (<code>jcmd &lt;pid&gt; JFR.dump</code>). Les fichiers <code>.jfr</code> s'analysent avec <code>jfr</code> ou JDK Mission Control. Java 27 y ajoute le masquage des données sensibles (JEP 536).</p>
+  </div>
+
+  <h2 id="s25-8"><span class="sec">25.8</span>Distribuer : jlink et jpackage</h2>
+  <div class="code"><div class="bar"><span>Shell</span></div><pre><code class="sh"># 1. modules nécessaires
+jdeps --print-module-deps --ignore-missing-deps app.jar      # java.base,java.net.http
+# 2. runtime minimal
+jlink --add-modules java.base,java.net.http --strip-debug --no-header-files \
+      --no-man-pages --output runtime
+# 3. installeur natif (.msi, .pkg, .deb, .rpm) avec ce runtime
+jpackage --name MonApp --input lib --main-jar app.jar --runtime-image runtime --type deb</code></pre></div>
+  <p>Avec une image Docker, le runtime produit par <code>jlink</code> remplace un JDK complet et réduit fortement la taille de l'image.</p>
+
+  <h2 id="s25-9"><span class="sec">25.9</span>Au-delà du JDK : outils de construction</h2>
+  <p>Les projets réels utilisent <b>Maven</b> ou <b>Gradle</b>, qui appellent <code>javac</code>, gèrent les dépendances et exécutent les tests (JUnit). Les réglages à connaître correspondent directement aux options ci-dessus :</p>
+  <div class="code"><div class="bar"><span>Maven · pom.xml</span></div><pre><code class="xml">&lt;properties&gt;
+  &lt;maven.compiler.release&gt;27&lt;/maven.compiler.release&gt;   &lt;!-- = javac --release 27 --&gt;
+&lt;/properties&gt;
+&lt;!-- preview : &lt;compilerArgs&gt;&lt;arg&gt;--enable-preview&lt;/arg&gt;&lt;/compilerArgs&gt; dans maven-compiler-plugin,
+     et &lt;argLine&gt;--enable-preview&lt;/argLine&gt; dans maven-surefire-plugin pour les tests --&gt;</code></pre></div>
+  <div class="code"><div class="bar"><span>Gradle · build.gradle.kts</span></div><pre><code class="java">java { toolchain { languageVersion = JavaLanguageVersion.of(27) } }
+tasks.withType&lt;JavaCompile&gt; { options.compilerArgs.add("--enable-preview") }</code></pre></div>
+
+  <h2 id="s25-quiz">Vérifier ses acquis</h2>
+  <div data-w="quiz"><script type="application/json">[
+    {"q":"Quelle option garantit qu'un code compilé avec le JDK 27 n'utilise que des API de Java 21 ?","o":["-target 21","--release 21","-source 21"],"a":1,"e":"--release vérifie aussi les API, pas seulement la version du bytecode."},
+    {"q":"Comment exécuter directement <code>Hello.java</code> sans javac ?","o":["java Hello.java","java -run Hello.java","impossible"],"a":0,"e":"Mode fichier source, Java 11+."},
+    {"q":"Quel outil pour voir le bytecode d'une classe ?","o":["jdeps","javap -c","jshell"],"a":1,"e":"javap -c -p affiche aussi les membres privés."},
+    {"q":"Quelle instruction appelle un constructeur ?","o":["invokevirtual","invokespecial","invokedynamic"],"a":1,"e":"Après new et dup."},
+    {"q":"Une application semble figée. Première commande ?","o":["jcmd &lt;pid&gt; Thread.print","jlink","jar --list"],"a":0,"e":"Une image des threads montre où chacun est bloqué, et signale les interblocages."},
+    {"q":"Que produit jlink ?","o":["Un JAR exécutable","Un runtime Java réduit aux modules nécessaires","Un installeur .msi"],"a":1,"e":"jpackage produit les installeurs."},
+    {"q":"Peut-on laisser JFR actif en production ?","o":["Non, trop coûteux","Oui, son surcoût est faible (de l'ordre de 1 %)"],"a":1,"e":"C'est l'usage prévu : vider le tampon après un incident."}
+  ]</script></div>
+</div>
+
+<script>
+ATLAS.w.cmdx = function(el, data){
+  el.classList.add('cx');
+  el.innerHTML='<div class="btnrow" style="margin-bottom:12px" role="tablist">'+data.map((c,i)=>'<button class="btn'+(i?'':' on')+'" data-i="'+i+'" aria-pressed="'+(i?'false':'true')+'">'+c.n+'</button>').join('')+'</div><div class="cxc"></div><div class="cxe"></div>';
+  const cmd=el.querySelector('.cxc'), exp=el.querySelector('.cxe');
+  function show(i){
+    el.querySelectorAll('[data-i]').forEach(b=>{const on=+b.dataset.i===i; b.classList.toggle('on',on); b.setAttribute('aria-pressed',on);});
+    const c=data[i];
+    cmd.innerHTML=c.t.map(([tk],k)=>'<button class="tok'+(k?'':' tool')+'" data-k="'+k+'">'+ATLAS.esc(tk)+'</button>').join('');
+    const pick=k=>{ cmd.querySelectorAll('.tok').forEach(t=>t.classList.toggle('on',+t.dataset.k===k)); exp.innerHTML='<code>'+ATLAS.esc(c.t[k][0])+'</code> : '+c.t[k][1]; };
+    cmd.querySelectorAll('.tok').forEach(t=>t.onclick=()=>pick(+t.dataset.k));
+    pick(0);
+  }
+  el.querySelectorAll('[data-i]').forEach(b=>b.onclick=()=>show(+b.dataset.i));
+  show(0);
+};
+</script>

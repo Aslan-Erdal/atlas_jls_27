@@ -1,0 +1,143 @@
+<div class="col">
+  <div class="eyebrow">Chapitre 10 · Java SE 27 Edition</div>
+  <h1>Tableaux</h1>
+  <p class="lede">En Java, un tableau est un objet : créé dynamiquement, désigné par une référence, de longueur fixe, avec des accès toujours vérifiés. Ce chapitre décrit leurs types, leur création, leur accès, leur covariance et ses dangers, et ce qui les distingue des chaînes.</p>
+  <div class="meta">
+    <span>Source : <a href="https://docs.oracle.com/javase/specs/jls/se27/html/jls-10.html" target="_blank" rel="noopener">JLS SE 27, chapitre 10</a></span>
+    <span>Sections : <b>10.1 à 10.9</b></span>
+  </div>
+
+  <h2 id="s10-0"><span class="sec">§10</span>Ce qu'est un tableau</h2>
+  <p>Un tableau contient un nombre fixe de variables sans nom, ses <b>composants</b>, toutes du même type, le <b>type de composant</b>. Si ce type est <code>T</code>, le tableau est de type <code>T[]</code>. Le nombre de composants, sa <b>longueur</b>, est fixé à la création et ne change jamais ; il peut être nul. Les composants sont indexés de <code>0</code> à <code>length − 1</code>.</p>
+  <p>Le type de composant peut être lui-même un tableau : Java n'a pas de tableaux multidimensionnels, mais des <b>tableaux de tableaux</b>. Le type d'<b>élément</b> est le type obtenu en retirant tous les crochets : pour <code>int[][]</code>, le type de composant est <code>int[]</code> et le type d'élément <code>int</code>.</p>
+
+  <h2 id="s10-1"><span class="sec">§10.1</span>Types tableau</h2>
+  <p>Un type tableau s'écrit comme un type suivi de paires de crochets. Sa longueur ne fait <b>pas</b> partie du type : <code>int[]</code> désigne tous les tableaux d'entiers, quelle que soit leur taille. Les supertypes d'un tableau sont décrits au §4.10.3 : <code>Object</code>, <code>Cloneable</code>, <code>java.io.Serializable</code>, et, pour un tableau de références, les tableaux de supertypes.</p>
+
+  <h2 id="s10-2"><span class="sec">§10.2</span>Variables de type tableau</h2>
+  <p>Déclarer une variable de type tableau ne crée <b>pas</b> de tableau : la variable contient <code>null</code> (champ) ou n'est pas encore assignée (locale). Les crochets peuvent se placer après le type, après le nom, ou les deux (héritage du C) :</p>
+  <div class="code"><div class="bar"><span>Java</span></div><pre><code class="java">int[] a;          // forme recommandée
+int b[];          // forme C : permise, déconseillée
+int[] c, d[];     // c : int[] ; d : int[][]  (piège de lecture !)
+int[] f()[] { }   // méthode qui renvoie int[][] : légal mais illisible
+var e = new int[3];   // var ne peut pas avoir de crochets : var x[] est une erreur</code></pre></div>
+
+  <h2 id="s10-3"><span class="sec">§10.3</span>Création de tableaux</h2>
+  <p>Un tableau est créé par une expression de création (<code>new int[5]</code>, §15.10.1) ou par un initialiseur (<code>{1, 2, 3}</code>, §10.6). La longueur est une expression de type <code>int</code> (après promotion unaire) : un <code>long</code> est refusé, une valeur négative lève <code>NegativeArraySizeException</code>.</p>
+  <div class="code"><div class="bar"><span>Java</span></div><pre><code class="java">int[] t = new int[5];          // cinq 0
+String[] s = new String[2];    // deux null
+int[][] m = new int[3][4];     // 3 tableaux de 4 int
+int[][] j = new int[3][];      // 3 null : les lignes restent à créer
+int[] z = new int[0];          // tableau vide, distinct de null
+new int[-1];                   // NegativeArraySizeException
+new int[3L];                   // ERREUR : long n'est pas promu en int
+new ArrayList&lt;String&gt;[10];     // ERREUR : création de tableau générique (§4.7)</code></pre></div>
+  <p>Suivez ce qui se passe en mémoire :</p>
+</div>
+
+<div class="wide">
+  <figure>
+    <p class="fig-title">Figure 10.1 · Tableaux en mémoire : création, tableaux irréguliers et clonage</p>
+    <div data-w="stepper" data-stack>
+<pre class="src">int[][] m = new int[2][3];
+m[1][2] = 7;
+int[][] tri = new int[3][];
+tri[0] = new int[]{1};
+tri[2] = new int[]{1, 2, 1};
+int[][] copie = tri.clone();
+copie[2][1] = 99;
+copie[0] = new int[]{5};</pre>
+<script type="application/json">[
+ {"t":"new int[2][3]","d":"<p>Trois objets sont créés : un tableau externe de 2 références, et deux tableaux de 3 int. Tous les composants prennent leur valeur par défaut.</p>","hl":[1],"heap":{"vars":[{"n":"m","v":{"ref":"a"},"hot":true}],"objs":[{"id":"a","t":"int[][]","cells":[{"ref":"b"},{"ref":"c"}],"hot":true},{"id":"b","t":"int[]","cells":[0,0,0],"dx":60},{"id":"c","t":"int[]","cells":[0,0,0],"dx":60}]}},
+ {"t":"m[1][2] = 7","d":"<p><code>m[1]</code> donne la référence du second tableau ligne ; <code>[2]</code> désigne son troisième composant.</p>","hl":[2],"heap":{"vars":[{"n":"m","v":{"ref":"a"}}],"objs":[{"id":"a","t":"int[][]","cells":[{"ref":"b"},{"ref":"c"}]},{"id":"b","t":"int[]","cells":[0,0,0],"dx":60},{"id":"c","t":"int[]","cells":[0,0,7],"dx":60,"hot":true}]}},
+ {"t":"new int[3][]","d":"<p>Seul le tableau externe est créé ; ses 3 composants valent <code>null</code>. Les lignes seront créées une par une, de longueurs différentes : c'est un tableau <b>irrégulier</b> (jagged).</p>","hl":[3],"heap":{"vars":[{"n":"tri","v":{"ref":"t"},"hot":true}],"objs":[{"id":"t","t":"int[][]","cells":[null,null,null],"hot":true}]}},
+ {"t":"Lignes de longueurs différentes","d":"<p>Chaque ligne est un objet indépendant. <code>tri[1]</code> reste <code>null</code> : <code>tri[1][0]</code> lèverait <code>NullPointerException</code>.</p>","hl":[4,5],"heap":{"vars":[{"n":"tri","v":{"ref":"t"}}],"objs":[{"id":"t","t":"int[][]","cells":[{"ref":"r0"},null,{"ref":"r2"}]},{"id":"r0","t":"int[]","cells":[1],"dx":60,"hot":true},{"id":"r2","t":"int[]","cells":[1,2,1],"dx":60,"hot":true}]}},
+ {"t":"clone() : copie superficielle","d":"<p><code>clone()</code> crée un <b>nouveau</b> tableau externe, mais copie les <b>références</b> des lignes, pas les lignes elles-mêmes (§10.7). Les deux tableaux partagent leurs sous-tableaux.</p>","hl":[6],"heap":{"vars":[{"n":"tri","v":{"ref":"t"}},{"n":"copie","v":{"ref":"k"},"hot":true}],"objs":[{"id":"t","t":"int[][]","cells":[{"ref":"r0"},null,{"ref":"r2"}]},{"id":"k","t":"int[][]","cells":[{"ref":"r0"},null,{"ref":"r2"}],"hot":true},{"id":"r0","t":"int[]","cells":[1],"dx":60},{"id":"r2","t":"int[]","cells":[1,2,1],"dx":60}]}},
+ {"t":"Modifier une ligne partagée","d":"<p><code>copie[2][1] = 99</code> modifie la ligne partagée : <code>tri[2][1]</code> vaut aussi 99. C'est l'exemple 10.7-2 de la spec.</p>","hl":[7],"heap":{"vars":[{"n":"tri","v":{"ref":"t"}},{"n":"copie","v":{"ref":"k"}}],"objs":[{"id":"t","t":"int[][]","cells":[{"ref":"r0"},null,{"ref":"r2"}]},{"id":"k","t":"int[][]","cells":[{"ref":"r0"},null,{"ref":"r2"}]},{"id":"r0","t":"int[]","cells":[1],"dx":60},{"id":"r2","t":"int[]","cells":[1,99,1],"dx":60,"hot":true}]}},
+ {"t":"Remplacer une ligne","d":"<p>En revanche, remplacer une case du tableau externe de <code>copie</code> n'affecte pas <code>tri</code> : les deux tableaux externes sont distincts. Pour une copie profonde, il faut cloner chaque ligne.</p>","hl":[8],"heap":{"vars":[{"n":"tri","v":{"ref":"t"}},{"n":"copie","v":{"ref":"k"}}],"objs":[{"id":"t","t":"int[][]","cells":[{"ref":"r0"},null,{"ref":"r2"}]},{"id":"k","t":"int[][]","cells":[{"ref":"n5"},null,{"ref":"r2"}],"hot":true},{"id":"r0","t":"int[]","cells":[1],"dx":60},{"id":"r2","t":"int[]","cells":[1,99,1],"dx":60},{"id":"n5","t":"int[]","cells":[5],"dx":60,"hot":true}]}}
+]</script></div>
+  </figure>
+</div>
+
+<div class="col">
+  <h2 id="s10-4"><span class="sec">§10.4</span>Accès aux tableaux</h2>
+  <p>Un composant se désigne par <code>a[i]</code>. L'index subit une promotion numérique unaire : <code>byte</code>, <code>short</code>, <code>char</code> deviennent <code>int</code> ; un <code>long</code> est une erreur de compilation.</p>
+  <div class="rule"><span class="lbl">Règles · toujours vérifié</span>
+    <p>Chaque accès est contrôlé à l'exécution : un index hors de <code>0 … length−1</code> lève <code>ArrayIndexOutOfBoundsException</code>, une référence <code>null</code> lève <code>NullPointerException</code>. L'expression du tableau est évaluée <b>avant</b> l'index, et l'index est évalué même si la référence est <code>null</code> (§15.10.4).</p>
+  </div>
+  <div class="code"><div class="bar"><span>Java</span></div><pre><code class="java">int[] a = {10, 20, 30};
+a['\u0001'];       // 20 : char promu en int
+a[3];              // ArrayIndexOutOfBoundsException: Index 3 out of bounds for length 3
+int[] n = null;
+n[idx()];          // idx() est appelé, PUIS NullPointerException</code></pre></div>
+
+  <h2 id="s10-5"><span class="sec">§10.5</span>ArrayStoreException</h2>
+  <p>Les tableaux de références sont <b>covariants</b> : un <code>String[]</code> est un <code>Object[]</code>. Pour que cela reste sûr, chaque écriture dans un tableau de références vérifie, à l'exécution, que la valeur est compatible avec le type de composant <b>réel</b> du tableau.</p>
+  <div class="code"><div class="bar"><span>Java</span></div><pre><code class="java">Object[] objets = new String[2];   // permis : String[] &lt;: Object[]
+objets[0] = "ok";                  // vérifié : String, OK
+objets[1] = 42;                    // ArrayStoreException: java.lang.Integer
+
+List&lt;Object&gt; liste = new ArrayList&lt;String&gt;();   // ERREUR de compilation : génériques invariants</code></pre></div>
+  <p>Cette vérification a un coût à chaque écriture, et ne découvre l'erreur qu'à l'exécution. Les génériques ont été conçus invariants précisément pour l'éviter : c'est pour ça qu'on ne mélange pas bien tableaux et génériques.</p>
+
+  <h2 id="s10-6"><span class="sec">§10.6</span>Initialiseurs de tableaux</h2>
+  <p>Un initialiseur est une liste entre accolades d'expressions (ou d'initialiseurs imbriqués). Il crée un tableau de la longueur de la liste et affecte les composants de <b>gauche à droite</b>. Une virgule finale est permise, ce qui facilite la génération de code et les diffs.</p>
+  <div class="code"><div class="bar"><span>Java</span></div><pre><code class="java">int[] premiers = {2, 3, 5, 7, 11,};          // virgule finale permise
+String[][] grille = {{"a", "b"}, {"c"}};       // irrégulier
+int[] t;
+t = {1, 2};                                   // ERREUR : forme courte seulement dans une déclaration
+t = new int[]{1, 2};                          // OK
+f(new String[]{"x", "y"});                    // en argument : forme avec new
+var v = {1, 2};                               // ERREUR : var ne fournit pas de type cible</code></pre></div>
+
+  <h2 id="s10-7"><span class="sec">§10.7</span>Membres d'un tableau</h2>
+  <ul>
+    <li>le champ <code>public final int length</code> ;</li>
+    <li>la méthode <code>public T[] clone()</code>, qui redéfinit <code>Object.clone</code> : publique, sans exception vérifiée, et qui renvoie le même type de tableau (pas besoin de cast) ;</li>
+    <li>tous les autres membres hérités de <code>Object</code>.</li>
+  </ul>
+  <div class="trap"><span class="lbl">Piège</span>
+    <p><code>equals</code> et <code>hashCode</code> d'un tableau sont ceux de <code>Object</code> : ils comparent l'<b>identité</b>. Pour comparer des contenus : <code>Arrays.equals</code>, <code>Arrays.deepEquals</code> (imbriqués), <code>Arrays.hashCode</code>. Pour afficher : <code>Arrays.toString</code> et <code>Arrays.deepToString</code>.</p>
+  </div>
+  <div class="code"><div class="bar"><span>Java</span></div><pre><code class="java">int[] a = {1, 2}, b = {1, 2};
+a.equals(b);               // false
+Arrays.equals(a, b);       // true
+Set.of(a).contains(b);     // false : un tableau comme clé de HashSet est presque toujours un bug
+System.out.println(a);     // [I@1b6d3586
+Arrays.toString(a);        // "[1, 2]"</code></pre></div>
+
+  <h2 id="s10-8"><span class="sec">§10.8</span>Objets Class des tableaux</h2>
+  <p>Chaque type tableau a un objet <code>Class</code> unique, partagé par tous les tableaux de ce type, quelle que soit leur longueur. Son nom suit la notation des descripteurs de la JVM :</p>
+  <div class="tbl"><table>
+    <thead><tr><th>Expression</th><th><code>getName()</code></th><th><code>getComponentType()</code></th></tr></thead>
+    <tbody>
+      <tr><td><code>int[].class</code></td><td class="num">[I</td><td><code>int</code></td></tr>
+      <tr><td><code>long[][].class</code></td><td class="num">[[J</td><td><code>long[]</code></td></tr>
+      <tr><td><code>String[].class</code></td><td class="num">[Ljava.lang.String;</td><td><code>String</code></td></tr>
+      <tr><td><code>boolean[].class</code></td><td class="num">[Z</td><td><code>boolean</code></td></tr>
+    </tbody>
+  </table></div>
+  <p>Les codes : <code>B</code> byte, <code>C</code> char, <code>D</code> double, <code>F</code> float, <code>I</code> int, <code>J</code> long, <code>S</code> short, <code>Z</code> boolean, <code>L…;</code> classe. <code>new int[3].getClass() == new int[100].getClass()</code> vaut <code>true</code>.</p>
+
+  <h2 id="s10-9"><span class="sec">§10.9</span>Un tableau de char n'est pas une String</h2>
+  <p>Contrairement au C, une <code>String</code> n'est pas un <code>char[]</code>, et aucun des deux ne se termine par <code>'\u0000'</code>. Une <code>String</code> est immuable ; un <code>char[]</code> se modifie. Les surcharges de l'API les traitent différemment :</p>
+  <div class="code"><div class="bar"><span>Java</span></div><pre><code class="java">char[] c = {'J', 'a', 'v', 'a'};
+System.out.println(c);           // Java     : surcharge println(char[])
+System.out.println("" + c);      // [C@4554617c : concaténation → toString de Object
+String s = new String(c);        // copie : modifier c ensuite ne change pas s
+String t = String.valueOf(c);    // idem
+char[] d = s.toCharArray();      // nouvelle copie</code></pre></div>
+  <div class="nn"><span class="lbl">Note non normative</span>
+    <p>Pour les secrets (mots de passe), l'API préfère parfois <code>char[]</code> (<code>Console.readPassword</code>) : on peut l'effacer après usage, alors qu'une <code>String</code> reste en mémoire jusqu'au passage du ramasse-miettes.</p>
+  </div>
+
+  <h2 id="s10-quiz">Vérifier ses acquis</h2>
+  <div data-w="quiz"><script type="application/json">[
+    {"q":"Dans <code>int[] c, d[];</code>, quel est le type de d ?","o":["int[]","int[][]","Erreur"],"a":1,"e":"Les crochets après le nom s'ajoutent à ceux du type (§10.2)."},
+    {"q":"<code>new int[3][]</code> crée…","o":["4 tableaux","1 tableau dont les 3 composants sont null","Une erreur : il faut deux dimensions"],"a":1,"e":"Seule la première dimension est créée ; les lignes restent à allouer."},
+    {"q":"Après <code>int[][] b = a.clone(); b[0][0] = 9;</code>, que vaut <code>a[0][0]</code> ?","o":["Inchangé","9","Exception"],"a":1,"e":"clone() est superficiel : les lignes sont partagées (§10.7)."},
+    {"q":"<code>Object[] o = new Integer[1]; o[0] = \"x\";</code>","o":["Erreur de compilation","ArrayStoreException","OK"],"a":1,"e":"La covariance est vérifiée à l'exécution à chaque écriture (§10.5)."},
+    {"q":"Comment comparer le contenu de deux <code>int[]</code> ?","o":["a == b","a.equals(b)","Arrays.equals(a, b)"],"a":2,"e":"equals d'un tableau est celui de Object : il compare les références."},
+    {"q":"Quel est <code>getClass().getName()</code> d'un <code>long[][]</code> ?","o":["long[][]","[[J","[[L"],"a":1,"e":"J est le code du type long dans les descripteurs de la JVM (§10.8)."}
+  ]</script></div>
+</div>

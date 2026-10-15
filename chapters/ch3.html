@@ -1,0 +1,560 @@
+<style>
+.lx textarea{min-height:90px}
+.lx .stage-h{font-family:var(--f-display); font-size:.72rem; letter-spacing:.1em; text-transform:uppercase; font-weight:700; color:var(--muted); margin:14px 0 6px; display:flex; gap:8px; align-items:baseline; flex-wrap:wrap}
+.lx .stage-h b{color:var(--accent)}
+.lx .trans{font-family:var(--f-mono); font-size:.82rem; white-space:pre-wrap; word-break:break-all; background:var(--paper); border:1px solid var(--rule); border-radius:8px; padding:10px 12px; line-height:1.6}
+.lx .trans mark{background:var(--ember-soft); color:var(--ember); border-radius:3px; outline:1px solid var(--ember)}
+.lx .trans .lt{color:var(--accent); font-weight:700}
+.toks{display:flex; flex-wrap:wrap; gap:5px}
+.tok{font-family:var(--f-mono); font-size:.8rem; padding:3px 7px 2px; border-radius:5px; border:1px solid var(--rule); background:var(--sheet); display:inline-flex; flex-direction:column; line-height:1.2; max-width:100%}
+.tok small{font-family:var(--f-display); font-size:.6rem; letter-spacing:.05em; text-transform:uppercase; color:var(--muted)}
+.tok span{white-space:pre; overflow:hidden; text-overflow:ellipsis}
+.tok.kw{border-color:var(--accent); background:var(--accent-soft)}
+.tok.ckw{border-color:var(--accent); border-style:dashed}
+.tok.lit{border-color:var(--ok); background:var(--ok-soft)}
+.tok.op, .tok.sep{background:var(--paper)}
+.tok.err{border-color:var(--err); background:var(--err-soft); color:var(--err)}
+.tok.skip{opacity:.55; border-style:dotted}
+.lx-legend{display:flex; flex-wrap:wrap; gap:6px 14px; font-family:var(--f-display); font-size:.75rem; color:var(--muted); margin-top:10px}
+.ws{color:var(--muted)}
+.tbv .grid{display:grid; grid-template-columns:minmax(0,1fr) minmax(0,1fr); gap:16px}
+.tbv pre.view{font-family:var(--f-mono); font-size:.82rem; line-height:1.6; background:var(--paper); border:1px solid var(--rule); border-radius:8px; padding:10px 12px; margin:0; overflow-x:auto; min-height:120px}
+.tbv .inc{background:var(--err-soft); color:var(--err)}
+.tbv .trail{background:var(--ember-soft); color:var(--ember)}
+.tbv .sp{color:var(--muted)}
+.tbv .nl{color:var(--accent)}
+.il .row{display:flex; gap:8px; flex-wrap:wrap; align-items:center; margin-bottom:10px}
+.il input[type=text]{flex:1 1 200px; min-width:0}
+.bits{font-family:var(--f-mono); font-size:.78rem; word-break:break-all; line-height:1.5}
+.kwgrid{display:grid; grid-template-columns:repeat(auto-fill,minmax(110px,1fr)); gap:4px; margin:1em 0}
+.kwgrid code{display:block; text-align:center; padding:4px; background:var(--sheet); border:1px solid var(--rule)}
+.kwgrid code.u{background:var(--ember-soft); border-color:var(--ember)}
+@media (max-width:640px){ .tbv .grid{grid-template-columns:minmax(0,1fr)} }
+</style>
+
+<div class="col">
+  <div class="eyebrow">Chapitre 3 · Java SE 27 Edition</div>
+  <h1>Structure lexicale</h1>
+  <p class="lede">Avant toute analyse, le compilateur lit des caractères et les découpe en jetons. Ce chapitre fixe les règles de ce découpage : Unicode, échappements, commentaires, identifiants, mots-clés et toutes les formes de littéraux.</p>
+  <div class="meta">
+    <span>Source : <a href="https://docs.oracle.com/javase/specs/jls/se27/html/jls-3.html" target="_blank" rel="noopener">JLS SE 27, chapitre 3</a></span>
+    <span>Sections : <b>3.1 à 3.12</b></span>
+    <span>Unicode : <b>version 17.0</b></span>
+  </div>
+
+  <h2 id="s3-1"><span class="sec">§3.1</span>Unicode</h2>
+  <p>Un programme Java est écrit en <b>Unicode</b>. La JLS 27 s'aligne sur Unicode 17.0. Les caractères d'origine (le « plan multilingue de base ») tiennent sur 16 bits, mais Unicode va aujourd'hui jusqu'à <code>U+10FFFF</code>. Java représente le texte en <b>UTF-16</b> :</p>
+  <ul>
+    <li>un <b>point de code</b> (code point) est un caractère Unicode abstrait, de <code>U+0000</code> à <code>U+10FFFF</code> ;</li>
+    <li>une <b>unité de code</b> UTF-16 est une valeur de 16 bits, c'est ce que contient un <code>char</code> ;</li>
+    <li>les caractères au-delà de <code>U+FFFF</code> (dits <b>supplémentaires</b>) occupent <b>deux</b> unités de code : une paire de substitution (surrogate pair), <code>U+D800–DBFF</code> puis <code>U+DC00–DFFF</code>.</li>
+  </ul>
+  <div class="code"><div class="bar"><span>Java</span></div><pre><code class="java">String s = "é😀";
+s.length();                      // 3 : 'é' = 1 unité, '😀' (U+1F600) = 2 unités
+s.codePointCount(0, s.length()); // 2 points de code
+char c = s.charAt(1);            // '\uD83D' : une moitié de paire, pas un caractère complet
+char x = '😀';                   // ERREUR : un littéral char ne contient qu'une unité de code</code></pre></div>
+  <div class="rule"><span class="lbl">Règle</span>
+    <p>Sauf mention contraire (commentaires, identifiants, contenu des littéraux), un programme n'utilise que des caractères ASCII pour ses jetons. Mais n'importe quel caractère Unicode peut apparaître sous forme brute ou via un échappement <code>\uXXXX</code> (§3.3).</p>
+  </div>
+
+  <h2 id="s3-2"><span class="sec">§3.2</span>Les traductions lexicales</h2>
+  <p>Le flux brut de caractères passe par <b>trois traductions successives</b>, toujours dans cet ordre :</p>
+  <ol>
+    <li><b>Échappements Unicode</b> : chaque <code>\uXXXX</code> est remplacé par le caractère qu'il désigne (§3.3). On peut ainsi écrire n'importe quel caractère avec seulement de l'ASCII.</li>
+    <li><b>Fins de ligne</b> : le flux résultant est découpé en lignes en reconnaissant les terminateurs (§3.4).</li>
+    <li><b>Éléments d'entrée</b> : les lignes sont découpées en espaces, commentaires et jetons (§3.5). Espaces et commentaires sont ensuite écartés.</li>
+  </ol>
+  <div class="rule"><span class="lbl">Règle · la traduction la plus longue</span>
+    <p>À chaque étape du découpage, le compilateur prend <b>la plus longue suite de caractères</b> qui forme un élément valide, même si cela rend le programme incorrect ensuite. <code>a--b</code> devient <code>a</code>, <code>--</code>, <code>b</code> (puis erreur de syntaxe), jamais <code>a</code>, <code>-</code>, <code>-b</code>.</p>
+  </div>
+  <p>Une seule exception : dans un <b>contexte de type</b> (§4.11), les caractères <code>&gt;&gt;</code> et <code>&gt;&gt;&gt;</code> sont réduits à des <code>&gt;</code> successifs. Sans cette règle, <code>List&lt;List&lt;String&gt;&gt;</code> serait une erreur, ce qui était effectivement le cas en C++ avant 2011.</p>
+  <p>Le simulateur ci-dessous applique les trois traductions sur le texte que vous tapez.</p>
+</div>
+
+<div class="wide">
+  <figure>
+    <p class="fig-title">Figure 3.1 · Les trois traductions lexicales en direct</p>
+    <p class="fig-hint">Modifiez le code ou choisissez un exemple. Les échappements Unicode traduits sont surlignés, puis les jetons apparaissent avec leur catégorie.</p>
+    <div data-w="lexer"></div>
+  </figure>
+</div>
+
+<div class="col">
+  <h2 id="s3-3"><span class="sec">§3.3</span>Échappements Unicode</h2>
+  <p>Un échappement Unicode est une barre oblique inverse, <b>un ou plusieurs</b> <code>u</code>, puis exactement quatre chiffres hexadécimaux : <code>\u0041</code>, <code>\uuu0041</code> désignent tous deux <code>A</code>. Plusieurs <code>u</code> sont permis pour qu'un outil puisse convertir un fichier en ASCII et revenir en arrière sans ambiguïté.</p>
+  <div class="rule"><span class="lbl">Règle · quelles barres obliques comptent ?</span>
+    <p>Une <code>\</code> ne peut commencer un échappement Unicode que si elle est précédée d'un nombre <b>pair</b> de <code>\</code> contiguës (zéro compris). Dans <code>\\u0041</code>, la seconde barre est précédée d'une barre : elle n'est pas éligible. Le texte reste <code>\\u0041</code>, que la chaîne interprète ensuite comme <code>\</code> suivi de <code>u0041</code>.</p>
+    <p>Un caractère produit par un échappement Unicode ne participe à aucun autre échappement Unicode : <code>\u005cu0041</code> (<code>\u005c</code> = <code>\</code>) ne devient pas <code>A</code>.</p>
+  </div>
+  <p>Comme cette traduction a lieu <b>avant tout</b>, elle s'applique partout, y compris dans les commentaires et les chaînes. D'où plusieurs pièges célèbres :</p>
+  <div class="code"><div class="bar"><span>Java</span></div><pre><code class="java">// Chemin : c:\users\moi       ERREUR : \users n'est pas un échappement Unicode valide
+
+// \u000a System.out.println("exécuté !");
+//   \u000a devient un saut de ligne : la suite n'est plus dans le commentaire et s'exécute
+
+String q = "\u0022";   // ERREUR : devient """ (délimiteur de text block) suivi de ;
+char a = '\u0027';     // ERREUR : devient '''
+char n = '\u000a';     // ERREUR : un vrai saut de ligne dans un littéral caractère
+char ok = '\n';        // correct : séquence d'échappement (§3.10.7), traitée bien plus tard</code></pre></div>
+  <div class="trap"><span class="lbl">À retenir</span>
+    <p>Échappements Unicode (§3.3) et séquences d'échappement (§3.10.7) n'ont rien à voir : les premiers sont traduits au tout début, partout ; les secondes ne sont interprétées que dans les littéraux caractère, chaîne et text block. Pour un caractère spécial dans une chaîne, utilisez toujours une séquence d'échappement.</p>
+  </div>
+
+  <h2 id="s3-4"><span class="sec">§3.4</span>Terminateurs de ligne</h2>
+  <p>Trois formes sont reconnues : <code>LF</code> (<code>\n</code>, Unix), <code>CR</code> (<code>\r</code>, ancien Mac OS) et la paire <code>CR LF</code> (Windows), qui compte pour <b>un seul</b> terminateur. Les lignes servent à deux choses : terminer un commentaire <code>//</code> et numéroter les lignes dans les messages d'erreur. Les terminateurs sont ensuite traités comme des espaces.</p>
+  <p>Un littéral chaîne ou caractère ne peut pas contenir de terminateur brut ; seul un text block (§3.10.6) le peut.</p>
+
+  <h2 id="s3-5"><span class="sec">§3.5</span>Éléments d'entrée et jetons</h2>
+  <p>Le résultat de la troisième traduction est une suite d'<b>éléments d'entrée</b> : espaces blancs, commentaires et jetons. Les jetons sont les seuls qui comptent pour la grammaire syntaxique.</p>
+  <div class="code"><div class="bar"><span>Grammaire lexicale (forme résumée)</span></div><pre><code class="gram">Input::
+    {InputElement} [Sub]
+
+InputElement::
+    WhiteSpace
+    Comment
+    Token
+
+Token::
+    Identifier
+    Keyword
+    Literal
+    Separator
+    Operator
+
+Sub::
+    the ASCII SUB character, also known as "control-Z"</code></pre></div>
+  <p>Le caractère <code>SUB</code> (<code>\u001a</code>, Ctrl-Z) est ignoré s'il est le <b>dernier</b> du fichier : c'est une concession aux anciens systèmes qui marquaient ainsi la fin d'un fichier texte.</p>
+  <p>Espaces et commentaires séparent des jetons qui, accolés, se fondraient : <code>a - -b</code> est valide, <code>a--b</code> ne l'est pas. Ils ne sont jamais à l'intérieur d'un jeton : <code>- =</code> n'est pas l'opérateur <code>-=</code>.</p>
+
+  <h2 id="s3-6"><span class="sec">§3.6</span>Espaces blancs</h2>
+  <p>Les espaces blancs sont : l'espace ASCII <code>SP</code> (<code>\u0020</code>), la tabulation horizontale <code>HT</code> (<code>\u0009</code>), le saut de page <code>FF</code> (<code>\u000c</code>) et les terminateurs de ligne.</p>
+  <div class="trap"><span class="lbl">Piège</span>
+    <p>L'espace insécable <code>U+00A0</code>, que certains éditeurs ou copier-coller insèrent, <b>n'est pas</b> un espace blanc Java : le compilateur signale un caractère illégal. Même chose pour les espaces Unicode exotiques (<code>U+2003</code>…).</p>
+  </div>
+
+  <h2 id="s3-7"><span class="sec">§3.7</span>Commentaires</h2>
+  <div class="tbl"><table>
+    <thead><tr><th>Forme</th><th>Portée</th><th>Remarques</th></tr></thead>
+    <tbody>
+      <tr><td><code>/* texte */</code></td><td>tout ce qui est entre <code>/*</code> et <code>*/</code></td><td>Peut couvrir plusieurs lignes. <b>Ne s'imbrique pas</b>.</td></tr>
+      <tr><td><code>// texte</code></td><td>jusqu'à la fin de la ligne</td><td>La fin de ligne n'est pas incluse.</td></tr>
+      <tr><td><code>/** texte */</code></td><td>comme <code>/* */</code></td><td>Pour la spec, c'est un commentaire ordinaire. Seul l'outil javadoc lui donne un sens.</td></tr>
+      <tr><td><code>/// texte</code></td><td>comme <code>//</code></td><td>Commentaire de doc en Markdown depuis Java 23 (JEP 467) ; pour la spec, un commentaire de ligne.</td></tr>
+    </tbody>
+  </table></div>
+  <div class="code"><div class="bar"><span>Java</span></div><pre><code class="java">/* externe /* interne */ fin */   // ERREUR : le premier */ ferme le commentaire, "fin */" reste
+/* contient // sans effet */      // OK : // n'a pas de sens dans /* */
+// contient /* sans effet         // OK : idem dans un commentaire de ligne
+String s = "/* pas un commentaire */";  // OK : les commentaires n'existent pas dans les littéraux</code></pre></div>
+  <p>Pour désactiver un bloc de code qui contient déjà des <code>/* */</code>, préférez des <code>//</code> ligne par ligne (ce que fait votre IDE).</p>
+
+  <h2 id="s3-8"><span class="sec">§3.8</span>Identifiants</h2>
+  <p>Un identifiant est une suite de longueur illimitée de <b>lettres Java</b> et de <b>chiffres Java</b>, commençant par une lettre Java. Il ne peut pas avoir la même orthographe qu'un mot-clé réservé, ni que <code>true</code>, <code>false</code> ou <code>null</code>.</p>
+  <ul>
+    <li>Une <b>lettre Java</b> est un caractère pour lequel <code>Character.isJavaIdentifierStart(int)</code> renvoie vrai : lettres de toutes les écritures, <code>_</code>, <code>$</code>, symboles monétaires, ponctuations de liaison.</li>
+    <li>Un <b>chiffre Java</b> satisfait <code>Character.isJavaIdentifierPart(int)</code> sans être une lettre : chiffres de toutes les écritures, marques combinantes, certains caractères de contrôle ignorables.</li>
+    <li>Deux identifiants sont identiques <b>seulement</b> s'ils ont les mêmes points de code après traduction des échappements. Les lettres « qui se ressemblent » restent différentes.</li>
+  </ul>
+  <div class="code"><div class="bar"><span>Java</span></div><pre><code class="java">int année = 2026, $prix = 9, _tmp = 1;   // OK
+double φ = 1.618;                        // OK : lettre grecque
+int r² = 0;             // ERREUR : ² (exposant) n'est pas un chiffre Java
+int café = 1;
+int caf\u00e9 = 2;      // ERREUR : même identifiant que café (déjà déclaré)
+int A = 1, Α = 2;       // OK : A latin (U+0041) et Alpha grec (U+0391) sont deux identifiants
+int _ = 3;              // ERREUR : _ est un mot-clé ; il sert de variable sans nom (Java 22)</code></pre></div>
+  <div class="nn"><span class="lbl">Note non normative</span>
+    <p>Le <code>$</code> est permis mais la spec recommande de le réserver au code généré (classes internes compilées <code>Externe$Interne</code>, outils). Dans du code écrit à la main, il prête à confusion.</p>
+  </div>
+
+  <h2 id="s3-9"><span class="sec">§3.9</span>Mots-clés</h2>
+  <p>Java distingue <b>51 mots-clés réservés</b>, jamais utilisables comme identifiants, et <b>17 mots-clés contextuels</b>, qui ne sont des mots-clés que dans certaines positions de la grammaire.</p>
+  <h4>Réservés <span class="pill e">orange = réservé sans usage</span></h4>
+  <div class="kwgrid nolink">
+    <code>abstract</code><code>assert</code><code>boolean</code><code>break</code><code>byte</code><code>case</code><code>catch</code><code>char</code><code>class</code><code class="u">const</code><code>continue</code><code>default</code><code>do</code><code>double</code><code>else</code><code>enum</code><code>extends</code><code>final</code><code>finally</code><code>float</code><code>for</code><code class="u">goto</code><code>if</code><code>implements</code><code>import</code><code>instanceof</code><code>int</code><code>interface</code><code>long</code><code>native</code><code>new</code><code>package</code><code>private</code><code>protected</code><code>public</code><code>return</code><code>short</code><code>static</code><code>strictfp</code><code>super</code><code>switch</code><code>synchronized</code><code>this</code><code>throw</code><code>throws</code><code>transient</code><code>try</code><code>void</code><code>volatile</code><code>while</code><code>_</code>
+  </div>
+  <h4>Contextuels</h4>
+  <div class="kwgrid nolink">
+    <code>exports</code><code>module</code><code>non-sealed</code><code>open</code><code>opens</code><code>permits</code><code>provides</code><code>record</code><code>requires</code><code>sealed</code><code>to</code><code>transitive</code><code>uses</code><code>var</code><code>when</code><code>with</code><code>yield</code>
+  </div>
+  <div class="tbl"><table>
+    <thead><tr><th>Cas</th><th>Explication</th></tr></thead>
+    <tbody>
+      <tr><td><code>const</code>, <code>goto</code></td><td>Réservés pour produire de meilleurs messages d'erreur si du code C/C++ s'y glisse. Aucun sens en Java.</td></tr>
+      <tr><td><code>strictfp</code></td><td>Sans effet depuis Java 17 : toute l'arithmétique flottante est stricte (JEP 306). Reste un mot-clé.</td></tr>
+      <tr><td><code>_</code></td><td>Mot-clé depuis Java 9. Depuis Java 22, il désigne une variable ou un motif sans nom (§14.30.1).</td></tr>
+      <tr><td><code>true</code>, <code>false</code>, <code>null</code></td><td>Ne sont <b>pas</b> des mots-clés mais des littéraux. Ils restent interdits comme identifiants.</td></tr>
+      <tr><td><code>var</code>, <code>yield</code>, <code>record</code>, <code>sealed</code>, <code>permits</code></td><td>Interdits comme <b>nom de type</b> (<i>TypeIdentifier</i>), mais permis comme nom de variable ou de méthode (sauf <code>yield</code> pour un appel non qualifié).</td></tr>
+      <tr><td><code>non-sealed</code></td><td>Seul mot-clé avec un tiret. La spec le reconnaît comme une suite de trois jetons <code>non</code> <code>-</code> <code>sealed</code> sans espace, uniquement là où un modificateur est attendu.</td></tr>
+    </tbody>
+  </table></div>
+  <div class="code"><div class="bar"><span>Java</span></div><pre><code class="java">var var = "permis";          // OK : var comme nom de variable
+int record = 1, sealed = 2;  // OK
+class var { }                // ERREUR : var interdit comme nom de type
+String module = "ok";        // OK : module n'est un mot-clé que dans module-info.java</code></pre></div>
+
+  <h2 id="s3-10"><span class="sec">§3.10</span>Littéraux</h2>
+  <p>Un littéral est la représentation dans le code d'une valeur d'un type primitif, de <code>String</code> ou du type nul. Il y en a huit sortes : entier, flottant, booléen, caractère, chaîne, text block et <code>null</code>.</p>
+
+  <h3 id="s3-10-1"><span class="sec">§3.10.1</span>Littéraux entiers</h3>
+  <div class="tbl"><table>
+    <thead><tr><th>Base</th><th>Préfixe</th><th>Chiffres</th><th>Exemples</th></tr></thead>
+    <tbody>
+      <tr><td>Décimale</td><td>aucun</td><td>0–9, ne commence pas par 0 (sauf <code>0</code> seul)</td><td><code>0</code>, <code>42</code>, <code>1_000_000</code></td></tr>
+      <tr><td>Hexadécimale</td><td><code>0x</code> / <code>0X</code></td><td>0–9, a–f, A–F</td><td><code>0xCAFE_BABE</code>, <code>0x7fff_ffff</code></td></tr>
+      <tr><td>Octale</td><td><code>0</code></td><td>0–7</td><td><code>0777</code>, <code>0_7</code></td></tr>
+      <tr><td>Binaire</td><td><code>0b</code> / <code>0B</code></td><td>0–1</td><td><code>0b1010</code>, <code>0b1111_0000</code></td></tr>
+    </tbody>
+  </table></div>
+  <div class="rule"><span class="lbl">Règles</span>
+    <p>Le type est <code>int</code>, ou <code>long</code> avec le suffixe <code>L</code> (préférez la majuscule, <code>l</code> ressemble à <code>1</code>). Les <code>_</code> sont permis <b>entre</b> deux chiffres, jamais en tête, en fin, ni contre le préfixe ou le suffixe.</p>
+    <p>Un littéral décimal <code>int</code> va jusqu'à <code>2147483647</code>. <code>2147483648</code> n'est permis que comme opérande d'un moins unaire (pour écrire <code>Integer.MIN_VALUE</code>). Même règle pour <code>9223372036854775808L</code>. Les littéraux hexadécimaux, octaux et binaires peuvent utiliser les 32 (ou 64) bits : <code>0xFFFF_FFFF</code> vaut <code>-1</code>.</p>
+  </div>
+</div>
+
+<div class="wide">
+  <figure>
+    <p class="fig-title">Figure 3.2 · Analyseur de littéral entier</p>
+    <p class="fig-hint">Saisissez un littéral : l'outil donne sa base, son type, sa valeur et ses bits, ou explique l'erreur.</p>
+    <div data-w="intlit"></div>
+  </figure>
+</div>
+
+<div class="col">
+  <h3 id="s3-10-2"><span class="sec">§3.10.2</span>Littéraux flottants</h3>
+  <p>Deux formes : <b>décimale</b> (<code>3.14</code>, <code>.5</code>, <code>1e10</code>, <code>6.02e23</code>, <code>2f</code>) et <b>hexadécimale</b>, où l'exposant binaire <code>p</code> est obligatoire (<code>0x1.8p1</code> = 1,5 × 2¹ = 3,0). Le type est <code>double</code> par défaut, <code>float</code> avec le suffixe <code>f</code>/<code>F</code> ; le suffixe <code>d</code>/<code>D</code> est permis.</p>
+  <div class="tbl"><table>
+    <thead><tr><th>Valeur</th><th><code>float</code></th><th><code>double</code></th></tr></thead>
+    <tbody>
+      <tr><td>Plus grande finie</td><td class="num">3.4028235e38f</td><td class="num">1.7976931348623157e308</td></tr>
+      <tr><td>Plus petite normalisée</td><td class="num">1.17549435e-38f</td><td class="num">2.2250738585072014e-308</td></tr>
+      <tr><td>Plus petite non nulle (sous-normale)</td><td class="num">1.4e-45f</td><td class="num">4.9e-324</td></tr>
+    </tbody>
+  </table></div>
+  <div class="rule"><span class="lbl">Règles</span>
+    <p>La valeur est arrondie au plus proche (IEEE 754, arrondi au pair). C'est une <b>erreur de compilation</b> si un littéral non nul s'arrondit à l'infini (<code>1e309</code>) ou à zéro (<code>1e-400</code>). Il n'existe pas de littéral pour l'infini ou NaN : on utilise <code>Double.POSITIVE_INFINITY</code>, <code>Double.NaN</code>, ou une expression comme <code>1.0 / 0</code>.</p>
+  </div>
+  <div class="code"><div class="bar"><span>Java</span></div><pre><code class="java">double a = 1e3, b = .5, c = 5., d = 0x1p-3;  // 1000.0, 0.5, 5.0, 0.125
+float f = 3.14;     // ERREUR : 3.14 est un double, conversion avec perte refusée (§5.2)
+float g = 3.14f;    // correct
+double h = 09.5;    // OK : le 0 initial ne signifie pas octal pour un flottant
+int i = 09;         // ERREUR : 9 n'est pas un chiffre octal
+double j = 1_000.5_5; // OK : _ entre chiffres</code></pre></div>
+
+  <h3 id="s3-10-3"><span class="sec">§3.10.3</span>Littéraux booléens</h3>
+  <p>Deux valeurs, <code>true</code> et <code>false</code>, de type <code>boolean</code>. Rien d'autre (ni <code>0</code>, ni <code>1</code>, ni <code>null</code>) ne s'y convertit.</p>
+
+  <h3 id="s3-10-4"><span class="sec">§3.10.4</span>Littéraux caractères</h3>
+  <p>Un caractère unique, ou une séquence d'échappement, entre apostrophes : <code>'a'</code>, <code>'%'</code>, <code>'\t'</code>, <code>'\u03a9'</code>. Le type est <code>char</code> : <b>une seule unité de code UTF-16</b>.</p>
+  <ul>
+    <li>Un caractère supplémentaire (emoji, idéogrammes rares…) ne tient pas dans un <code>char</code> : utilisez un <code>String</code> ou un point de code <code>int</code>.</li>
+    <li>Apostrophe et barre oblique s'écrivent <code>'\''</code> et <code>'\\'</code>.</li>
+    <li>Pas de fin de ligne brute à l'intérieur : <code>'\u000a'</code> est donc une erreur (voir §3.3).</li>
+  </ul>
+
+  <h3 id="s3-10-5"><span class="sec">§3.10.5</span>Littéraux chaînes</h3>
+  <p>Zéro ou plusieurs caractères entre guillemets, sur une seule ligne. Le type est <code>String</code>. Un littéral long se coupe avec <code>+</code>, que le compilateur fusionne en une seule constante.</p>
+  <div class="rule"><span class="lbl">Règle · l'internement</span>
+    <p>Un littéral chaîne désigne toujours <b>la même instance</b> de <code>String</code>, quel que soit l'endroit du programme (même classe, autre classe, autre paquetage). Plus généralement, toute <b>expression constante</b> de type <code>String</code> (§15.29) est internée. Une chaîne calculée à l'exécution est un nouvel objet, sauf si on appelle <code>intern()</code>.</p>
+  </div>
+  <div class="code"><div class="bar"><span>Java</span></div><pre><code class="java">String a = "Bonjour";
+String b = "Bon" + "jour";      // expression constante : calculée à la compilation, internée
+final String debut = "Bon";
+String c = debut + "jour";      // debut est une variable constante : toujours constant
+String fin = "jour";
+String d = "Bon" + fin;         // fin n'est pas final : concaténation à l'exécution
+
+a == b;            // true
+a == c;            // true
+a == d;            // false : objet distinct
+a == d.intern();   // true
+a.equals(d);       // true : comparez toujours les chaînes avec equals</code></pre></div>
+
+  <h3 id="s3-10-6"><span class="sec">§3.10.6</span>Text blocks</h3>
+  <p>Un text block est une chaîne sur plusieurs lignes, délimitée par <code>"""</code>. Le délimiteur ouvrant doit être suivi (éventuellement après des espaces) d'une <b>fin de ligne</b> : le contenu commence à la ligne suivante.</p>
+  <p>Le contenu est transformé en trois étapes, dans cet ordre :</p>
+  <ol>
+    <li>les fins de ligne sont normalisées en <code>LF</code> (<code>\n</code>), quel que soit le système ;</li>
+    <li>les <b>espaces accessoires</b> (incidental whitespace) sont retirés : l'indentation commune à toutes les lignes non vides <b>et à la ligne du délimiteur fermant</b> est supprimée, ainsi que les espaces en fin de chaque ligne ;</li>
+    <li>les séquences d'échappement sont interprétées.</li>
+  </ol>
+  <p>Cet ordre explique deux échappements propres aux text blocks : <code>\s</code> (un espace, qui survit au retrait des espaces de fin car il n'est interprété qu'après) et <code>\</code> en fin de ligne, qui supprime la fin de ligne.</p>
+</div>
+
+<div class="wide">
+  <figure>
+    <p class="fig-title">Figure 3.3 · Le calcul d'un text block</p>
+    <p class="fig-hint">Modifiez le text block (en gardant les <code>"""</code>). En rouge : l'indentation accessoire retirée ; en orange : les espaces de fin retirés. Déplacez le <code>"""</code> fermant pour voir l'indentation changer.</p>
+    <div data-w="tblock"></div>
+  </figure>
+</div>
+
+<div class="col">
+  <div class="code"><div class="bar"><span>Java</span></div><pre><code class="java">String html = """
+        &lt;p&gt;
+          Bonjour
+        &lt;/p&gt;
+        """;              // "&lt;p&gt;\n  Bonjour\n&lt;/p&gt;\n"
+
+String sansFin = """
+        une ligne""";     // "une ligne" : pas de \n final
+
+String longue = """
+        Une très longue phrase \
+        sur une seule ligne.""";   // \ en fin de ligne : pas de saut
+
+String q = """
+        Il a dit "oui" et \"""fin\""".""";  // guillemets simples permis ; trois de suite à échapper
+
+String err = """bonjour""";     // ERREUR : le délimiteur ouvrant doit être suivi d'une fin de ligne</code></pre></div>
+  <p>Un text block est une expression constante de type <code>String</code>, internée comme un littéral chaîne : <code>"a\nb\n" == """ ↵ a ↵ b ↵ """</code> vaut <code>true</code>.</p>
+
+  <h3 id="s3-10-7"><span class="sec">§3.10.7</span>Séquences d'échappement</h3>
+  <div class="tbl"><table>
+    <thead><tr><th>Séquence</th><th>Unicode</th><th>Signification</th></tr></thead>
+    <tbody>
+      <tr><td><code>\b</code></td><td class="num">\u0008</td><td>retour arrière (backspace)</td></tr>
+      <tr><td><code>\s</code></td><td class="num">\u0020</td><td>espace (depuis Java 15)</td></tr>
+      <tr><td><code>\t</code></td><td class="num">\u0009</td><td>tabulation horizontale</td></tr>
+      <tr><td><code>\n</code></td><td class="num">\u000a</td><td>saut de ligne (LF)</td></tr>
+      <tr><td><code>\f</code></td><td class="num">\u000c</td><td>saut de page</td></tr>
+      <tr><td><code>\r</code></td><td class="num">\u000d</td><td>retour chariot (CR)</td></tr>
+      <tr><td><code>\"</code></td><td class="num">\u0022</td><td>guillemet</td></tr>
+      <tr><td><code>\'</code></td><td class="num">\u0027</td><td>apostrophe</td></tr>
+      <tr><td><code>\\</code></td><td class="num">\u005c</td><td>barre oblique inverse</td></tr>
+      <tr><td><code>\0</code> … <code>\377</code></td><td class="num">\u0000–\u00ff</td><td>échappement octal (hérité du C) ; préférez <code>\uXXXX</code></td></tr>
+      <tr><td><code>\</code> + fin de ligne</td><td>—</td><td>continuation : supprime la fin de ligne (<b>text blocks uniquement</b>)</td></tr>
+    </tbody>
+  </table></div>
+  <p>Toute autre combinaison après <code>\</code> est une erreur de compilation. L'octal est piégeux : <code>"\08"</code> donne deux caractères, <code>\0</code> puis <code>8</code>, car <code>8</code> n'est pas un chiffre octal.</p>
+
+  <h3 id="s3-10-8"><span class="sec">§3.10.8</span>Le littéral null</h3>
+  <p><code>null</code> est le seul littéral du <b>type nul</b> (§4.1). Ce type n'a pas de nom ; on ne peut pas déclarer de variable de ce type. <code>null</code> est assignable à tout type référence, jamais à un type primitif.</p>
+
+  <h2 id="s3-11"><span class="sec">§3.11</span>Séparateurs</h2>
+  <p>Douze jetons séparateurs :</p>
+  <div class="kwgrid nolink"><code>(</code><code>)</code><code>{</code><code>}</code><code>[</code><code>]</code><code>;</code><code>,</code><code>.</code><code>...</code><code>@</code><code>::</code></div>
+  <p><code>...</code> sert aux paramètres variadiques (§8.4.1), <code>@</code> aux annotations (§9.7), <code>::</code> aux références de méthode (§15.13).</p>
+
+  <h2 id="s3-12"><span class="sec">§3.12</span>Opérateurs</h2>
+  <p>Trente-huit jetons opérateurs :</p>
+  <div class="tbl"><table>
+    <thead><tr><th>Famille</th><th>Jetons</th></tr></thead>
+    <tbody>
+      <tr><td>Affectation simple et composée</td><td><code>=</code> <code>+=</code> <code>-=</code> <code>*=</code> <code>/=</code> <code>%=</code> <code>&amp;=</code> <code>|=</code> <code>^=</code> <code>&lt;&lt;=</code> <code>&gt;&gt;=</code> <code>&gt;&gt;&gt;=</code></td></tr>
+      <tr><td>Comparaison</td><td><code>==</code> <code>!=</code> <code>&lt;</code> <code>&gt;</code> <code>&lt;=</code> <code>&gt;=</code></td></tr>
+      <tr><td>Arithmétique</td><td><code>+</code> <code>-</code> <code>*</code> <code>/</code> <code>%</code> <code>++</code> <code>--</code></td></tr>
+      <tr><td>Bits et décalages</td><td><code>&amp;</code> <code>|</code> <code>^</code> <code>~</code> <code>&lt;&lt;</code> <code>&gt;&gt;</code> <code>&gt;&gt;&gt;</code></td></tr>
+      <tr><td>Logique</td><td><code>!</code> <code>&amp;&amp;</code> <code>||</code></td></tr>
+      <tr><td>Conditionnel et lambda</td><td><code>?</code> <code>:</code> <code>-&gt;</code></td></tr>
+    </tbody>
+  </table></div>
+  <p>Le jeton <code>:</code> sert aussi aux étiquettes, au <code>for</code> amélioré, à <code>assert</code> et aux anciens <code>case</code>. Le découpage lexical ne connaît pas ces usages : c'est la grammaire syntaxique qui les distingue.</p>
+
+  <h2 id="s3-quiz">Vérifier ses acquis</h2>
+  <div data-w="quiz"><script type="application/json">[
+    {"q":"Combien de jetons dans <code>a+++b</code> ?","o":["3 : a, ++, +b","4 : a, ++, +, b","4 : a, +, ++, b"],"a":1,"e":"La règle de la traduction la plus longue prend d'abord ++, puis +, puis b."},
+    {"q":"Que vaut <code>\"😀\".length()</code> ?","o":["1","2","4"],"a":1,"e":"U+1F600 est un caractère supplémentaire : deux unités de code UTF-16."},
+    {"q":"Un commentaire contient <code>// voir c:\\users\\moi</code>. Résultat ?","o":["Rien, c'est un commentaire","Erreur : \\users est un échappement Unicode invalide","Avertissement seulement"],"a":1,"e":"Les échappements Unicode sont traduits avant la reconnaissance des commentaires (§3.3)."},
+    {"q":"<code>int x = 2147483648;</code>","o":["Valide, vaut Integer.MIN_VALUE","Erreur de compilation","Valide, type long"],"a":1,"e":"Ce littéral n'est permis que comme opérande d'un moins unaire : -2147483648."},
+    {"q":"Que vaut <code>0xFFFF_FFFF</code> ?","o":["4294967295 (long)","-1 (int)","Erreur : trop grand"],"a":1,"e":"Les littéraux hexadécimaux int peuvent utiliser les 32 bits ; le motif tout à 1 vaut -1 en complément à deux."},
+    {"q":"Dans un text block, à quoi sert <code>\\s</code> ?","o":["À insérer un espace qui survit au retrait des espaces de fin","À supprimer l'indentation","À couper une ligne"],"a":0,"e":"Les échappements sont interprétés après le retrait des espaces accessoires (§3.10.6)."},
+    {"q":"<code>var</code> est…","o":["un mot-clé réservé","un mot-clé contextuel : interdit comme nom de type, permis comme nom de variable","un identifiant ordinaire"],"a":1,"e":"var fait partie des 17 mots-clés contextuels et est exclu de TypeIdentifier (§3.9)."}
+  ]</script></div>
+</div>
+
+<script>
+/* ---------- Figure 3.1 : analyseur lexical ---------- */
+ATLAS.w.lexer = function(el){
+  const EX = [
+    ["Littéraux", 'int x = 0x1F + 077 - 0b101_0 + 1_000L;\ndouble d = .5e-3 + 0x1p4;'],
+    ["Commentaire piégé", '// \\u000a System.out.println("exécuté !");\nint ok = 1;'],
+    ["a---b", 'int r = a---b;'],
+    ["Génériques", 'Map<String, List<Integer>> m;'],
+    ["\\u0022", 'String s = "\\u0022";'],
+    ["Mots-clés", 'var var = yield; sealed record R(int _) {}'],
+    ["Text block", 'String t = """\n    Bonjour\n    """;']
+  ];
+  el.classList.add('lx');
+  el.innerHTML = '<div class="btnrow">'+EX.map((e,i)=>'<button type="button" class="btn ex" data-i="'+i+'">'+ATLAS.esc(e[0])+'</button>').join('')+'</div>'+
+    '<textarea spellcheck="false" aria-label="Code source à analyser"></textarea>'+
+    '<div class="stage-h"><b>1</b> Échappements Unicode traduits <span class="c1"></span></div><div class="trans t1"></div>'+
+    '<div class="stage-h"><b>2</b> Lignes <span class="c2"></span></div>'+
+    '<div class="stage-h"><b>3</b> Éléments d\'entrée <span class="c3"></span></div><div class="toks"></div>'+
+    '<div class="lx-legend"><span>■ mot-clé réservé (fond bleu)</span><span>▫ contextuel (bord pointillé)</span><span>■ littéral (vert)</span><span>■ erreur (rouge)</span><span>espaces et commentaires grisés</span></div>';
+  const ta = el.querySelector('textarea');
+  el.querySelectorAll('.ex').forEach(b=>b.onclick=()=>{ ta.value=EX[+b.dataset.i][1]; run(); });
+  const RES = new Set('abstract assert boolean break byte case catch char class const continue default do double else enum extends final finally float for goto if implements import instanceof int interface long native new package private protected public return short static strictfp super switch synchronized this throw throws transient try void volatile while _'.split(' '));
+  const CTX = new Set('exports module open opens permits provides record requires sealed to transitive uses var when with yield'.split(' '));
+  const OPS = ['>>>=','<<=','>>=','>>>','...','->','::','++','--','&&','||','==','!=','<=','>=','+=','-=','*=','/=','%=','&=','|=','^=','<<','>>','=','>','<','!','~','?',':','+','-','*','/','&','|','^','%'];
+  const SEPS = new Set(['(',')','{','}','[',']',';',',','.','...','@','::']);
+  function unicode(src){
+    let out='', marks=[], i=0, n=0, errs=[];
+    while(i<src.length){
+      if(src[i]==='\\'){
+        let k=i-1, bs=0; while(k>=0 && src[k]==='\\'){ bs++; k--; }
+        // les \ produites par échappement ne comptent pas : on approxime sur le texte brut
+        if(bs%2===0 && src[i+1]==='u'){
+          let j=i+1; while(src[j]==='u') j++;
+          const hex=src.slice(j,j+4);
+          if(/^[0-9a-fA-F]{4}$/.test(hex)){ const ch=String.fromCharCode(parseInt(hex,16)); marks.push([out.length, ch]); out+=ch; i=j+4; n++; continue; }
+          errs.push('Échappement Unicode invalide « '+src.slice(i, Math.min(src.length,j+4))+' »');
+          out+=src[i]; i++; continue;
+        }
+      }
+      out+=src[i]; i++;
+    }
+    return {out, marks, n, errs};
+  }
+  function lex(s){
+    const T=[]; let i=0;
+    const push=(k,v,cat)=>T.push({k,v,cat});
+    while(i<s.length){
+      const r=s.slice(i); let m;
+      if((m=/^(\r\n|\r|\n)/.exec(r))){ push('fin de ligne','↵','skip'); i+=m[0].length; continue; }
+      if((m=/^[ \t\f]+/.exec(r))){ i+=m[0].length; continue; }
+      if(r.startsWith('//')){ m=/^\/\/[^\r\n]*/.exec(r); push('commentaire',m[0],'skip'); i+=m[0].length; continue; }
+      if(r.startsWith('/*')){ const e=r.indexOf('*/',2); if(e<0){ push('commentaire non fermé',r,'err'); break; } push('commentaire',r.slice(0,e+2),'skip'); i+=e+2; continue; }
+      if(r.startsWith('"""')){
+        if(!/^"""[ \t\f]*(\r\n|\r|\n)/.test(r)){ push('délimiteur """ suivi d\'autre chose qu\'une fin de ligne','"""','err'); i+=3; continue; }
+        let j=3; while(j<r.length){ if(r[j]==='\\'){ j+=2; continue; } if(r.startsWith('"""',j)) break; j++; }
+        if(j>=r.length){ push('text block non fermé',r,'err'); break; }
+        push('text block',r.slice(0,j+3),'lit'); i+=j+3; continue;
+      }
+      if(r[0]==='"'){ m=/^"(?:\\.|[^"\\\r\n])*"/.exec(r); if(!m){ push('chaîne non fermée sur la ligne',r.split(/\r|\n/)[0],'err'); i+=r.split(/\r|\n/)[0].length; continue; } push('chaîne',m[0],'lit'); i+=m[0].length; continue; }
+      if(r[0]==="'"){ m=/^'(?:\\(?:[btnfrs"'\\]|[0-7]{1,3})|[^'\\\r\n])'/.exec(r); if(!m){ push('littéral caractère invalide',r.slice(0,3),'err'); i+=Math.min(3,r.length); continue; } push('caractère',m[0],'lit'); i+=m[0].length; continue; }
+      if((m=/^0[xX][0-9a-fA-F_]*\.?[0-9a-fA-F_]*[pP][+-]?\d[\d_]*[fFdD]?/.exec(r))){ push('flottant hexa',m[0],'lit'); i+=m[0].length; continue; }
+      if((m=/^(?:\d[\d_]*\.(?:\d[\d_]*)?(?:[eE][+-]?\d[\d_]*)?[fFdD]?|\.\d[\d_]*(?:[eE][+-]?\d[\d_]*)?[fFdD]?|\d[\d_]*[eE][+-]?\d[\d_]*[fFdD]?|\d[\d_]*[fFdD])/.exec(r))){ push('flottant',m[0],'lit'); i+=m[0].length; continue; }
+      if((m=/^(?:0[xX][0-9a-fA-F_]+|0[bB][01_]+|\d[\d_]*)[lL]?/.exec(r))){ const v=m[0]; const bad=/_$|_[lL]$|^0[xXbB]_/.test(v)||(/^0[0-9_]+[lL]?$/.test(v)&&/[89]/.test(v)); push(bad?'entier invalide':'entier'+(/[lL]$/.test(v)?' (long)':' (int)'),v,bad?'err':'lit'); i+=v.length; continue; }
+      if((m=/^[\p{L}\p{Nl}\p{Sc}\p{Pc}][\p{L}\p{Nl}\p{Sc}\p{Pc}\p{Mn}\p{Mc}\p{Nd}]*/u.exec(r))){
+        const w=m[0];
+        if(w==='non' && r.startsWith('non-sealed')){ push('mot-clé contextuel','non-sealed','ckw'); i+=10; continue; }
+        if(RES.has(w)) push('mot-clé réservé',w,'kw');
+        else if(w==='true'||w==='false') push('booléen',w,'lit');
+        else if(w==='null') push('null',w,'lit');
+        else if(CTX.has(w)) push('contextuel (selon position)',w,'ckw');
+        else push('identifiant',w,'id');
+        i+=w.length; continue;
+      }
+      const o=OPS.concat(['...','::']).sort((a,b)=>b.length-a.length).find(o=>r.startsWith(o));
+      const sp=['(',')','{','}','[',']',';',',','.','@'].find(o=>r.startsWith(o));
+      if(o && (!sp || o.length>1)){ push(SEPS.has(o)?'séparateur':'opérateur',o,SEPS.has(o)?'sep':'op'); i+=o.length; continue; }
+      if(sp){ push('séparateur',sp,'sep'); i+=1; continue; }
+      const cp=String.fromCodePoint(r.codePointAt(0));
+      push('caractère illégal U+'+r.codePointAt(0).toString(16).toUpperCase().padStart(4,'0'),cp,'err'); i+=cp.length;
+    }
+    return T;
+  }
+  function run(){
+    const u=unicode(ta.value);
+    let html='', last=0;
+    u.marks.forEach(([p,ch])=>{ html+=ATLAS.esc(u.out.slice(last,p)); html+='<mark title="issu d\'un échappement">'+(ch==='\n'?'↵\n':ch==='\r'?'␍':ATLAS.esc(ch))+'</mark>'; last=p+1; });
+    html+=ATLAS.esc(u.out.slice(last));
+    el.querySelector('.t1').innerHTML = html || '<span class="ws">(vide)</span>';
+    el.querySelector('.c1').textContent = u.n+' échappement'+(u.n>1?'s':'')+' traduit'+(u.n>1?'s':'')+(u.errs.length?' · '+u.errs.join(' ; '):'');
+    const lines=u.out.split(/\r\n|\r|\n/).length;
+    el.querySelector('.c2').textContent = lines+' ligne'+(lines>1?'s':'');
+    const T=lex(u.out);
+    const nt=T.filter(t=>t.cat!=='skip').length;
+    el.querySelector('.c3').textContent = nt+' jeton'+(nt>1?'s':'')+', '+T.filter(t=>t.cat==='err').length+' erreur(s)';
+    el.querySelector('.toks').innerHTML = T.map(t=>'<span class="tok '+t.cat+'" title="'+ATLAS.esc(t.k)+'"><small>'+ATLAS.esc(t.k)+'</small><span>'+ATLAS.esc(t.v.length>40?t.v.slice(0,38)+'…':t.v)+'</span></span>').join('');
+  }
+  ta.addEventListener('input', run);
+  ta.value = EX[1][1]; run();
+};
+
+/* ---------- Figure 3.2 : littéral entier ---------- */
+ATLAS.w.intlit = function(el){
+  el.classList.add('il');
+  const EX=['2147483647','2147483648','0x7FFF_FFFF','0xFFFF_FFFF','0777','09','0b1010_1010','1_000_000L','0x_1F','12_','9223372036854775808L','0x8000_0000_0000_0000L'];
+  el.innerHTML='<div class="row"><input type="text" value="0xFFFF_FFFF" aria-label="Littéral entier"><label class="opt" style="margin:0"><input type="checkbox" class="neg"><span>précédé d\'un moins unaire</span></label></div>'+
+    '<div class="btnrow">'+EX.map(e=>'<button type="button" class="btn ex">'+e+'</button>').join('')+'</div><div class="verdict" aria-live="polite"></div>';
+  const inp=el.querySelector('input[type=text]'), neg=el.querySelector('.neg'), out=el.querySelector('.verdict');
+  el.querySelectorAll('.ex').forEach(b=>b.onclick=()=>{ inp.value=b.textContent; run(); });
+  function bad(msg){ out.className='verdict err'; out.innerHTML='<div class="v">Erreur de compilation</div><p>'+msg+'</p>'; }
+  function run(){
+    const s=inp.value.trim(); if(!s){ out.className='verdict'; out.innerHTML='<p>Saisissez un littéral.</p>'; return; }
+    let m=/^(0[xX]|0[bB]|0(?=[0-7_]))?([0-9a-zA-Z_]*?)([lL])?$/.exec(s);
+    let base=10, pref='', digits=s, isLong=/[lL]$/.test(s);
+    if(isLong) digits=s.slice(0,-1);
+    if(/^0[xX]/.test(digits)){ base=16; pref=digits.slice(0,2); digits=digits.slice(2); }
+    else if(/^0[bB]/.test(digits)){ base=2; pref=digits.slice(0,2); digits=digits.slice(2); }
+    else if(/^0[0-9_]/.test(digits)){ base=8; pref='0'; digits=digits.slice(1); }
+    const nameB={10:'décimale',16:'hexadécimale',8:'octale',2:'binaire'}[base];
+    if(!digits.length) return bad('Aucun chiffre après le préfixe '+pref+'.');
+    const valid={10:/^[0-9_]+$/,16:/^[0-9a-fA-F_]+$/,8:/^[0-9_]+$/,2:/^[01_]+$/}[base];
+    if(!valid.test(digits)) return bad('Caractère hors de la base '+nameB+'. ' + (base===10?'Un littéral entier ne contient que des chiffres et des _.':''));
+    if(base===8 && /[89]/.test(digits)) return bad('8 et 9 ne sont pas des chiffres octaux. Un 0 initial rend le littéral octal : <code>09</code> est invalide (mais <code>09.5</code> est un flottant valide).');
+    if(digits[0]==='_' && base!==8) return bad('Un _ ne peut pas suivre directement le préfixe '+pref+'.');
+    if(digits.endsWith('_')) return bad('Un _ ne peut pas terminer les chiffres'+(isLong?' ni toucher le suffixe L':'')+'.');
+    const clean=digits.replace(/_/g,'');
+    let v; try{ v=BigInt((base===16?'0x':base===2?'0b':base===8?'0o':'')+clean); }catch(e){ return bad('Littéral illisible.'); }
+    const bits=isLong?64n:32n, max=(1n<<(bits-1n))-1n, umax=(1n<<bits)-1n;
+    let val, note='';
+    if(base===10){
+      if(v===max+1n){ if(!neg.checked) return bad('<code>'+s+'</code> n\'est permis que comme opérande d\'un moins unaire, pour écrire '+(isLong?'Long':'Integer')+'.MIN_VALUE.'); val=-v; note='Avec le moins unaire, c\'est la valeur minimale du type.'; }
+      else if(v>max) return bad('Trop grand pour un '+(isLong?'long':'int')+' (max '+max+').'+(!isLong?' Ajoutez le suffixe L pour un long.':''));
+      else val=neg.checked?-v:v;
+    } else {
+      if(v>umax) return bad('Dépasse les '+bits+' bits d\'un '+(isLong?'long':'int')+'.'+(!isLong?' Ajoutez le suffixe L.':''));
+      val = v>max ? v-(umax+1n) : v;
+      if(v>max) note='Le bit de poids fort est à 1 : en complément à deux, la valeur est négative.';
+      if(neg.checked){ val=-val; if(val>max) val-= (umax+1n); }
+    }
+    const u = ((val % (umax+1n)) + (umax+1n)) % (umax+1n);
+    const bin=u.toString(2).padStart(Number(bits),'0').replace(/(.{8})(?=.)/g,'$1 ');
+    out.className='verdict ok';
+    out.innerHTML='<div class="v">'+(isLong?'long':'int')+' = '+val.toString().replace(/\B(?=(\d{3})+(?!\d))/g,'\u202f')+'</div>'+
+      '<p>Base '+nameB+(pref?' (préfixe <code>'+pref+'</code>)':'')+(digits.includes('_')?', '+(digits.match(/_/g).length)+' tiret(s) bas ignoré(s)':'')+'. '+note+'</p>'+
+      '<p class="bits"><b>Bits :</b> '+bin+'</p><p class="bits"><b>Hex :</b> 0x'+u.toString(16).toUpperCase().padStart(Number(bits)/4,'0')+'</p>';
+  }
+  inp.addEventListener('input',run); neg.addEventListener('change',run); run();
+};
+
+/* ---------- Figure 3.3 : text block ---------- */
+ATLAS.w.tblock = function(el){
+  el.classList.add('tbv');
+  const start='String s = """\n        <ul>\n          <li>Java</li>   \n\n          <li>27\\s</li>\n        </ul>\n        """;';
+  el.innerHTML='<textarea spellcheck="false" aria-label="Text block">'+ATLAS.esc(start)+'</textarea><div class="grid" style="margin-top:12px"><div><span class="lbl" style="color:var(--muted)">Lignes du contenu et retraits</span><pre class="view v1"></pre></div><div><span class="lbl" style="color:var(--muted)">Valeur obtenue (· espace, ↵ \\n)</span><pre class="view v2"></pre></div></div><p class="ptree-msg v3" style="font-family:var(--f-display);font-size:var(--s-1);color:var(--muted)"></p>';
+  const ta=el.querySelector('textarea'), v1=el.querySelector('.v1'), v2=el.querySelector('.v2'), v3=el.querySelector('.v3');
+  const E=ATLAS.esc;
+  function run(){
+    const src=ta.value.replace(/\r\n?/g,'\n');
+    const o=src.indexOf('"""');
+    if(o<0){ v1.textContent=''; v2.textContent=''; v3.textContent='Aucun délimiteur """ trouvé.'; return; }
+    const after=src.slice(o+3); const nl=/^[ \t\f]*\n/.exec(after);
+    if(!nl){ v1.textContent=''; v2.textContent=''; v3.textContent='Erreur : le """ ouvrant doit être suivi d\'une fin de ligne.'; return; }
+    const body=after.slice(nl[0].length);
+    let j=0; while(j<body.length){ if(body[j]==='\\'){ j+=2; continue; } if(body.startsWith('"""',j)) break; j++; }
+    if(j>=body.length){ v1.textContent=''; v2.textContent=''; v3.textContent='Erreur : text block non fermé.'; return; }
+    const content=body.slice(0,j);
+    const lines=content.split('\n');
+    const lastBlank=/^[ \t\f]*$/.test(lines[lines.length-1]);
+    const ind=l=>/^[ \t\f]*/.exec(l)[0].length;
+    let min=Infinity;
+    lines.forEach((l,i)=>{ if(i===lines.length-1 || !/^[ \t\f]*$/.test(l)) min=Math.min(min,ind(l)); });
+    if(!isFinite(min)) min=0;
+    let view='', res=[];
+    lines.forEach((l,i)=>{
+      const blank=/^[ \t\f]*$/.test(l), isLast=i===lines.length-1;
+      if(blank){
+        view+='<span class="inc">'+E(l.replace(/ /g,'·'))+'</span>'+(isLast?'<span class="sp">"""  ← délimiteur fermant</span>':'<span class="sp">(ligne vide)</span>')+'\n';
+        if(!isLast) res.push('');
+        return;
+      }
+      const inc=l.slice(0,min), rest=l.slice(min);
+      const core=rest.replace(/[ \t\f]+$/,''), trail=rest.slice(core.length);
+      view+='<span class="inc">'+E(inc.replace(/ /g,'·'))+'</span>'+E(core)+'<span class="trail">'+E(trail.replace(/ /g,'·'))+'</span>'+(isLast?'<span class="sp">"""</span>':'')+'\n';
+      res.push(core);
+    });
+    let joined=res.join('\n')+(lastBlank?'\n':'');
+    // séquences d'échappement
+    const out=joined.replace(/\\(\n|[btnfrs"'\\]|[0-7]{1,3})/g,(m,c)=>{ const map={b:'\b',t:'\t',n:'\n',f:'\f',r:'\r',s:' ','"':'"',"'":"'",'\\':'\\','\n':''}; return c in map?map[c]:String.fromCharCode(parseInt(c,8)); });
+    v1.innerHTML=view;
+    v2.innerHTML=E(out).replace(/ /g,'<span class="sp">·</span>').replace(/\n/g,'<span class="nl">↵</span>\n').replace(/\t/g,'<span class="nl">→</span>');
+    const lit = '"'+out.replace(/\\/g,'\\\\').replace(/"/g,'\\"').replace(/\n/g,'\\n').replace(/\t/g,'\\t')+'"';
+    v3.innerHTML='Indentation accessoire retirée : <b>'+min+'</b> caractère(s) par ligne. Équivalent en littéral chaîne : <code>'+E(lit)+'</code>';
+  }
+  ta.addEventListener('input',run); run();
+};
+</script>

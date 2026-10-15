@@ -1,0 +1,318 @@
+<style>
+.enc .in{display:flex; gap:10px; flex-wrap:wrap; align-items:center; margin-bottom:12px}
+.enc input[type=text]{flex:1 1 220px; min-width:0; font-family:var(--f-mono); font-size:1rem; padding:8px 10px; border:1px solid var(--rule); border-radius:6px; background:var(--paper); color:var(--ink)}
+.enc .row{margin:10px 0}
+.enc .row b{display:block; font-family:var(--f-display); font-size:var(--s-1); color:var(--muted); font-weight:600; margin-bottom:4px}
+.enc .cells{display:flex; flex-wrap:wrap; gap:4px}
+.enc .cell{font-family:var(--f-mono); font-size:.78rem; border:1px solid var(--rule); border-radius:4px; padding:3px 6px; background:var(--paper)}
+.enc .cell.hi{background:var(--ember-soft); border-color:var(--ember)}
+.enc .cell.ch{background:var(--accent-soft); border-color:var(--accent)}
+.enc .out{font-family:var(--f-mono); font-size:1rem; padding:6px 10px; border-radius:6px; background:var(--paper); border:1px solid var(--rule); overflow-wrap:anywhere}
+.zt .ctl{display:grid; grid-template-columns:repeat(auto-fit,minmax(200px,1fr)); gap:10px 16px; margin-bottom:12px}
+.zt label{font-family:var(--f-display); font-size:var(--s-1); color:var(--muted); display:flex; flex-direction:column; gap:4px}
+.zt input,.zt select{font-family:var(--f-mono); font-size:.92rem; padding:7px 8px; border:1px solid var(--rule); border-radius:6px; background:var(--paper); color:var(--ink); min-width:0}
+.zt .res{display:grid; grid-template-columns:minmax(0,19em) minmax(0,1fr); gap:6px 14px; font-size:.92rem; align-items:baseline}
+.zt .res dt{font-family:var(--f-mono); color:var(--muted); font-size:.8rem; overflow-wrap:anywhere}
+.zt .res dd{margin:0; font-family:var(--f-mono); overflow-wrap:anywhere}
+.zt .msg{margin-top:12px}
+@media (max-width:560px){ .zt .res{grid-template-columns:minmax(0,1fr)} .zt .res dd{margin-bottom:6px} }
+</style>
+
+<div class="col">
+  <div class="eyebrow">Section 23 · Bibliothèque Java SE</div>
+  <h1>Entrées-sorties et java.time</h1>
+  <p class="lede">Deux API que tout programme utilise et que la JLS ne décrit pas : lire et écrire des données (fichiers, texte, réseau) et manipuler correctement les dates, les heures et les fuseaux horaires.</p>
+  <div class="meta">
+    <span>Références : <a href="https://docs.oracle.com/en/java/javase/27/docs/api/java.base/java/nio/file/Files.html" target="_blank" rel="noopener">java.nio.file.Files</a>, <a href="https://docs.oracle.com/en/java/javase/27/docs/api/java.base/java/time/package-summary.html" target="_blank" rel="noopener">java.time</a></span>
+    <span>Liens avec la JLS : <b>§14.20.3</b> (try-with-resources), <b>§3.1</b> (Unicode)</span>
+  </div>
+
+  <h2 id="s23-1"><span class="sec">23.1</span>Panorama des API d'entrées-sorties</h2>
+  <div class="tbl"><table>
+    <thead><tr><th>Paquetage</th><th>Depuis</th><th>Rôle</th><th>Quand l'utiliser</th></tr></thead>
+    <tbody>
+      <tr><td><code>java.io</code></td><td>1.0</td><td>flux d'octets (<code>InputStream</code>/<code>OutputStream</code>) et de caractères (<code>Reader</code>/<code>Writer</code>)</td><td>traitement en flux, décorateurs, compatibilité</td></tr>
+      <tr><td><code>java.nio.file</code></td><td>7</td><td><code>Path</code>, <code>Files</code>, systèmes de fichiers, surveillance</td><td><b>le défaut pour les fichiers</b></td></tr>
+      <tr><td><code>java.nio.channels</code></td><td>1.4</td><td>canaux, tampons, fichiers projetés en mémoire, E/S non bloquantes</td><td>hautes performances, réseau bas niveau</td></tr>
+      <tr><td><code>java.net.http</code></td><td>11</td><td><code>HttpClient</code> (HTTP/1.1, HTTP/2, HTTP/3 depuis Java 26)</td><td>appels HTTP</td></tr>
+      <tr><td><code>java.lang.foreign</code></td><td>22</td><td>mémoire hors tas et appels natifs (<code>MemorySegment</code>, <code>Linker</code>)</td><td>remplacer JNI, gros volumes binaires</td></tr>
+    </tbody>
+  </table></div>
+
+  <h2 id="s23-2"><span class="sec">23.2</span>Octets, caractères et encodages</h2>
+  <p>Un fichier contient des <b>octets</b>. Un texte Java est une suite de <b>caractères</b> UTF-16 (§3.1). Passer de l'un à l'autre exige un <b>encodage</b> (<code>Charset</code>). Si l'écrivain et le lecteur n'utilisent pas le même, le texte est corrompu (« mojibake »). Depuis Java 18 (JEP 400), l'encodage par défaut est <b>UTF-8</b> sur toutes les plateformes ; nommez-le quand même explicitement.</p>
+</div>
+
+<div class="wide">
+  <figure>
+    <p class="fig-title">Figure 23.1 · Ce que devient une chaîne en octets</p>
+    <p class="fig-hint">Les caractères hors ASCII prennent plusieurs octets en UTF-8 ; un emoji occupe deux <code>char</code> (une paire de substitution).</p>
+    <div data-w="encoding"></div>
+  </figure>
+</div>
+
+<div class="col">
+  <p>Les classes de <code>java.io</code> se composent selon le patron <b>décorateur</b> : chaque couche enveloppe la précédente et ajoute une capacité.</p>
+  <div class="svgwrap"><svg viewBox="0 0 760 150" width="760" role="img" aria-label="Empilement de flux décorateurs">
+    <rect class="d-box" x="10" y="40" width="150" height="56" rx="7"/><text class="d-mono" x="85" y="64" text-anchor="middle">FileInputStream</text><text class="d-mut" x="85" y="84" text-anchor="middle">octets du disque</text>
+    <rect class="d-box" x="200" y="40" width="160" height="56" rx="7"/><text class="d-mono" x="280" y="64" text-anchor="middle">BufferedInputStream</text><text class="d-mut" x="280" y="84" text-anchor="middle">lit par blocs de 8 Kio</text>
+    <rect class="d-emb" x="400" y="40" width="160" height="56" rx="7"/><text class="d-mono" x="480" y="64" text-anchor="middle">InputStreamReader</text><text class="d-mut" x="480" y="84" text-anchor="middle">octets → char (UTF-8)</text>
+    <rect class="d-acc" x="600" y="40" width="150" height="56" rx="7"/><text class="d-mono" x="675" y="64" text-anchor="middle">BufferedReader</text><text class="d-mut" x="675" y="84" text-anchor="middle">readLine(), lines()</text>
+    <path class="d-line" d="M160,68 L198,68" marker-end="url(#arr)"/><path class="d-line" d="M360,68 L398,68" marker-end="url(#arr)"/><path class="d-line" d="M560,68 L598,68" marker-end="url(#arr)"/>
+    <text class="d-mut" x="380" y="128" text-anchor="middle">Files.newBufferedReader(path, UTF_8) construit cette chaîne en un appel ; fermer la couche externe ferme tout</text>
+    <text class="d-txt d-b" x="10" y="24">octets</text><text class="d-txt d-b" x="750" y="24" text-anchor="end">caractères</text>
+  </svg></div>
+
+  <h2 id="s23-3"><span class="sec">23.3</span>Fichiers avec Path et Files</h2>
+  <p><code>Path</code> désigne un chemin (qui n'existe pas forcément) ; la classe utilitaire <code>Files</code> agit sur le système de fichiers. Les anciennes <code>java.io.File</code> et <code>FileReader</code> restent disponibles, mais <code>Files</code> signale mieux les erreurs (exceptions précises au lieu d'un <code>false</code>).</p>
+</div>
+
+<div class="wide">
+  <figure>
+    <p class="fig-title">Figure 23.2 · Les opérations courantes de Files</p>
+    <div data-w="explorer"><script type="application/json">{"items":[
+      {"k":"Path.of / resolve","sub":"construire des chemins","d":"<p>Un <code>Path</code> est immuable. <code>resolve</code> ajoute un segment, <code>relativize</code> calcule le chemin relatif, <code>normalize</code> retire les <code>.</code> et <code>..</code>.</p>","code":"Path base = Path.of(\"donnees\");\nPath f = base.resolve(\"2026\").resolve(\"ventes.csv\");   // donnees/2026/ventes.csv\nf.getFileName();   // ventes.csv\nf.getParent();     // donnees/2026\nf.toAbsolutePath().normalize();"},
+      {"k":"readString / writeString","sub":"petit fichier texte (Java 11)","d":"<p>Tout le contenu en une chaîne. Pratique pour des fichiers de taille raisonnable ; UTF-8 par défaut.</p>","code":"String txt = Files.readString(f);\nFiles.writeString(f, \"bonjour\\n\", StandardOpenOption.CREATE, StandardOpenOption.APPEND);"},
+      {"k":"readAllLines / write","sub":"liste de lignes","d":"<p>Charge toutes les lignes en mémoire.</p>","code":"List<String> lignes = Files.readAllLines(f);\nFiles.write(f, List.of(\"a\", \"b\"));"},
+      {"k":"lines","sub":"gros fichier, en flux","d":"<p>Renvoie un <code>Stream&lt;String&gt;</code> paresseux, adossé à un fichier ouvert : <b>fermez-le</b> avec un try-with-resources.</p>","code":"try (Stream<String> ls = Files.lines(f)) {\n    long erreurs = ls.filter(l -> l.contains(\"ERROR\")).count();\n}"},
+      {"k":"newBufferedReader / Writer","sub":"lecture et écriture en flux","d":"<p>Pour traiter ligne par ligne ou écrire progressivement. Depuis Java 25, <code>Reader</code> offre aussi <code>readAllAsString()</code> et <code>readAllLines()</code>.</p>","code":"try (BufferedReader r = Files.newBufferedReader(f);\n     BufferedWriter w = Files.newBufferedWriter(sortie)) {\n    String l;\n    while ((l = r.readLine()) != null) { w.write(l.toUpperCase()); w.newLine(); }\n}"},
+      {"k":"readAllBytes / newInputStream","sub":"binaire","d":"<p>Fichiers binaires : tout d'un coup, ou en flux. <code>InputStream.transferTo</code> (Java 9) copie un flux dans un autre.</p>","code":"byte[] img = Files.readAllBytes(Path.of(\"logo.png\"));\ntry (InputStream in = Files.newInputStream(src); OutputStream out = Files.newOutputStream(dst)) {\n    in.transferTo(out);\n}"},
+      {"k":"copy / move / delete","sub":"gérer les fichiers","d":"<p>Options explicites ; <code>ATOMIC_MOVE</code> garantit qu'un lecteur ne voit jamais un fichier à moitié écrit (écrire dans un temporaire puis déplacer).</p>","code":"Files.copy(src, dst, StandardCopyOption.REPLACE_EXISTING);\nFiles.move(tmp, dst, StandardCopyOption.ATOMIC_MOVE);\nFiles.deleteIfExists(f);\nFiles.createDirectories(Path.of(\"a/b/c\"));"},
+      {"k":"list / walk / find","sub":"parcourir des dossiers","d":"<p>Flux à fermer eux aussi. <code>walk</code> descend récursivement (profondeur maximale en option).</p>","code":"try (Stream<Path> s = Files.walk(Path.of(\"src\"))) {\n    List<Path> java = s.filter(p -> p.toString().endsWith(\".java\")).toList();\n}"},
+      {"k":"exists / size / attributs","sub":"métadonnées","d":"<p>Attention : tester puis agir est sujet aux courses (le fichier peut disparaître entre les deux). Préférez tenter l'opération et traiter l'exception.</p>","code":"Files.exists(f); Files.isDirectory(f); Files.size(f);\nFiles.getLastModifiedTime(f);\nBasicFileAttributes a = Files.readAttributes(f, BasicFileAttributes.class);"},
+      {"k":"createTempFile","sub":"fichiers temporaires","d":"<p>Crée un fichier au nom unique dans le dossier temporaire du système.</p>","code":"Path tmp = Files.createTempFile(\"rapport-\", \".csv\");"}
+    ],"sel":0}</script></div>
+  </figure>
+</div>
+
+<div class="col">
+  <div class="rule"><span class="lbl">Fermer les ressources</span>
+    <p>Tout ce qui implémente <code>AutoCloseable</code> (flux, lecteurs, canaux, <code>Files.lines</code>, connexions) se déclare dans un try-with-resources (§14.20.3). Les ressources sont fermées dans l'ordre inverse, même en cas d'exception ; une exception de fermeture est ajoutée comme « supprimée » (<code>getSuppressed()</code>) à l'exception principale.</p>
+  </div>
+  <p>Dans une lambda, une <code>IOException</code> vérifiée ne peut pas sortir (ch. 11) : enveloppez-la dans une <code>UncheckedIOException</code>, que <code>Files.lines</code> lève d'ailleurs elle-même en cas d'erreur de lecture pendant le parcours.</p>
+
+  <h2 id="s23-4"><span class="sec">23.4</span>Console : IO, System.in et System.out</h2>
+  <p>Depuis Java 25 (JEP 512), la classe <code>java.lang.IO</code> offre des méthodes statiques simples, importées automatiquement dans les fichiers source compacts :</p>
+  <div class="code"><div class="bar"><span>Java 25+ · fichier source compact</span></div><pre><code class="java">void main() {
+    String nom = IO.readln("Votre nom : ");
+    IO.println("Bonjour " + nom);
+}</code></pre></div>
+  <p>Ailleurs, <code>System.out</code> est un <code>PrintStream</code> et <code>System.in</code> un <code>InputStream</code> brut : enveloppez-le dans un <code>BufferedReader</code> ou un <code>Scanner</code>. <code>System.console()</code> permet de lire un mot de passe sans écho (<code>readPassword</code>).</p>
+
+  <h2 id="s23-5"><span class="sec">23.5</span>Sérialisation</h2>
+  <p>La sérialisation native (<code>Serializable</code>, <code>ObjectOutputStream</code>) transforme un graphe d'objets en octets. Elle est aujourd'hui <b>déconseillée</b> pour les données échangées : désérialiser des octets non fiables peut exécuter du code via des « chaînes de gadgets ».</p>
+  <div class="tbl"><table>
+    <thead><tr><th>Point</th><th>Détail</th></tr></thead>
+    <tbody>
+      <tr><td><code>serialVersionUID</code></td><td>déclarez-le, sinon une recompilation peut rendre les anciennes données illisibles</td></tr>
+      <tr><td><code>transient</code></td><td>champ exclu de la sérialisation</td></tr>
+      <tr><td>Records (§8.10)</td><td>sérialisés par leurs composants et reconstruits par le <b>constructeur canonique</b> : les validations s'appliquent, c'est la forme la plus sûre</td></tr>
+      <tr><td>Filtres (JEP 290, 415)</td><td><code>ObjectInputFilter</code> limite les classes, la profondeur et la taille acceptées</td></tr>
+      <tr><td>Alternatives</td><td>JSON (Jackson), Protocol Buffers, Avro : formats explicites et versionnables</td></tr>
+    </tbody>
+  </table></div>
+
+  <h2 id="s23-6"><span class="sec">23.6</span>HttpClient</h2>
+  <div class="code"><div class="bar"><span>Java 11+</span></div><pre><code class="java">try (HttpClient client = HttpClient.newBuilder()          // AutoCloseable depuis Java 21
+        .connectTimeout(Duration.ofSeconds(5))
+        .followRedirects(HttpClient.Redirect.NORMAL)
+        .build()) {
+
+    HttpRequest req = HttpRequest.newBuilder(URI.create("https://api.exemple.fr/clients/42"))
+        .header("Accept", "application/json")
+        .timeout(Duration.ofSeconds(10))
+        .GET().build();
+
+    HttpResponse&lt;String&gt; rep = client.send(req, HttpResponse.BodyHandlers.ofString());   // synchrone
+    if (rep.statusCode() == 200) traiter(rep.body());
+
+    client.sendAsync(req, HttpResponse.BodyHandlers.ofString())                         // asynchrone
+          .thenApply(HttpResponse::body)
+          .thenAccept(System.out::println);
+}</code></pre></div>
+  <p>Avec des threads virtuels (section 22), l'appel synchrone <code>send</code> est souvent le plus lisible. HTTP/3 est disponible depuis Java 26 (JEP 517) via <code>HttpClient.Version.HTTP_3</code>.</p>
+
+  <h2 id="s23-7"><span class="sec">23.7</span>Canaux, tampons et mémoire hors tas</h2>
+  <p>Pour les cas exigeants, NIO travaille avec des <code>ByteBuffer</code> (position, limite, capacité) et des <code>FileChannel</code>. <code>FileChannel.map</code> projette un fichier en mémoire ; <code>transferTo</code> copie de canal à canal sans passer par l'espace utilisateur quand le système le permet. Depuis Java 22, l'API Foreign Function &amp; Memory (<code>Arena</code>, <code>MemorySegment</code>) gère de la mémoire hors tas de façon sûre (accès bornés, libération déterministe) et dépasse la limite de 2 Gio des <code>ByteBuffer</code>.</p>
+  <div class="code"><div class="bar"><span>Java 22+</span></div><pre><code class="java">try (Arena arena = Arena.ofConfined();
+     FileChannel ch = FileChannel.open(f, StandardOpenOption.READ)) {
+    MemorySegment seg = ch.map(FileChannel.MapMode.READ_ONLY, 0, ch.size(), arena);
+    byte premier = seg.get(ValueLayout.JAVA_BYTE, 0);
+}   // le segment est libéré à la fermeture de l'arène</code></pre></div>
+</div>
+
+<div class="col">
+  <h2 id="s23-8"><span class="sec">23.8</span>java.time : choisir le bon type</h2>
+  <p>L'API <code>java.time</code> (Java 8, JSR 310) remplace <code>Date</code> et <code>Calendar</code>. Tous ses types sont <b>immuables</b> et sûrs entre threads. La difficulté est de choisir le type qui correspond à ce qu'on représente :</p>
+  <div class="svgwrap"><svg viewBox="0 0 760 250" width="760" role="img" aria-label="Types de java.time selon l'information qu'ils portent">
+    <text class="d-txt d-b" x="20" y="22">Temps « humain », sans fuseau</text>
+    <rect class="d-box" x="20" y="34" width="130" height="44" rx="6"/><text class="d-mono" x="85" y="54" text-anchor="middle">LocalDate</text><text class="d-mut" x="85" y="70" text-anchor="middle">2026-10-15</text>
+    <rect class="d-box" x="165" y="34" width="130" height="44" rx="6"/><text class="d-mono" x="230" y="54" text-anchor="middle">LocalTime</text><text class="d-mut" x="230" y="70" text-anchor="middle">09:30</text>
+    <rect class="d-box" x="320" y="34" width="190" height="44" rx="6"/><text class="d-mono" x="415" y="54" text-anchor="middle">LocalDateTime</text><text class="d-mut" x="415" y="70" text-anchor="middle">2026-10-15T09:30</text>
+    <text class="d-txt d-b" x="20" y="112">+ décalage ou fuseau = un instant précis</text>
+    <rect class="d-emb" x="20" y="124" width="235" height="44" rx="6"/><text class="d-mono" x="137" y="144" text-anchor="middle">OffsetDateTime</text><text class="d-mut" x="137" y="160" text-anchor="middle">2026-10-15T09:30+02:00</text>
+    <rect class="d-emb" x="275" y="124" width="320" height="44" rx="6"/><text class="d-mono" x="435" y="144" text-anchor="middle">ZonedDateTime</text><text class="d-mut" x="435" y="160" text-anchor="middle">2026-10-15T09:30+02:00[Europe/Paris]</text>
+    <path class="d-line" d="M415,78 L435,122" marker-end="url(#arr)"/><text class="d-mut" x="470" y="104">atZone(zone)</text>
+    <text class="d-txt d-b" x="20" y="202">Temps « machine »</text>
+    <rect class="d-acc" x="20" y="212" width="235" height="32" rx="6"/><text class="d-mono" x="137" y="233" text-anchor="middle">Instant 2026-10-15T07:30:00Z</text>
+    <path class="d-line" d="M435,168 L250,214" marker-end="url(#arr)"/><text class="d-mut" x="360" y="200">toInstant()</text>
+    <rect class="d-box" x="560" y="200" width="190" height="44" rx="6"/><text class="d-mono" x="655" y="220" text-anchor="middle">Duration · Period</text><text class="d-mut" x="655" y="236" text-anchor="middle">PT2H30M · P1Y2M3D</text>
+    <rect class="d-box" x="620" y="34" width="130" height="44" rx="6"/><text class="d-mono" x="685" y="54" text-anchor="middle">ZoneId</text><text class="d-mut" x="685" y="70" text-anchor="middle">Europe/Paris</text>
+    <rect class="d-box" x="620" y="124" width="130" height="44" rx="6"/><text class="d-mono" x="685" y="144" text-anchor="middle">ZoneOffset</text><text class="d-mut" x="685" y="160" text-anchor="middle">+02:00</text>
+    <path class="d-line" d="M685,78 L685,122" marker-end="url(#arr)"/><text class="d-mut" x="692" y="104">règles</text>
+  </svg></div>
+  <div class="tbl"><table>
+    <thead><tr><th>Je représente…</th><th>Type</th></tr></thead>
+    <tbody>
+      <tr><td>un horodatage technique (journal, base, événement)</td><td><code>Instant</code></td></tr>
+      <tr><td>une date d'anniversaire, une échéance « le 15 »</td><td><code>LocalDate</code></td></tr>
+      <tr><td>l'heure d'ouverture d'un magasin</td><td><code>LocalTime</code></td></tr>
+      <tr><td>un rendez-vous dans une ville</td><td><code>ZonedDateTime</code> (ou <code>LocalDateTime</code> + <code>ZoneId</code> stockés séparément)</td></tr>
+      <tr><td>un échange avec un système externe (JSON, SQL)</td><td><code>OffsetDateTime</code> ou <code>Instant</code></td></tr>
+      <tr><td>une durée mesurée (« 90 secondes »)</td><td><code>Duration</code></td></tr>
+      <tr><td>une durée calendaire (« 1 mois »)</td><td><code>Period</code></td></tr>
+      <tr><td>« maintenant », de façon testable</td><td>un <code>Clock</code> injecté : <code>Instant.now(clock)</code></td></tr>
+    </tbody>
+  </table></div>
+
+  <h2 id="s23-9"><span class="sec">23.9</span>Fuseaux horaires et heure d'été</h2>
+  <p>Un <code>ZoneId</code> comme <code>Europe/Paris</code> porte des <b>règles</b> : le décalage change deux fois par an. Il existe donc des heures locales qui n'existent pas (le « trou » du printemps) et d'autres qui existent deux fois (le « chevauchement » de l'automne). Java les résout de manière déterministe :</p>
+  <ul>
+    <li><b>Trou</b> : l'heure est décalée vers l'avant de la durée du trou (02:30 devient 03:30) ;</li>
+    <li><b>Chevauchement</b> : le décalage <b>antérieur</b> à la transition est retenu ; <code>withLaterOffsetAtOverlap()</code> choisit l'autre.</li>
+  </ul>
+</div>
+
+<div class="wide">
+  <figure>
+    <p class="fig-title">Figure 23.3 · Résolution d'une date locale dans un fuseau</p>
+    <p class="fig-hint">Calculé par votre navigateur avec la base de fuseaux IANA, la même que celle du JDK. Essayez les cas prédéfinis.</p>
+    <div data-w="zonetool"></div>
+  </figure>
+</div>
+
+<div class="col">
+  <h2 id="s23-10"><span class="sec">23.10</span>Calculs, formatage et analyse</h2>
+  <div class="code"><div class="bar"><span>Java</span></div><pre><code class="java">LocalDate d = LocalDate.of(2026, 1, 31);
+d.plusMonths(1);                               // 2026-02-28 : jour ajusté à la fin du mois
+d.with(TemporalAdjusters.next(DayOfWeek.MONDAY));
+ChronoUnit.DAYS.between(d, LocalDate.of(2026, 12, 25));   // 328
+Period.between(naissance, aujourdhui).getYears();         // âge
+
+Duration.between(debut, fin).toMillis();
+Instant.now().truncatedTo(ChronoUnit.SECONDS);
+
+DateTimeFormatter f = DateTimeFormatter.ofPattern("EEEE d MMMM uuuu 'à' HH:mm", Locale.FRANCE);
+f.format(LocalDateTime.of(2026, 10, 15, 9, 30));          // jeudi 15 octobre 2026 à 09:30
+LocalDate.parse("15/10/2026", DateTimeFormatter.ofPattern("dd/MM/uuuu"));
+DateTimeFormatter.ISO_INSTANT.format(Instant.now());      // 2026-10-15T07:30:12Z</code></pre></div>
+  <div class="tbl"><table>
+    <thead><tr><th>Lettre</th><th>Sens</th><th>Piège</th></tr></thead>
+    <tbody>
+      <tr><td><code>uuuu</code> / <code>yyyy</code></td><td>année / année de l'ère</td><td>en mode <code>STRICT</code>, <code>yyyy</code> exige aussi l'ère : préférez <code>uuuu</code></td></tr>
+      <tr><td><code>YYYY</code></td><td>année <b>de semaine</b> ISO</td><td>le 29 décembre 2025 s'affiche « 2026 » : quasi jamais ce qu'on veut</td></tr>
+      <tr><td><code>MM</code> / <code>mm</code></td><td>mois / minutes</td><td>confusion classique</td></tr>
+      <tr><td><code>HH</code> / <code>hh</code></td><td>heure 0–23 / 1–12</td><td><code>hh</code> sans <code>a</code> (AM/PM) est ambigu</td></tr>
+      <tr><td><code>DD</code> / <code>dd</code></td><td>jour de l'année / du mois</td><td><code>DD</code> donne 288 le 15 octobre</td></tr>
+    </tbody>
+  </table></div>
+  <div class="modern"><span class="lbl">Ancien code</span>
+    <p>Pour interagir avec <code>java.util.Date</code> : <code>date.toInstant()</code> et <code>Date.from(instant)</code>. Avec JDBC 4.2, lisez directement <code>rs.getObject(i, LocalDate.class)</code> ou <code>OffsetDateTime.class</code>. <code>SimpleDateFormat</code> n'est pas sûr entre threads ; <code>DateTimeFormatter</code> l'est.</p>
+  </div>
+
+  <h2 id="s23-quiz">Vérifier ses acquis</h2>
+  <div data-w="quiz"><script type="application/json">[
+    {"q":"Quel est l'encodage par défaut de Java depuis Java 18 ?","o":["Celui du système","UTF-8","UTF-16"],"a":1,"e":"JEP 400. Nommez-le malgré tout explicitement pour être clair."},
+    {"q":"Combien d'octets UTF-8 pour « é » ?","o":["1","2","3"],"a":1,"e":"U+00E9 tient sur 2 octets : C3 A9."},
+    {"q":"Que faut-il faire du Stream renvoyé par <code>Files.lines</code> ?","o":["Rien","Le fermer (try-with-resources)","L'appeler deux fois"],"a":1,"e":"Il garde le fichier ouvert."},
+    {"q":"Quel type pour un horodatage de journal ?","o":["LocalDateTime","Instant","LocalDate"],"a":1,"e":"LocalDateTime n'a pas de fuseau : ce n'est pas un instant."},
+    {"q":"<code>LocalDateTime.of(2026,3,29,2,30).atZone(ZoneId.of(\"Europe/Paris\"))</code> donne…","o":["02:30+01:00","03:30+02:00","une exception"],"a":1,"e":"02:30 tombe dans le trou du passage à l'heure d'été : décalé d'une heure."},
+    {"q":"Différence entre <code>plusDays(1)</code> et <code>plusHours(24)</code> sur un ZonedDateTime le jour du changement d'heure ?","o":["Aucune","plusDays garde l'heure locale, plusHours ajoute 24 h exactes","plusHours garde l'heure locale"],"a":1,"e":"Le jour du changement dure 23 ou 25 heures."},
+    {"q":"Que signifie <code>YYYY</code> dans un motif ?","o":["L'année civile","L'année de semaine ISO","L'année sur 4 chiffres en mode strict"],"a":1,"e":"Utilisez uuuu (ou yyyy)."}
+  ]</script></div>
+</div>
+
+<script>
+ATLAS.w.encoding = function(el){
+  el.classList.add('enc');
+  el.innerHTML='<div class="in"><input type="text" aria-label="Texte à encoder" value="Café ☕ 😀"><div class="btnrow"><button class="btn" data-s="Hello">ASCII</button><button class="btn" data-s="Œuvre à 10 €">Latin</button><button class="btn" data-s="日本 😀">CJK et emoji</button></div></div><div class="body"></div>';
+  const inp=el.querySelector('input'), body=el.querySelector('.body');
+  const hex=n=>n.toString(16).toUpperCase().padStart(2,'0');
+  function run(){
+    const s=inp.value;
+    const cps=[...s];
+    const enc=new TextEncoder();
+    let utf8='', units='', cpHtml='';
+    cps.forEach(ch=>{
+      const b=[...enc.encode(ch)];
+      const multi=b.length>1;
+      utf8+=b.map(x=>'<span class="cell'+(multi?' hi':'')+'">'+hex(x)+'</span>').join('');
+      const u=[]; for(let i=0;i<ch.length;i++) u.push(ch.charCodeAt(i));
+      units+=u.map(x=>'<span class="cell'+(u.length>1?' hi':'')+'">'+x.toString(16).toUpperCase().padStart(4,'0')+'</span>').join('');
+      cpHtml+='<span class="cell ch">'+ATLAS.esc(ch===' '?'␠':ch)+' U+'+ch.codePointAt(0).toString(16).toUpperCase().padStart(4,'0')+'</span>';
+    });
+    const bytes=[...enc.encode(s)];
+    const moji=new TextDecoder('windows-1252').decode(new Uint8Array(bytes));
+    const latin=cps.map(ch=>ch.codePointAt(0)<256?ch:'?').join('');
+    body.innerHTML=
+      '<div class="row"><b>Points de code : s.codePointCount(…) = '+cps.length+'</b><div class="cells">'+cpHtml+'</div></div>'+
+      '<div class="row"><b>char UTF-16 : s.length() = '+s.length+'</b><div class="cells">'+units+'</div></div>'+
+      '<div class="row"><b>UTF-8 : s.getBytes(UTF_8).length = '+bytes.length+'</b><div class="cells">'+utf8+'</div></div>'+
+      '<div class="row"><b>Écrit en ISO-8859-1 (les caractères absents deviennent ?)</b><div class="out">'+ATLAS.esc(latin)+'</div></div>'+
+      '<div class="row"><b>Octets UTF-8 relus comme windows-1252 (mojibake)</b><div class="out">'+ATLAS.esc(moji)+'</div></div>';
+  }
+  inp.oninput=run;
+  el.querySelectorAll('[data-s]').forEach(b=>b.onclick=()=>{inp.value=b.dataset.s; run();});
+  run();
+};
+
+ATLAS.w.zonetool = function(el){
+  el.classList.add('zt');
+  const zones=['Europe/Paris','America/New_York','America/Sao_Paulo','Australia/Sydney','Asia/Tokyo','Asia/Kolkata','UTC'];
+  const presets=[['Trou (Paris, mars)','2026-03-29T02:30','Europe/Paris'],['Chevauchement (Paris, oct.)','2026-10-25T02:30','Europe/Paris'],['Trou (New York)','2026-03-08T02:30','America/New_York'],['Veille du passage','2026-03-28T12:00','Europe/Paris'],['Jour normal','2026-10-15T09:30','Asia/Kolkata']];
+  el.innerHTML='<div class="ctl"><label>LocalDateTime<input type="datetime-local" class="ldt" value="2026-03-29T02:30"></label><label>ZoneId<select class="zone">'+zones.map(z=>'<option>'+z+'</option>').join('')+'</select></label></div><div class="btnrow" style="margin-bottom:12px">'+presets.map((p,i)=>'<button class="btn" data-p="'+i+'">'+p[0]+'</button>').join('')+'</div><dl class="res"></dl><div class="msg"></div>';
+  const ldt=el.querySelector('.ldt'), zone=el.querySelector('.zone'), res=el.querySelector('.res'), msg=el.querySelector('.msg');
+  const fmtCache={};
+  function offsetMs(inst, z){
+    const f=fmtCache[z]||(fmtCache[z]=new Intl.DateTimeFormat('en-US',{timeZone:z,hourCycle:'h23',year:'numeric',month:'2-digit',day:'2-digit',hour:'2-digit',minute:'2-digit',second:'2-digit'}));
+    const p={}; f.formatToParts(new Date(inst)).forEach(x=>p[x.type]=x.value);
+    const asUtc=Date.UTC(+p.year,+p.month-1,+p.day,+p.hour%24,+p.minute,+p.second);
+    return asUtc - Math.floor(inst/1000)*1000;
+  }
+  const pad=n=>String(n).padStart(2,'0');
+  function offStr(o){ if(o===0) return 'Z'; const s=o<0?'-':'+'; o=Math.abs(o)/60000; return s+pad(Math.floor(o/60))+':'+pad(o%60); }
+  function localStr(ms){ const d=new Date(ms); let s=d.getUTCFullYear()+'-'+pad(d.getUTCMonth()+1)+'-'+pad(d.getUTCDate())+'T'+pad(d.getUTCHours())+':'+pad(d.getUTCMinutes()); if(d.getUTCSeconds()) s+=':'+pad(d.getUTCSeconds()); return s; }
+  function instStr(ms){ const d=new Date(ms); return d.toISOString().replace('.000Z','Z'); }
+  function zdt(inst, z){ const o=offsetMs(inst,z); return localStr(inst+o)+offStr(o).replace(/^Z$/,'Z')+'['+z+']'; }
+  function resolve(L, z){
+    const ob=offsetMs(L-86400000,z), oa=offsetMs(L+86400000,z);
+    const cands=[...new Set([ob,oa])].filter(o=>offsetMs(L-o,z)===o);
+    if(cands.length===2) return {kind:'overlap', inst:L-ob, alt:L-oa, ob, oa};
+    if(cands.length===1) return {kind:'normal', inst:L-cands[0]};
+    return {kind:'gap', inst:L-ob, ob, oa};
+  }
+  function run(){
+    const v=ldt.value; if(!v) return;
+    const [d,t]=v.split('T'); const [Y,M,D]=d.split('-').map(Number); const [h,mi]=t.split(':').map(Number);
+    const L=Date.UTC(Y,M-1,D,h,mi), z=zone.value;
+    const r=resolve(L,z);
+    const local=localStr(L);
+    const rows=[['LocalDateTime',local],['atZone(ZoneId.of("'+z+'"))',zdt(r.inst,z)],['.toInstant()',instStr(r.inst)]];
+    if(r.kind==='overlap') rows.push(['.withLaterOffsetAtOverlap()',zdt(r.alt,z)]);
+    const plusDays=resolve(r.inst+offsetMs(r.inst,z)+86400000,z).inst;   // Java : heure locale résolue + 1 jour
+    rows.push(['.plusDays(1)',zdt(plusDays,z)],['.plusHours(24)',zdt(r.inst+86400000,z)]);
+    const other=z==='Asia/Tokyo'?'America/New_York':'Asia/Tokyo';
+    rows.push(['.withZoneSameInstant('+other+')',zdt(r.inst,other)]);
+    res.innerHTML=rows.map(([k,v])=>'<dt>'+ATLAS.esc(k)+'</dt><dd>'+ATLAS.esc(v)+'</dd>').join('');
+    const gapMin=r.kind!=='normal'?Math.abs(r.oa-r.ob)/60000:0;
+    if(r.kind==='gap') msg.innerHTML='<div class="verdict warn"><b>Trou.</b> '+local.slice(11)+' n\'existe pas ce jour-là à '+z+' (le décalage passe de '+offStr(r.ob)+' à '+offStr(r.oa)+'). Java avance l\'heure de '+gapMin+' min.</div>';
+    else if(r.kind==='overlap') msg.innerHTML='<div class="verdict warn"><b>Chevauchement.</b> '+local.slice(11)+' existe deux fois ('+offStr(r.ob)+' puis '+offStr(r.oa)+'). Java retient le décalage antérieur, '+offStr(r.ob)+'.</div>';
+    else msg.innerHTML='<div class="verdict ok"><b>Heure valide.</b> Un seul décalage possible : '+offStr(offsetMs(r.inst,z))+'.</div>';
+    const pd=plusDays-r.inst;
+    if(pd!==86400000) msg.innerHTML+='<p style="margin-top:8px">Le lendemain arrive après <b>'+(pd/3600000)+' h</b> : <code>plusDays(1)</code> et <code>plusHours(24)</code> divergent.</p>';
+  }
+  ldt.oninput=run; zone.onchange=run;
+  el.querySelectorAll('[data-p]').forEach(b=>b.onclick=()=>{const p=presets[+b.dataset.p]; ldt.value=p[1]; zone.value=p[2]; run();});
+  run();
+};
+</script>

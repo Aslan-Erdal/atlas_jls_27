@@ -1,0 +1,432 @@
+<style>
+.scv{display:grid; grid-template-columns:minmax(0,1.3fr) minmax(0,1fr); gap:18px}
+.scv .lines{align-self:start; border-radius:8px; overflow-x:auto; background:var(--code-bg); padding:10px 0; font-family:var(--f-mono); font-size:.82rem; line-height:1.7; color:var(--code-fg)}
+.scv .ln{display:block; padding-right:14px; white-space:pre; border-left:4px solid transparent}
+.scv .ln i{display:inline-block; width:2.6em; text-align:right; padding-right:12px; color:var(--com); font-style:normal; user-select:none}
+.scv .ln.in{background:#5cc98d22; border-left-color:#5cc98d}
+.scv .ln.sh{background:#f08a5d26; border-left-color:#f08a5d}
+.scv .ln.decl{outline:1px dashed #f2d38a; outline-offset:-1px}
+.scv .decls{display:flex; flex-direction:column; gap:6px}
+.scv .dc{font:inherit; text-align:left; border:1px solid var(--rule); background:var(--paper); color:var(--ink); border-radius:8px; padding:7px 10px; cursor:pointer; font-size:.9rem; line-height:1.3}
+.scv .dc b{font-family:var(--f-mono); font-size:.85rem}
+.scv .dc small{display:block; color:var(--muted); font-family:var(--f-display); font-size:.78rem}
+.scv .dc.sel{border-color:var(--accent); background:var(--accent-soft)}
+.scv .note{font-size:.9rem; margin-top:10px}
+.acc table td button{font:inherit; font-weight:700; width:100%; border:1px solid var(--rule); border-radius:6px; padding:6px 4px; cursor:pointer; background:var(--paper); color:var(--ink)}
+.acc table td button.y{background:var(--ok-soft); color:var(--ok); border-color:var(--ok)}
+.acc table td button.n{background:var(--err-soft); color:var(--err); border-color:var(--err)}
+.acc table td button.w{background:var(--ember-soft); color:var(--ember); border-color:var(--ember)}
+.acc table td button.sel{outline:3px solid var(--accent); outline-offset:1px}
+.acc .expl{margin-top:12px; min-height:60px}
+@media (max-width:760px){ .scv{grid-template-columns:minmax(0,1fr)} }
+</style>
+
+<div class="col">
+  <div class="eyebrow">Chapitre 6 · Java SE 27 Edition</div>
+  <h1>Noms</h1>
+  <p class="lede">Comment le compilateur sait à quoi renvoie chaque nom du programme : où une déclaration est visible, quand une autre la masque, comment un nom ambigu comme <code>a.b.c</code> est classé, et qui a le droit d'accéder à quoi.</p>
+  <div class="meta">
+    <span>Source : <a href="https://docs.oracle.com/javase/specs/jls/se27/html/jls-6.html" target="_blank" rel="noopener">JLS SE 27, chapitre 6</a></span>
+    <span>Sections : <b>6.1 à 6.7</b></span>
+  </div>
+
+  <h2 id="s6-1"><span class="sec">§6.1</span>Déclarations</h2>
+  <p>Une <b>déclaration</b> introduit une entité dans le programme et lui donne un identifiant, qu'on peut ensuite utiliser dans des <b>noms</b>. Entités déclarables :</p>
+  <div class="grid2">
+    <div class="card"><b class="h">Organisation</b>module (§7.7), paquetage (§7.4), type ou membre statique importé (§7.5)</div>
+    <div class="card"><b class="h">Types</b>classe ou interface de plus haut niveau, membre, locale ou anonyme ; enum ; record ; paramètre de type</div>
+    <div class="card"><b class="h">Membres</b>champ, méthode, constante d'enum, composant de record (et ses champ et accesseur implicites)</div>
+    <div class="card"><b class="h">Variables locales au sens large</b>paramètre de méthode, de constructeur, de lambda, paramètre d'exception, variable locale, variable de motif</div>
+  </div>
+  <p>Les constructeurs (§8.8) sont aussi introduits par des déclarations, mais ils utilisent le nom de leur classe au lieu d'introduire un nouveau nom.</p>
+  <h3>Conventions de nommage</h3>
+  <p>La spec recommande des conventions. Elles ne sont pas obligatoires, mais elles évitent presque tous les cas d'obscurcissement du §6.4.2.</p>
+  <div class="tbl"><table>
+    <thead><tr><th>Entité</th><th>Convention</th><th>Exemples</th></tr></thead>
+    <tbody>
+      <tr><td>Paquetage, module</td><td>minuscules, domaine Internet inversé</td><td><code>com.exemple.facturation</code>, <code>fr.monsite.outils</code></td></tr>
+      <tr><td>Classe, interface</td><td>noms ou groupes nominaux, MajusculeInitiale (UpperCamelCase) ; interfaces parfois en adjectif</td><td><code>ArrayList</code>, <code>Runnable</code>, <code>Comparable</code></td></tr>
+      <tr><td>Variable de type</td><td>une seule majuscule, ou très court</td><td><code>T</code> (type), <code>E</code> (élément), <code>K</code>/<code>V</code> (clé/valeur), <code>R</code> (résultat), <code>X</code> (exception)</td></tr>
+      <tr><td>Méthode</td><td>verbe, minusculeInitiale ; <code>get</code>/<code>set</code>/<code>is</code> ; <code>toType</code> pour les conversions</td><td><code>calculerTotal</code>, <code>isEmpty</code>, <code>toString</code></td></tr>
+      <tr><td>Champ, variable</td><td>minusculeInitiale ; locales courtes acceptées (<code>i</code>, <code>e</code>, <code>n</code>)</td><td><code>nombreLignes</code>, <code>buf</code></td></tr>
+      <tr><td>Constante</td><td>MAJUSCULES_SOULIGNÉES</td><td><code>MAX_VALUE</code>, <code>DEFAULT_TIMEOUT</code></td></tr>
+    </tbody>
+  </table></div>
+  <div class="nn"><span class="lbl">Note non normative</span>
+    <p>Un domaine qui contient un tiret ou un mot-clé est adapté : <code>mon-site.fr</code> devient <code>fr.mon_site</code>, et un composant qui commence par un chiffre prend un <code>_</code> devant.</p>
+  </div>
+
+  <h2 id="s6-2"><span class="sec">§6.2</span>Noms et identifiants</h2>
+  <p>Un <b>nom</b> désigne une entité déclarée. Il est <b>simple</b> (un identifiant, <code>x</code>) ou <b>qualifié</b> (un nom, un point, un identifiant : <code>java.util.List</code>). Mais tous les identifiants ne sont pas des noms. Ne sont <b>pas</b> des noms, donc pas soumis aux règles de portée de ce chapitre :</p>
+  <ul>
+    <li>l'identifiant qui <em>déclare</em> une entité (le <code>x</code> de <code>int x;</code>) ;</li>
+    <li>les étiquettes de <code>break</code> / <code>continue</code> (§14.7) ;</li>
+    <li>l'identifiant après le point dans un accès de champ sur une expression primaire (<code>f().x</code>, <code>super.x</code>) ;</li>
+    <li>l'identifiant après le point dans un appel de méthode qualifié par une expression (<code>f().m()</code>) ;</li>
+    <li>les noms d'éléments dans une annotation (<code>@Retention(value = …)</code>).</li>
+  </ul>
+  <div class="code"><div class="bar"><span>Java</span></div><pre><code class="java">class Test {
+    int x;
+    void m() {
+        x = 1;                      // x : nom simple
+        this.x = 2;                 // x : identifiant après un primaire, pas un nom
+        java.util.List&lt;String&gt; l;   // java.util.List : nom qualifié
+        boucle: for (;;) break boucle;   // étiquette : pas un nom
+    }
+}</code></pre></div>
+
+  <h2 id="s6-3"><span class="sec">§6.3</span>Portée d'une déclaration</h2>
+  <p>La <b>portée</b> d'une déclaration est la partie du programme où l'entité peut être désignée par un nom <b>simple</b>, à condition qu'elle ne soit pas masquée. Une déclaration est « en portée » en un point si ce point est dans sa portée.</p>
+  <div class="tbl"><table>
+    <thead><tr><th>Déclaration</th><th>Portée</th></tr></thead>
+    <tbody>
+      <tr><td>Classe ou interface de plus haut niveau</td><td>toutes les unités de compilation du paquetage</td></tr>
+      <tr><td>Type importé (§7.5)</td><td>l'unité de compilation qui contient l'import</td></tr>
+      <tr><td>Membre (champ, méthode, type membre)</td><td><b>tout</b> le corps de la classe, y compris avant la déclaration et dans les classes imbriquées</td></tr>
+      <tr><td>Paramètre de méthode, constructeur, lambda</td><td>tout le corps</td></tr>
+      <tr><td>Paramètre de type d'une classe</td><td>la section des paramètres de type, la superclasse, les superinterfaces et le corps</td></tr>
+      <tr><td>Paramètre de type d'une méthode</td><td>la déclaration de la méthode entière, y compris type de retour et <code>throws</code></td></tr>
+      <tr><td>Classe ou interface locale</td><td>le reste du bloc, <b>y compris sa propre déclaration</b></td></tr>
+      <tr><td>Variable locale</td><td>le reste du bloc, <b>à partir de son propre initialiseur</b></td></tr>
+      <tr><td>Variable du <code>for</code></td><td>l'initialisation, la condition, la mise à jour et le corps</td></tr>
+      <tr><td>Paramètre d'exception</td><td>le bloc du <code>catch</code></td></tr>
+      <tr><td>Ressource de try</td><td>les ressources suivantes et le bloc <code>try</code></td></tr>
+    </tbody>
+  </table></div>
+  <p>Cliquez une déclaration pour voir sa portée (vert) et les lignes où elle est masquée (orange) :</p>
+</div>
+
+<div class="wide">
+  <figure>
+    <p class="fig-title">Figure 6.1 · Portées dans une classe</p>
+    <div data-w="scopeviz">
+<pre class="src">class Compteur {
+    void affiche() { System.out.println(n); }
+    int n = 0;
+    void ajoute(int k) {
+        int total = n + k;
+        for (int i = 0; i &lt; k; i++) {
+            int n = i * 2;
+            total += n + this.n;
+        }
+        if (total &gt; 10) {
+            String msg = "grand";
+            System.out.println(msg);
+        }
+        System.out.println(total);
+    }
+}</pre>
+<script type="application/json">[
+ {"n":"n","k":"champ","decl":3,"in":[[1,16]],"sh":[[7,9]],"t":"Un membre est en portée dans tout le corps de la classe, même à la ligne 2, avant sa déclaration. Dans la boucle, la variable locale n le masque : <code>this.n</code> reste possible (ligne 8)."},
+ {"n":"affiche","k":"méthode","decl":2,"in":[[1,16]],"t":"Les méthodes aussi sont en portée dans toute la classe : l'ordre des méthodes n'a aucune importance."},
+ {"n":"k","k":"paramètre","decl":4,"in":[[4,15]],"t":"Un paramètre est en portée dans tout le corps de la méthode."},
+ {"n":"total","k":"variable locale","decl":5,"in":[[5,15]],"t":"Une variable locale est en portée du point de sa déclaration (initialiseur compris) jusqu'à la fin du bloc. <code>int total = total + 1;</code> serait refusé : total est en portée mais pas encore assignée (ch. 16)."},
+ {"n":"i","k":"variable du for","decl":6,"in":[[6,9]],"t":"La variable déclarée dans l'initialisation d'un for est en portée dans l'en-tête et le corps de la boucle seulement."},
+ {"n":"n","k":"variable locale (boucle)","decl":7,"in":[[7,9]],"t":"Cette locale masque (shadows) le champ n jusqu'à la fin du bloc de la boucle (§6.4.1). Masquer un champ est permis ; masquer une autre locale ne l'est pas."},
+ {"n":"msg","k":"variable locale","decl":11,"in":[[11,13]],"t":"Portée limitée au bloc du if. À la ligne 14, msg n'existe plus."}
+]</script></div>
+  </figure>
+</div>
+
+<div class="col">
+  <h3 id="s6-3-1"><span class="sec">§6.3.1</span>Portée des variables de motif dans les expressions</h3>
+  <p>Une variable de motif (<code>o instanceof String s</code>) n'a pas une portée « jusqu'à la fin du bloc ». Sa portée est calculée par <b>analyse de flux</b> : elle est en portée là où le motif a <b>forcément réussi</b>. La spec définit, pour chaque expression, deux ensembles :</p>
+  <ul>
+    <li>les variables <b>introduites quand elle est vraie</b> ;</li>
+    <li>les variables <b>introduites quand elle est fausse</b>.</li>
+  </ul>
+  <div class="tbl"><table>
+    <thead><tr><th>Expression</th><th>Introduites si vraie</th><th>Introduites si fausse</th><th>Portée interne</th></tr></thead>
+    <tbody>
+      <tr><td><code>x instanceof T v</code> (§6.3.1.5)</td><td>v</td><td>—</td><td>—</td></tr>
+      <tr><td><code>a &amp;&amp; b</code> (§6.3.1.1)</td><td>vraies de a ∪ vraies de b</td><td>—</td><td>vraies de a en portée dans b</td></tr>
+      <tr><td><code>a || b</code> (§6.3.1.2)</td><td>—</td><td>fausses de a ∪ fausses de b</td><td>fausses de a en portée dans b</td></tr>
+      <tr><td><code>!a</code> (§6.3.1.3)</td><td>fausses de a</td><td>vraies de a</td><td>—</td></tr>
+      <tr><td><code>a ? b : c</code> (§6.3.1.4)</td><td>—</td><td>—</td><td>vraies de a dans b, fausses de a dans c</td></tr>
+      <tr><td><code>( a )</code> (§6.3.1.7)</td><td>comme a</td><td>comme a</td><td>—</td></tr>
+    </tbody>
+  </table></div>
+  <div class="rule"><span class="lbl">Règle</span>
+    <p>C'est une erreur si une variable de motif serait introduite deux fois par la même expression (<code>a instanceof String s &amp;&amp; b instanceof Integer s</code>), ou si elle porte le nom d'une variable locale déjà en portée.</p>
+  </div>
+</div>
+
+<div class="wide">
+  <figure>
+    <p class="fig-title">Figure 6.2 · Où la variable de motif est-elle utilisable ?</p>
+    <div data-w="explorer"><script type="application/json">{"items":[
+      {"k":"o instanceof String s && s.isEmpty()","sub":"&&","d":"<p><span class=\"pill o\">compile</span> Si la partie gauche est vraie, s est liée ; à droite d'un && on sait qu'elle l'est.</p>"},
+      {"k":"o instanceof String s || s.isEmpty()","sub":"||","d":"<p><span class=\"pill r\">erreur</span> La partie droite d'un || n'est évaluée que si la gauche est <b>fausse</b> : s n'a pas été liée.</p>"},
+      {"k":"!(o instanceof String s) || s.isEmpty()","sub":"! puis ||","d":"<p><span class=\"pill o\">compile</span> s est introduite quand <code>!(…)</code> est faux ; || évalue sa droite justement dans ce cas.</p>"},
+      {"k":"if (!(o instanceof String s)) return;","sub":"retour anticipé","d":"<p><span class=\"pill o\">compile</span> Si l'instruction if ne peut pas se terminer normalement quand la condition est vraie (ici <code>return</code>), les variables introduites quand elle est fausse sont en portée <b>dans la suite du bloc</b> (§6.3.2.2).</p>","code":"if (!(o instanceof String s)) return;\nSystem.out.println(s.length());   // OK : s en portée"},
+      {"k":"if (o instanceof String s) {…} else {…}","sub":"else","d":"<p>s est en portée dans le bloc then seulement. Dans le else, et après le if, elle ne l'est pas (sauf si le then ne peut pas se terminer normalement).</p>","code":"if (o instanceof String s) {\n    s.length();   // OK\n} else {\n    s.length();   // ERREUR\n}"},
+      {"k":"while (!(x instanceof Noeud n)) { … }","sub":"boucle","d":"<p><span class=\"pill o\">compile</span> Après un while dont la condition introduit n quand elle est fausse, et qui ne contient pas de break atteignable, n est en portée dans la suite du bloc (§6.3.2.3).</p>","code":"while (!(x instanceof Noeud n)) {\n    x = suivant(x);\n}\nn.valeur();   // OK"},
+      {"k":"o instanceof String s ? s.length() : 0","sub":"? :","d":"<p><span class=\"pill o\">compile</span> s est en portée dans la deuxième opérande. Dans la troisième, non.</p>"},
+      {"k":"case String s when s.length() > 3 ->","sub":"switch","d":"<p><span class=\"pill o\">compile</span> Une variable de motif d'une étiquette case est en portée dans la garde <code>when</code> et dans le corps de la règle (§6.3.3). Avec l'ancienne syntaxe <code>case …:</code>, il est interdit de « tomber » (fall-through) dans un groupe qui déclare des variables de motif.</p>"},
+      {"k":"String s = \"\"; if (o instanceof String s) …","sub":"conflit","d":"<p><span class=\"pill r\">erreur</span> Une variable de motif ne peut pas porter le nom d'une locale en portée : ce serait un masquage interdit (§6.4).</p>"}
+    ]}</script></div>
+  </figure>
+</div>
+
+<div class="col">
+  <h3 id="s6-3-2"><span class="sec">§6.3.2</span>Portée des variables de motif dans les instructions</h3>
+  <p>Certaines instructions <b>propagent</b> des variables de motif vers les instructions qui les suivent dans le bloc (§6.3.2.1). C'est ce qui rend possible le style « garde puis utilisation » :</p>
+  <div class="tbl"><table>
+    <thead><tr><th>Instruction</th><th>Variables introduites pour la suite du bloc</th></tr></thead>
+    <tbody>
+      <tr><td><code>if (e) S</code> (§6.3.2.2)</td><td>celles introduites quand e est <b>faux</b>, si S ne peut pas se terminer normalement</td></tr>
+      <tr><td><code>if (e) S else T</code></td><td>quand e est vrai si T ne termine pas normalement ; quand e est faux si S ne termine pas normalement</td></tr>
+      <tr><td><code>while (e) S</code> (§6.3.2.3)</td><td>celles introduites quand e est faux, si S ne contient aucun <code>break</code> atteignable vers ce while</td></tr>
+      <tr><td><code>do S while (e);</code> (§6.3.2.4)</td><td>idem</td></tr>
+      <tr><td><code>for</code> basique (§6.3.2.5)</td><td>celles introduites quand la condition est fausse, sans break atteignable</td></tr>
+      <tr><td><code>switch</code> (§6.3.2.6), étiquetée (§6.3.2.7)</td><td>aucune</td></tr>
+    </tbody>
+  </table></div>
+  <p>Dans le corps d'une boucle, les variables introduites quand la condition est vraie sont en portée ; dans la mise à jour d'un <code>for</code>, aussi.</p>
+
+  <h3 id="s6-3-3"><span class="sec">§6.3.3</span>Portée des variables de motif dans les étiquettes case</h3>
+  <p>Une variable déclarée par un motif de <code>case</code> est en portée dans sa garde <code>when</code>, puis dans l'expression, le bloc ou l'instruction <code>throw</code> de la règle (<code>-&gt;</code>), ou dans les instructions du groupe (<code>:</code>).</p>
+
+  <h2 id="s6-4"><span class="sec">§6.4</span>Masquage et obscurcissement</h2>
+  <p>Une variable locale, un paramètre (de méthode, constructeur, lambda, exception) ou une variable de motif ne peut <b>pas</b> être redéclaré dans sa propre portée, même dans un bloc imbriqué. C'est une erreur de compilation, contrairement à C.</p>
+  <div class="code"><div class="bar"><span>Java</span></div><pre><code class="java">void m(int x) {
+    int x = 1;                  // ERREUR : x déjà déclaré (paramètre)
+    for (int i = 0; ; ) { int i = 2; }       // ERREUR
+    Runnable r = () -&gt; { int x = 3; };      // ERREUR : une lambda ne crée pas de nouvelle portée pour les noms
+    Function&lt;Integer,Integer&gt; f = x -&gt; x;   // ERREUR : paramètre de lambda nommé x
+    Runnable ok = new Runnable() {
+        public void run() { int x = 4; }    // OK : une classe (même anonyme) ouvre une nouvelle portée
+    };
+}</code></pre></div>
+
+  <h3 id="s6-4-1"><span class="sec">§6.4.1</span>Masquage (shadowing)</h3>
+  <p>Une déclaration d d'un nom n <b>masque</b> les autres déclarations de même nom et de même sorte (variable, type, méthode) en portée là où d est en portée. Le nom simple n désigne alors d. Cas typiques :</p>
+  <ul>
+    <li>un paramètre ou une locale masque un champ : <code>this.x = x;</code> dans un constructeur ;</li>
+    <li>un champ d'une classe imbriquée masque celui de la classe englobante : <code>Externe.this.x</code> ;</li>
+    <li>un type déclaré masque un type importé à la demande ou de même nom ailleurs ;</li>
+    <li>une méthode déclarée masque les méthodes de même nom des classes englobantes, <b>quel que soit le nombre de paramètres</b>.</li>
+  </ul>
+  <div class="code"><div class="bar"><span>Java</span></div><pre><code class="java">class Externe {
+    int x = 1;
+    void f(String s) { }
+    class Interne {
+        int x = 2;
+        void f() { }
+        void test() {
+            int x = 3;
+            System.out.println(x);              // 3
+            System.out.println(this.x);         // 2
+            System.out.println(Externe.this.x); // 1
+            f("a");      // ERREUR : f() de Interne masque TOUTES les f de Externe
+            Externe.this.f("a");   // OK
+        }
+    }
+}</code></pre></div>
+
+  <h3 id="s6-4-2"><span class="sec">§6.4.2</span>Obscurcissement (obscuring)</h3>
+  <p>Dans un contexte où un nom simple pourrait désigner une <b>variable</b>, un <b>type</b> ou un <b>paquetage</b>, la spec donne la priorité dans cet ordre : variable, puis type, puis paquetage. Un type ou un paquetage peut ainsi être <b>obscurci</b> et devenir inaccessible par son nom simple.</p>
+  <div class="code"><div class="bar"><span>Java</span></div><pre><code class="java">class Piege {
+    static String System = "?";   // un champ nommé System
+    void m() {
+        System.out.println("x");     // ERREUR : System est la variable ; String n'a pas de champ out
+        java.lang.System.out.println("x");   // OK : nom qualifié
+    }
+}</code></pre></div>
+  <p>Les conventions de nommage (§6.1) évitent ce problème : variables en minuscules, types en majuscule initiale, paquetages en minuscules mais avec un domaine qu'aucune variable ne porte.</p>
+
+  <h2 id="s6-5"><span class="sec">§6.5</span>Déterminer le sens d'un nom</h2>
+  <p>Le compilateur procède en deux temps : d'abord il <b>classe syntaxiquement</b> chaque nom d'après sa position (§6.5.1), ensuite il cherche la déclaration correspondante selon la catégorie (§6.5.3 à §6.5.7).</p>
+
+  <h3 id="s6-5-1"><span class="sec">§6.5.1</span>Classification syntaxique selon le contexte</h3>
+  <div class="tbl"><table>
+    <thead><tr><th>Catégorie</th><th>Positions typiques</th></tr></thead>
+    <tbody>
+      <tr><td><b>ModuleName</b></td><td>déclaration de module, <code>requires</code>, <code>exports … to</code></td></tr>
+      <tr><td><b>PackageName</b></td><td>déclaration de paquetage, à gauche du point dans un nom de paquetage, <code>exports</code>/<code>opens</code></td></tr>
+      <tr><td><b>TypeName</b></td><td>import simple, types de déclarations, <code>extends</code>, <code>implements</code>, <code>throws</code>, cast, <code>new</code>, <code>instanceof</code>, <code>T.this</code>, <code>T.class</code>, <code>T::m</code>…</td></tr>
+      <tr><td><b>ExpressionName</b></td><td>opérande d'expression, partie gauche d'une affectation, argument…</td></tr>
+      <tr><td><b>MethodName</b></td><td>avant la parenthèse d'un appel de méthode</td></tr>
+      <tr><td><b>PackageOrTypeName</b></td><td>à gauche du point dans un nom de type qualifié, import à la demande</td></tr>
+      <tr><td><b>AmbiguousName</b></td><td>à gauche du point dans un ExpressionName, un MethodName ou un autre AmbiguousName qualifié</td></tr>
+    </tbody>
+  </table></div>
+
+  <h3 id="s6-5-2"><span class="sec">§6.5.2</span>Reclassification des noms ambigus</h3>
+  <div class="rule"><span class="lbl">Règle · nom ambigu simple</span>
+    <p>S'il désigne une <b>variable</b> en portée (locale, paramètre, champ), c'est un ExpressionName. Sinon, s'il désigne une <b>classe ou interface</b> en portée, c'est un TypeName. Sinon, c'est un PackageName. Pour un nom qualifié <code>Q.Id</code>, on reclasse d'abord Q, puis Id selon ce que Q est devenu.</p>
+  </div>
+  <p>Suivez la classification d'une instruction réelle :</p>
+</div>
+
+<div class="wide">
+  <figure>
+    <p class="fig-title">Figure 6.3 · Classer les noms de <code>java.lang.System.out.println(mots.length)</code></p>
+    <div data-w="stepper">
+<pre class="src">void m(String[] mots) {
+    java.lang.System.out.println(mots.length);
+}</pre>
+<script type="application/json">[
+ {"t":"Classification syntaxique","d":"<p><code>println</code> est juste avant une parenthèse d'appel : c'est un <b>MethodName</b>. Ce qui est à gauche de son point, <code>java.lang.System.out</code>, est classé <b>AmbiguousName</b> (§6.5.1).</p><p>Dans l'argument, <code>mots.length</code> est un ExpressionName dont le qualificatif <code>mots</code> est un AmbiguousName.</p>","hl":[2]},
+ {"t":"java","d":"<p>On reclasse de gauche à droite. <code>java</code> est un nom ambigu simple. Aucune variable ni aucun type nommé <code>java</code> n'est en portée, donc c'est un <b>PackageName</b>.</p><p>Si une variable locale s'appelait <code>java</code>, elle obscurcirait le paquetage et toute la ligne échouerait (§6.4.2).</p>","hl":[2]},
+ {"t":"java.lang","d":"<p>Qualificatif paquetage, et <code>lang</code> n'est pas une classe de <code>java</code> : <code>java.lang</code> est un <b>PackageName</b>.</p>","hl":[2]},
+ {"t":"java.lang.System","d":"<p>Qualificatif paquetage, et <code>System</code> est une classe accessible de <code>java.lang</code> : <b>TypeName</b>.</p>","hl":[2]},
+ {"t":"java.lang.System.out","d":"<p>Qualificatif de type, et <code>out</code> est un champ statique de System : <b>ExpressionName</b>, de type <code>PrintStream</code> (§6.5.6.2).</p>","hl":[2]},
+ {"t":"println","d":"<p>Le MethodName qualifié par une expression : on cherche les méthodes <code>println</code> dans le type <code>PrintStream</code>, puis la résolution de surcharge choisit <code>println(int)</code> (§15.12).</p>","hl":[2]},
+ {"t":"mots.length","d":"<p><code>mots</code> est un nom ambigu simple ; un paramètre nommé <code>mots</code> est en portée : <b>ExpressionName</b>. <code>length</code> est alors le champ final <code>length</code> du tableau (§10.7). L'ensemble est un ExpressionName de type <code>int</code>.</p>","hl":[1,2]}
+]</script></div>
+  </figure>
+</div>
+
+<div class="col">
+  <h3 id="s6-5-3"><span class="sec">§6.5.3</span>Sens des noms de modules et de paquetages</h3>
+  <p>Un nom de module désigne un module ; deux modules de même nom ne peuvent pas coexister dans la même configuration (§7.7.6). Un nom de paquetage simple désigne le paquetage de premier niveau de ce nom (§6.5.3.1) ; un nom qualifié <code>Q.Id</code> désigne le sous-paquetage <code>Id</code> de <code>Q</code> (§6.5.3.2). Les paquetages ne sont pas hiérarchiques au sens de l'accès : <code>java.util</code> n'a aucun privilège sur <code>java.util.concurrent</code>.</p>
+
+  <h3 id="s6-5-4"><span class="sec">§6.5.4</span>Sens des PackageOrTypeName</h3>
+  <p>Simple (§6.5.4.1) : si un type de ce nom est en portée, c'est un TypeName, sinon un PackageName. Qualifié <code>Q.Id</code> (§6.5.4.2) : si <code>Q</code> est un type ou un paquetage qui contient un membre type <code>Id</code>, c'est un TypeName, sinon un PackageName.</p>
+
+  <h3 id="s6-5-5"><span class="sec">§6.5.5</span>Sens des noms de types</h3>
+  <p>Simple (§6.5.5.1) : il doit y avoir exactement une classe, une interface ou un paramètre de type visible de ce nom, sinon erreur (ambiguïté entre deux imports à la demande, par exemple). Qualifié <code>Q.Id</code> (§6.5.5.2) : <code>Id</code> doit être un membre type accessible du paquetage ou du type <code>Q</code>.</p>
+  <div class="code"><div class="bar"><span>Java</span></div><pre><code class="java">import java.util.*;
+import java.awt.*;
+List l;              // ERREUR : java.util.List et java.awt.List sont tous deux importés à la demande
+java.util.List l2;   // OK : nom qualifié</code></pre></div>
+
+  <h3 id="s6-5-6"><span class="sec">§6.5.6</span>Sens des noms d'expressions</h3>
+  <p>Un nom d'expression simple (§6.5.6.1) désigne la variable locale, le paramètre ou le champ en portée. Si c'est un champ d'instance, le nom doit apparaître dans un contexte non statique, sinon erreur. Si c'est une variable locale d'une méthode englobante utilisée dans une classe interne ou une lambda, elle doit être <code>final</code> ou effectivement final (§4.12.4).</p>
+  <p>Un nom d'expression qualifié <code>Q.Id</code> (§6.5.6.2) : si Q est un type, Id doit en être un champ <b>statique</b> ; si Q est une expression, Id est un champ du type de Q (un champ d'instance ou statique, ce dernier étant déconseillé).</p>
+  <div class="code"><div class="bar"><span>Java</span></div><pre><code class="java">class C {
+    int inst; static int stat;
+    static void s() {
+        inst = 1;     // ERREUR : champ d'instance dans un contexte statique
+        stat = 1;     // OK
+    }
+}
+C c = null;
+c.stat = 5;           // compile (style déconseillé) et ne lève pas de NPE : seul le type de c compte</code></pre></div>
+
+  <h3 id="s6-5-7"><span class="sec">§6.5.7</span>Sens des noms de méthodes</h3>
+  <p>Un nom de méthode simple (§6.5.7.1) apparaît dans un appel non qualifié <code>m(…)</code>. La recherche de la méthode, la résolution de surcharge et la vérification d'accès sont décrites au §15.12. La seule règle de ce chapitre : il faut qu'au moins une méthode de ce nom soit en portée, en tenant compte du masquage décrit au §6.4.1.</p>
+
+  <h2 id="s6-6"><span class="sec">§6.6</span>Contrôle d'accès</h2>
+  <p>Le contrôle d'accès est une vérification <b>à la compilation</b> (et à l'exécution par la JVM) qui limite l'usage d'un nom qualifié, d'un accès de champ, d'un appel de méthode ou d'une création d'instance. Accès et portée sont indépendants : un nom peut être en portée sans être accessible, et un membre accessible peut être hors de portée (on le désigne alors par un nom qualifié).</p>
+
+  <h3 id="s6-6-1"><span class="sec">§6.6.1</span>Déterminer l'accessibilité</h3>
+  <p>Un paquetage est accessible s'il est uniquement visible (§7.4.3). Une classe ou interface de plus haut niveau <code>public</code> est accessible partout <b>où son module la rend accessible</b> : dans son module, et dans les modules qui lisent ce module si le paquetage est exporté. Une classe non publique n'est accessible que dans son paquetage. Pour les membres :</p>
+</div>
+
+<div class="wide">
+  <figure>
+    <p class="fig-title">Figure 6.4 · Matrice d'accès</p>
+    <p class="fig-hint">Cliquez une case pour l'explication. « paquetage » désigne l'absence de modificateur (accès paquetage).</p>
+    <div data-w="accmatrix"></div>
+  </figure>
+</div>
+
+<div class="col">
+  <h3 id="s6-6-2"><span class="sec">§6.6.2</span>Les détails de l'accès protected</h3>
+  <h4 id="s6-6-2-1"><span class="sec">§6.6.2.1</span>Accès à un membre protected</h4>
+  <p>En dehors de son paquetage, un membre <code>protected</code> d'une classe C n'est accessible que dans le corps d'une sous-classe S de C, et seulement si l'accès se fait <b>à travers une expression dont le type est S ou un sous-type de S</b>. L'idée : une sous-classe a le droit de manipuler la partie protégée de <em>ses propres</em> objets, pas celle de n'importe quel objet de type C.</p>
+  <div class="code"><div class="bar"><span>Java · deux paquetages</span></div><pre><code class="java">package a;
+public class Animal { protected int age; protected void vieillir() { age++; } }
+
+package b;
+public class Chien extends a.Animal {
+    void test(a.Animal autre, Chien chien, Caniche caniche) {
+        age = 3;              // OK : this, de type Chien
+        chien.age = 3;        // OK : expression de type Chien
+        caniche.vieillir();   // OK : Caniche est un sous-type de Chien
+        autre.age = 3;        // ERREUR : expression de type Animal
+        ((Chien) autre).age = 3;  // OK après cast
+    }
+}
+class Caniche extends Chien { }</code></pre></div>
+  <h4 id="s6-6-2-2"><span class="sec">§6.6.2.2</span>Accès à un constructeur protected</h4>
+  <p>En dehors de son paquetage, un constructeur <code>protected</code> ne peut être appelé que par <code>super(…)</code> dans le constructeur d'une sous-classe, ou par la création d'une classe <b>anonyme</b> <code>new C(…) { … }</code>. Une simple instanciation <code>new C(…)</code> est interdite.</p>
+  <div class="code"><div class="bar"><span>Java</span></div><pre><code class="java">package a; public class Base { protected Base() {} }
+
+package b;
+class Sous extends a.Base {
+    Sous() { super(); }            // OK
+    void f() {
+        new a.Base();              // ERREUR
+        new a.Base() { };          // OK : classe anonyme sous-classe de Base
+    }
+}</code></pre></div>
+  <div class="nn"><span class="lbl">Note non normative</span>
+    <p>L'accès <code>private</code> est défini au niveau de la <b>classe de plus haut niveau</b> qui englobe la déclaration : deux classes imbriquées dans la même classe externe accèdent librement à leurs membres privés mutuels. Depuis Java 11, la JVM le permet directement (« nestmates ») sans méthodes d'accès synthétiques.</p>
+  </div>
+
+  <h2 id="s6-7"><span class="sec">§6.7</span>Noms pleinement qualifiés et noms canoniques</h2>
+  <div class="tbl"><table>
+    <thead><tr><th>Entité</th><th>Nom pleinement qualifié</th></tr></thead>
+    <tbody>
+      <tr><td>Type primitif</td><td>son mot-clé : <code>int</code></td></tr>
+      <tr><td>Paquetage de plus haut niveau</td><td>son nom simple : <code>java</code></td></tr>
+      <tr><td>Sous-paquetage</td><td><code>parent.nom</code> : <code>java.util</code></td></tr>
+      <tr><td>Classe de plus haut niveau</td><td><code>paquetage.Nom</code> (ou <code>Nom</code> dans le paquetage sans nom)</td></tr>
+      <tr><td>Classe membre M de C</td><td><code>FQN(C).M</code>, si C en a un</td></tr>
+      <tr><td>Tableau</td><td><code>FQN(T)[]</code></td></tr>
+      <tr><td>Classe locale, anonyme ; variable de type</td><td><b>aucun</b></td></tr>
+    </tbody>
+  </table></div>
+  <p>Un même type membre peut avoir <b>plusieurs</b> noms pleinement qualifiés quand il est hérité : si <code>O2 extends O1</code> et que <code>O1</code> déclare <code>I</code>, alors <code>p.O1.I</code> et <code>p.O2.I</code> le désignent tous deux. Le <b>nom canonique</b> est l'unique nom pleinement qualifié qui passe par la classe déclarante : <code>p.O1.I</code>.</p>
+  <div class="code"><div class="bar"><span>Java · trois sortes de noms</span></div><pre><code class="java">Class&lt;?&gt; c = java.util.Map.Entry.class;
+c.getName();            // "java.util.Map$Entry"   : nom binaire (§13.1), utilisé par la JVM
+c.getCanonicalName();   // "java.util.Map.Entry"   : nom canonique
+c.getSimpleName();      // "Entry"
+
+new Object(){}.getClass().getCanonicalName();   // null : une classe anonyme n'a pas de nom canonique
+int[][].class.getName();                         // "[[I" : descripteur de la JVM</code></pre></div>
+
+  <h2 id="s6-quiz">Vérifier ses acquis</h2>
+  <div data-w="quiz"><script type="application/json">[
+    {"q":"Un champ peut-il être utilisé par une méthode déclarée avant lui dans la classe ?","o":["Non","Oui, la portée d'un membre est tout le corps de la classe","Seulement s'il est static"],"a":1,"e":"La portée d'un membre couvre tout le corps (§6.3). Seuls les initialiseurs de champs ont des restrictions de référence en avant (§8.3.3)."},
+    {"q":"Que se passe-t-il avec <code>int x = 1; Runnable r = () -&gt; { int x = 2; };</code> ?","o":["Compile : la lambda a sa propre portée","Erreur : redéclaration de x","Avertissement"],"a":1,"e":"Le corps d'une lambda ne crée pas de nouvel espace de noms pour les locales ; une classe anonyme, si."},
+    {"q":"Dans <code>if (!(o instanceof String s)) return;</code>, où s est-elle en portée ?","o":["Nulle part","Dans la suite du bloc","Seulement dans le return"],"a":1,"e":"Le then ne peut pas se terminer normalement ; s est introduite quand la condition est fausse, donc pour la suite du bloc (§6.3.2.2)."},
+    {"q":"Une variable locale nommée <code>System</code> est en portée. <code>System.out.println()</code>…","o":["fonctionne normalement","échoue : la variable obscurcit la classe","appelle java.lang.System par défaut"],"a":1,"e":"Dans un contexte ambigu, une variable l'emporte sur un type (§6.4.2)."},
+    {"q":"Dans une sous-classe d'un autre paquetage, <code>autreAnimal.age</code> (age protected, autreAnimal de type Animal) est…","o":["permis","interdit","permis avec avertissement"],"a":1,"e":"Hors du paquetage, l'accès protected passe par une expression du type de la sous-classe ou d'un sous-type (§6.6.2.1)."},
+    {"q":"Un membre public d'une classe publique d'un paquetage <b>non exporté</b> d'un autre module est…","o":["accessible","inaccessible","accessible par import"],"a":1,"e":"Les modules ajoutent un niveau d'encapsulation : sans exports, même public n'est pas accessible hors du module."},
+    {"q":"Quel est le nom canonique d'une classe anonyme ?","o":["Externe$1","Externe.1","Elle n'en a pas"],"a":2,"e":"Les classes locales et anonymes n'ont pas de nom pleinement qualifié ni canonique (§6.7). Externe$1 est un nom binaire."}
+  ]</script></div>
+</div>
+
+<script>
+ATLAS.w.scopeviz = function(el, D){
+  const srcEl=el.querySelector('pre.src'); const src=srcEl.textContent.replace(/^\n/,'').replace(/\s+$/,''); srcEl.remove();
+  const lines=ATLAS.hlJava(src).split('\n');
+  el.classList.add('scv');
+  el.innerHTML='<div class="lines">'+lines.map((l,i)=>'<span class="ln" data-n="'+(i+1)+'"><i>'+(i+1)+'</i>'+(l||' ')+'</span>').join('')+'</div><div><div class="decls">'+D.map((d,i)=>'<button type="button" class="dc" data-i="'+i+'"><b>'+d.n+'</b><small>'+d.k+', ligne '+d.decl+'</small></button>').join('')+'</div><div class="note" aria-live="polite"></div></div>';
+  const inR=(n,rs)=>(rs||[]).some(([a,b])=>n>=a&&n<=b);
+  function pick(i){
+    const d=D[i];
+    el.querySelectorAll('.dc').forEach((b,j)=>b.classList.toggle('sel',i===j));
+    el.querySelectorAll('.ln').forEach(l=>{ const n=+l.dataset.n; const sh=inR(n,d.sh); l.classList.toggle('sh',sh); l.classList.toggle('in',!sh&&inR(n,d.in)); l.classList.toggle('decl',n===d.decl); });
+    el.querySelector('.note').innerHTML='<p><span class="pill o">en portée</span> '+(d.sh?'<span class="pill e">masquée</span>':'')+'</p><p>'+d.t+'</p>';
+  }
+  el.querySelectorAll('.dc').forEach(b=>b.onclick=()=>pick(+b.dataset.i));
+  pick(0);
+};
+
+ATLAS.w.accmatrix = function(el){
+  el.classList.add('acc');
+  const C=['public','protected','paquetage','private'];
+  const R=[
+    ['Même classe',['y','y','y','y'],['Tout membre est accessible dans le corps de sa propre classe.','idem','idem','idem']],
+    ['Autre classe imbriquée dans la même classe de plus haut niveau',['y','y','y','y'],['Accessible.','Accessible : même paquetage.','Accessible : même paquetage.','Accessible : l\'accès privé est défini au niveau de la classe de plus haut niveau englobante (nestmates).']],
+    ['Autre classe du même paquetage',['y','y','y','n'],['Accessible.','protected inclut l\'accès paquetage.','C\'est la définition de l\'accès paquetage.','private est limité au corps de la classe de plus haut niveau.']],
+    ['Sous-classe d\'un autre paquetage, via this ou une expression de type sous-classe',['y','y','n','n'],['Accessible.','Accessible : c\'est le cas prévu par §6.6.2.1.','Pas d\'accès hors du paquetage, même pour une sous-classe. Le membre n\'est d\'ailleurs pas hérité.','Jamais accessible ni hérité.']],
+    ['Sous-classe d\'un autre paquetage, via une expression du type parent',['y','n','n','n'],['Accessible.','Interdit : il faut passer par une expression du type de la sous-classe (§6.6.2.1).','Interdit.','Interdit.']],
+    ['Classe sans lien d\'un autre paquetage, même module',['y','n','n','n'],['Accessible si la classe qui le déclare est elle-même accessible.','Interdit.','Interdit.','Interdit.']],
+    ['Autre module qui lit ce module, paquetage exporté',['y','w','n','n'],['Accessible : public dans un paquetage exporté vers ce module.','Seulement depuis une sous-classe, avec la règle du §6.6.2.1.','Interdit.','Interdit.']],
+    ['Autre module, paquetage non exporté',['n','n','n','n'],['Inaccessible : un paquetage non exporté est encapsulé, même ses types public. La réflexion profonde exige en plus un opens.','Inaccessible.','Inaccessible.','Inaccessible.']]
+  ];
+  const lab={y:'oui',n:'non',w:'limité'};
+  el.innerHTML='<div class="tbl"><table><thead><tr><th>Depuis…</th>'+C.map(c=>'<th>'+c+'</th>').join('')+'</tr></thead><tbody>'+
+    R.map((r,i)=>'<tr><td>'+r[0]+'</td>'+r[1].map((v,j)=>'<td><button type="button" class="'+v+'" data-i="'+i+'" data-j="'+j+'" aria-label="'+r[0]+', '+C[j]+' : '+lab[v]+'">'+lab[v]+'</button></td>').join('')+'</tr>').join('')+'</tbody></table></div><div class="expl verdict" aria-live="polite"></div>';
+  const ex=el.querySelector('.expl');
+  function pick(i,j){ el.querySelectorAll('td button').forEach(b=>b.classList.toggle('sel',+b.dataset.i===i&&+b.dataset.j===j)); const v=R[i][1][j]; ex.className='expl verdict '+(v==='y'?'ok':v==='n'?'err':'warn'); ex.innerHTML='<div class="v" style="font-size:1.05rem">'+C[j]+' · '+R[i][0]+'</div><p>'+R[i][2][j]+'</p>'; }
+  el.querySelectorAll('td button').forEach(b=>b.onclick=()=>pick(+b.dataset.i,+b.dataset.j));
+  pick(4,1);
+};
+</script>

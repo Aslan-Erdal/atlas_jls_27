@@ -1,0 +1,273 @@
+<style>
+.jmm .progs{display:grid; grid-template-columns:minmax(0,1fr) minmax(0,1fr); gap:12px; margin:10px 0}
+.jmm .th{border-radius:8px; background:var(--code-bg); color:var(--code-fg); padding:10px 12px; font-family:var(--f-mono); font-size:.82rem; white-space:pre; overflow-x:auto}
+.jmm .th b{display:block; font-family:var(--f-display); color:var(--kw); font-size:.72rem; letter-spacing:.08em; text-transform:uppercase; margin-bottom:4px}
+.jmm .il{display:flex; flex-wrap:wrap; gap:6px; margin-top:10px}
+.jmm .il span{font-family:var(--f-mono); font-size:.72rem; padding:3px 8px; border-radius:5px; background:var(--paper); border:1px solid var(--rule)}
+.jmm td.res{font-family:var(--f-mono)}
+@media (max-width:640px){ .jmm .progs{grid-template-columns:minmax(0,1fr)} }
+</style>
+
+<div class="col">
+  <div class="eyebrow">Chapitre 17 · Java SE 27 Edition</div>
+  <h1>Threads et verrous</h1>
+  <p class="lede">Java est concurrent dès sa conception. Ce chapitre définit les moniteurs, <code>wait</code>/<code>notify</code>, l'interruption, et surtout le <b>modèle mémoire</b> : les règles qui disent quelles valeurs un thread peut lire quand d'autres écrivent en même temps.</p>
+  <div class="meta">
+    <span>Source : <a href="https://docs.oracle.com/javase/specs/jls/se27/html/jls-17.html" target="_blank" rel="noopener">JLS SE 27, chapitre 17</a></span>
+    <span>Sections : <b>17.1 à 17.7</b></span>
+  </div>
+
+  <h2 id="s17-0"><span class="sec">§17</span>Threads</h2>
+  <p>Un thread est représenté par un objet <code>Thread</code> ; le seul moyen d'en créer un est de passer par cette classe. Démarrer un thread (<code>start()</code>) exécute sa méthode <code>run()</code>. Plusieurs threads peuvent s'exécuter réellement en parallèle sur plusieurs cœurs, ou être entrelacés sur un seul.</p>
+  <div class="code"><div class="bar"><span>Java</span></div><pre><code class="java">Thread t1 = new Thread(() -&gt; travail("A"));       // thread de plateforme (thread de l'OS)
+t1.start();
+Thread t2 = Thread.ofVirtual().start(() -&gt; travail("B"));   // thread virtuel (Java 21)
+try (var ex = Executors.newVirtualThreadPerTaskExecutor()) {
+    for (int i = 0; i &lt; 10_000; i++) ex.submit(() -&gt; appelReseau());
+}
+t1.join();     // attend la fin de t1 (et établit un happens-before, §17.4.4)</code></pre></div>
+  <div class="nn"><span class="lbl">Note non normative</span>
+    <p>Les <b>threads virtuels</b> (Java 21) sont des objets <code>Thread</code> à part entière : toute la sémantique de ce chapitre s'applique à eux. Depuis Java 24 (JEP 491), un thread virtuel qui bloque dans un <code>synchronized</code> n'immobilise plus son thread porteur.</p>
+  </div>
+
+  <h2 id="s17-1"><span class="sec">§17.1</span>Synchronisation</h2>
+  <p>Chaque objet possède un <b>moniteur</b>, qu'un seul thread à la fois peut détenir. Un thread peut <b>verrouiller</b> (lock) et <b>déverrouiller</b> (unlock) un moniteur ; les autres threads qui tentent de le verrouiller sont bloqués. Un thread peut verrouiller plusieurs fois le même moniteur (<b>réentrance</b>) ; chaque unlock annule un lock.</p>
+  <ul>
+    <li>L'instruction <code>synchronized (o) { … }</code> (§14.19) verrouille le moniteur de <code>o</code>, exécute le bloc, puis le déverrouille, même en cas d'exception.</li>
+    <li>Une méthode <code>synchronized</code> (§8.4.3.6) verrouille le moniteur de <code>this</code>, ou de l'objet <code>Class</code> pour une méthode statique.</li>
+  </ul>
+  <p>La spec ne détecte ni n'empêche les <b>interblocages</b> (deadlocks) : c'est au programme d'acquérir ses verrous dans un ordre cohérent. Les verrous de <code>java.util.concurrent.locks</code> offrent d'autres politiques (essai, délai, équité), mais leur sémantique mémoire est définie par l'API.</p>
+
+  <h2 id="s17-2"><span class="sec">§17.2</span>Ensembles d'attente et notification</h2>
+  <p>Chaque objet a aussi un <b>ensemble d'attente</b> (wait set) : les threads qui ont appelé <code>wait()</code> sur cet objet.</p>
+  <div class="svgwrap"><svg viewBox="0 0 760 210" width="760" role="img" aria-label="États d'un thread autour d'un moniteur">
+    <g class="d-txt">
+      <rect class="d-ok" x="290" y="20" width="180" height="46" rx="8"/><text class="d-b" x="380" y="40" text-anchor="middle">possède le moniteur</text><text class="d-mut" x="380" y="56" text-anchor="middle">dans synchronized</text>
+      <rect class="d-emb" x="20" y="120" width="180" height="46" rx="8"/><text class="d-b" x="110" y="140" text-anchor="middle">BLOCKED</text><text class="d-mut" x="110" y="156" text-anchor="middle">attend le verrou</text>
+      <rect class="d-vio" x="560" y="120" width="180" height="46" rx="8"/><text class="d-b" x="650" y="140" text-anchor="middle">WAITING</text><text class="d-mut" x="650" y="156" text-anchor="middle">dans le wait set</text>
+    </g>
+    <g class="d-line">
+      <path d="M200,130 C250,90 260,60 288,50" marker-end="url(#arr)"/><path d="M470,46 C560,50 640,80 650,118" marker-end="url(#arr)"/>
+      <path d="M560,150 C420,200 300,200 202,150" marker-end="url(#arr)"/>
+    </g>
+    <text class="d-mut" x="210" y="80">lock obtenu</text><text class="d-mut" x="560" y="70">wait() : libère le verrou</text><text class="d-mut" x="300" y="200">notify / notifyAll / interrupt / délai : doit reprendre le verrou</text>
+  </svg></div>
+
+  <h3 id="s17-2-1"><span class="sec">§17.2.1</span>wait</h3>
+  <p>Appeler <code>o.wait()</code> sans détenir le moniteur de <code>o</code> lève <code>IllegalMonitorStateException</code>. Sinon, le thread est ajouté au wait set, <b>libère complètement</b> le moniteur (même s'il l'a verrouillé plusieurs fois), puis attend. Il en sort par <code>notify</code>, <code>notifyAll</code>, une interruption, l'expiration d'un délai, ou un <b>réveil intempestif</b> (spurious wakeup) que la spec autorise. Il reprend ensuite le moniteur avec le même nombre de verrous qu'avant. S'il a été interrompu, <code>wait</code> lève <code>InterruptedException</code>.</p>
+  <div class="code"><div class="bar"><span>Java · le seul usage correct de wait</span></div><pre><code class="java">synchronized (verrou) {
+    while (!condition) {            // TOUJOURS une boucle : réveils intempestifs et concurrents
+        verrou.wait();
+    }
+    // la condition est vraie ET on détient le verrou
+}
+
+synchronized (verrou) {
+    condition = true;
+    verrou.notifyAll();             // notifyAll est plus sûr que notify si plusieurs conditions partagent l'objet
+}</code></pre></div>
+  <h3 id="s17-2-2"><span class="sec">§17.2.2</span>Notification</h3>
+  <p><code>notify()</code> retire <b>un</b> thread (non spécifié) du wait set ; <code>notifyAll()</code> les retire tous. Les threads réveillés ne peuvent continuer qu'après avoir repris le verrou, donc après que le notifiant l'a relâché.</p>
+  <h3 id="s17-2-3"><span class="sec">§17.2.3</span>Interruptions</h3>
+  <p><code>t.interrupt()</code> positionne le statut d'interruption de t. Si t est dans <code>wait</code>, <code>sleep</code> ou <code>join</code>, il en sort avec <code>InterruptedException</code> et le statut est effacé. Sinon, c'est au code de le tester (<code>Thread.interrupted()</code>, <code>isInterrupted()</code>). C'est le mécanisme standard d'annulation coopérative.</p>
+  <div class="trap"><span class="lbl">Piège</span>
+    <p>Ne jamais « avaler » une <code>InterruptedException</code> avec un catch vide. Soit on la propage, soit on restaure le statut : <code>Thread.currentThread().interrupt();</code>.</p>
+  </div>
+  <h3 id="s17-2-4"><span class="sec">§17.2.4</span>Interactions entre attente, notification et interruption</h3>
+  <p>Si un thread en attente est à la fois notifié et interrompu, il peut soit sortir normalement (et rester interrompu), soit lever <code>InterruptedException</code> ; dans ce second cas, une autre notification ne doit pas être perdue : un autre thread du wait set doit la recevoir.</p>
+
+  <h2 id="s17-3"><span class="sec">§17.3</span>Sleep et yield</h2>
+  <p><code>Thread.sleep(ms)</code> suspend le thread <b>sans libérer</b> ses moniteurs. <code>Thread.yield()</code> suggère à l'ordonnanceur de laisser la main. Ni l'un ni l'autre n'a d'effet de synchronisation : le compilateur n'est pas obligé de relire les variables après un sleep.</p>
+  <div class="code"><div class="bar"><span>Java · exemple de la spec</span></div><pre><code class="java">while (!this.fini)          // fini n'est pas volatile
+    Thread.sleep(1000);
+// Le compilateur peut lire this.fini UNE seule fois et boucler à l'infini,
+// même si un autre thread met fini à true.  Solution : volatile boolean fini;</code></pre></div>
+
+  <h2 id="s17-4"><span class="sec">§17.4</span>Le modèle mémoire</h2>
+  <p>Un <b>modèle mémoire</b> décrit, pour un programme et une trace d'exécution, si cette trace est légale. Celui de Java ne dit pas comment exécuter le code : il dit quelles valeurs chaque lecture peut voir. Il laisse une grande liberté d'optimisation (réordonnancement par le compilateur, caches, tampons d'écriture des processeurs) tout en garantissant un comportement simple aux programmes correctement synchronisés.</p>
+  <p>Voici ce que cela signifie concrètement : un programme mal synchronisé peut produire des résultats <b>impossibles par simple entrelacement</b>.</p>
+</div>
+
+<div class="wide">
+  <figure>
+    <p class="fig-title">Figure 17.1 · Résultats possibles d'un programme concurrent</p>
+    <p class="fig-hint">Choisissez un programme. Le tableau compare les résultats obtenus par entrelacement séquentiel (« cohérence séquentielle ») avec ceux qu'autorise le modèle mémoire, avec ou sans <code>volatile</code>.</p>
+    <div data-w="jmm"></div>
+  </figure>
+</div>
+
+<div class="col">
+  <h3 id="s17-4-1"><span class="sec">§17.4.1</span>Variables partagées</h3>
+  <p>Seule la mémoire du <b>tas</b> est partagée entre threads : champs d'instance, champs statiques, composants de tableaux. Les variables locales, paramètres et paramètres d'exception ne sont jamais partagés. Deux accès à la même variable sont <b>en conflit</b> si l'un au moins est une écriture.</p>
+  <h3 id="s17-4-2"><span class="sec">§17.4.2</span>Actions</h3>
+  <p>Le modèle raisonne sur des <b>actions inter-threads</b> : lecture et écriture (normale ou <code>volatile</code>), lock et unlock d'un moniteur, première et dernière action d'un thread (synthétiques), actions externes (entrées-sorties) et divergence (boucle infinie sans action). Les lectures volatiles, écritures volatiles, locks et unlocks sont des <b>actions de synchronisation</b>.</p>
+  <h3 id="s17-4-3"><span class="sec">§17.4.3</span>Programmes et ordre de programme</h3>
+  <p>L'<b>ordre de programme</b> est l'ordre des actions d'un thread tel que décrit par la sémantique intra-thread (le reste de la spec). Une exécution est <b>séquentiellement cohérente</b> si toutes ses actions forment un ordre total compatible avec l'ordre de programme, chaque lecture voyant la dernière écriture précédente dans cet ordre. Java ne garantit pas la cohérence séquentielle en général : ce serait trop coûteux.</p>
+  <h3 id="s17-4-4"><span class="sec">§17.4.4</span>Ordre de synchronisation</h3>
+  <p>Toutes les actions de synchronisation d'une exécution forment un ordre total, l'<b>ordre de synchronisation</b>. Il définit les relations <b>synchronizes-with</b> :</p>
+  <div class="tbl"><table>
+    <thead><tr><th>Source</th><th>synchronise-avec</th></tr></thead>
+    <tbody>
+      <tr><td>unlock du moniteur m</td><td>tout lock suivant de m</td></tr>
+      <tr><td>écriture volatile de v</td><td>toute lecture suivante de v (par n'importe quel thread)</td></tr>
+      <tr><td><code>t.start()</code></td><td>la première action de t</td></tr>
+      <tr><td>dernière action de t</td><td>toute action d'un thread qui détecte la fin de t (<code>t.join()</code>, <code>t.isAlive()</code> faux)</td></tr>
+      <tr><td><code>t.interrupt()</code></td><td>tout point où t (ou un autre) constate l'interruption</td></tr>
+      <tr><td>écriture de la valeur par défaut d'une variable</td><td>la première action de chaque thread</td></tr>
+    </tbody>
+  </table></div>
+
+  <h3 id="s17-4-5"><span class="sec">§17.4.5</span>L'ordre happens-before</h3>
+  <p>La relation <b>happens-before</b> (hb) est la fermeture transitive de l'ordre de programme et de synchronizes-with. Si x hb y, alors x est visible par y et ordonné avant y. Règles dérivées utiles :</p>
+  <ul>
+    <li>la fin d'un constructeur hb le début du finaliseur de l'objet ;</li>
+    <li>les API de <code>java.util.concurrent</code> documentent leurs propres garanties (mettre dans une file concurrente hb en retirer ; <code>Future.get</code> voit le travail de la tâche ; etc.).</li>
+  </ul>
+  <div class="svgwrap"><svg viewBox="0 0 640 230" width="640" role="img" aria-label="Deux threads reliés par une écriture volatile et une lecture">
+    <text class="d-txt d-b" x="120" y="20" text-anchor="middle">Thread 1</text><text class="d-txt d-b" x="500" y="20" text-anchor="middle">Thread 2</text>
+    <rect class="d-box" x="40" y="36" width="160" height="32" rx="6"/><text class="d-mono" x="120" y="57" text-anchor="middle">donnee = 42;</text>
+    <rect class="d-acc" x="40" y="100" width="160" height="32" rx="6"/><text class="d-mono" x="120" y="121" text-anchor="middle">pret = true; (volatile)</text>
+    <rect class="d-acc" x="420" y="100" width="160" height="32" rx="6"/><text class="d-mono" x="500" y="121" text-anchor="middle">if (pret)  (volatile)</text>
+    <rect class="d-ok" x="420" y="164" width="160" height="32" rx="6"/><text class="d-mono" x="500" y="185" text-anchor="middle">r = donnee; // 42</text>
+    <path class="d-line" d="M120,68 V98" marker-end="url(#arr)"/><path class="d-line" d="M500,132 V162" marker-end="url(#arr)"/>
+    <path class="d-line d-accl" d="M200,116 H418" marker-end="url(#arr)" style="stroke-width:2.5"/>
+    <text class="d-mut" x="309" y="108" text-anchor="middle">synchronizes-with</text>
+    <text class="d-mut" x="30" y="88">ordre de programme</text><text class="d-mut" x="510" y="152">ordre de programme</text>
+    <text class="d-mut" x="320" y="222" text-anchor="middle">transitivité : « donnee = 42 » happens-before « r = donnee » → r vaut forcément 42</text>
+  </svg></div>
+  <div class="rule"><span class="lbl">Définitions clés</span>
+    <p>Une <b>course de données</b> (data race) : deux accès en conflit à la même variable, non ordonnés par happens-before. Un programme est <b>correctement synchronisé</b> si aucune exécution séquentiellement cohérente ne contient de course de données.</p>
+    <p><b>Garantie centrale (DRF-SC)</b> : si un programme est correctement synchronisé, <b>toutes</b> ses exécutions se comportent comme si elles étaient séquentiellement cohérentes. Le programmeur peut alors ignorer les réordonnancements.</p>
+  </div>
+  <p>Une exécution est <b>cohérente avec happens-before</b> si chaque lecture voit une écriture qui ne la suit pas en hb et qu'aucune autre écriture n'est intercalée en hb entre les deux. L'exemple 17.4.5-1 montre que cette cohérence autorise déjà le résultat surprenant de la figure 17.1.</p>
+
+  <h3 id="s17-4-6"><span class="sec">§17.4.6</span>Exécutions</h3>
+  <p>Formellement, une exécution est un tuple : programme, ensemble d'actions, ordre de programme, ordre de synchronisation, fonction qui associe à chaque lecture l'écriture qu'elle voit, fonction de valeurs, synchronizes-with, happens-before.</p>
+  <h3 id="s17-4-7"><span class="sec">§17.4.7</span>Exécutions bien formées</h3>
+  <p>Une exécution est bien formée si : chaque lecture voit une écriture de la même variable ; les lectures et écritures volatiles respectent l'ordre de synchronisation ; les locks et unlocks sont correctement imbriqués ; chaque thread respecte sa sémantique intra-thread ; et happens-before est cohérent.</p>
+  <h3 id="s17-4-8"><span class="sec">§17.4.8</span>Exécutions et exigences de causalité</h3>
+  <p>La cohérence avec happens-before ne suffit pas : elle autoriserait des valeurs « sorties de nulle part » (out-of-thin-air), où une écriture se justifie elle-même par une lecture qui la voit (exemple 17.4.8-1 : <code>r1 = x; if (r1 != 0) y = 1;</code> et réciproquement ; le modèle interdit que x et y valent 1). La spec impose donc une procédure de <b>validation</b> : une exécution est légale si on peut la construire en <b>engageant</b> (committing) les actions progressivement, chaque étape étant justifiée par une exécution déjà cohérente.</p>
+  <div class="nn"><span class="lbl">Note non normative</span>
+    <p>Cette section est réputée l'une des plus difficiles de toute la spec, et la recherche a montré qu'elle n'interdit pas exactement ce qu'elle voudrait. En pratique : écrivez des programmes correctement synchronisés, et la garantie DRF-SC suffit.</p>
+  </div>
+  <h3 id="s17-4-9"><span class="sec">§17.4.9</span>Comportement observable et exécutions qui ne terminent pas</h3>
+  <p>Le comportement observable d'un programme est défini par ses actions externes (entrées-sorties) et ses éventuelles boucles infinies. Une exécution qui ne termine pas peut avoir un comportement observable fini : un thread qui boucle sans fin ne doit pas empêcher les actions externes des autres d'être observées.</p>
+
+  <h2 id="s17-5"><span class="sec">§17.5</span>Sémantique des champs final</h2>
+  <p>Les champs <code>final</code> bénéficient d'une garantie spéciale : un objet <b>correctement construit</b> (sa référence ne s'échappe pas pendant la construction) peut être partagé sans synchronisation, et tout thread qui obtient la référence voit les valeurs correctes de ses champs <code>final</code>, ainsi que des objets et tableaux qu'ils référencent, tels qu'à la fin du constructeur.</p>
+  <div class="code"><div class="bar"><span>Java · exemple 17.5-1 reformulé</span></div><pre><code class="java">class Exemple {
+    final int x;
+    int y;
+    static Exemple partage;
+    Exemple() { x = 3; y = 4; }
+    static void ecrivain() { partage = new Exemple(); }        // publication sans synchronisation
+    static void lecteur() {
+        if (partage != null) {
+            int i = partage.x;    // garanti : 3
+            int j = partage.y;    // PAS garanti : peut valoir 0
+        }
+    }
+}</code></pre></div>
+  <h3 id="s17-5-1"><span class="sec">§17.5.1</span>Sémantique formelle</h3>
+  <p>À la fin du constructeur, une action de <b>gel</b> (freeze) a lieu pour chaque champ final. Tout thread qui lit la référence de l'objet après ce gel, sans l'avoir vue avant, voit les valeurs gelées. Le gel s'étend à tout ce qui est atteignable via le champ final au moment du gel (le contenu d'un tableau <code>final int[]</code> rempli dans le constructeur, par exemple).</p>
+  <div class="trap"><span class="lbl">Piège · fuite de this</span>
+    <p>Si le constructeur publie <code>this</code> (l'enregistre comme écouteur, le stocke dans un champ statique, démarre un thread qui l'utilise), un autre thread peut voir l'objet <b>avant</b> le gel : la garantie disparaît.</p>
+  </div>
+  <h3 id="s17-5-2"><span class="sec">§17.5.2</span>Lire des champs final pendant la construction</h3>
+  <p>Le thread qui construit l'objet peut lire un champ final avant son affectation (via une méthode, §16.9) : il voit alors la valeur par défaut. Après l'affectation, il voit la nouvelle valeur.</p>
+  <h3 id="s17-5-3"><span class="sec">§17.5.3</span>Modifier ensuite des champs final</h3>
+  <p>La réflexion (<code>Field.setAccessible</code> + <code>set</code>) et la désérialisation peuvent modifier un champ final après la construction. Les compilateurs étant autorisés à supposer que les champs final ne changent pas (exemple 17.5.3-1 : une lecture peut être déplacée ou mise en cache), d'autres threads, et même le thread courant, peuvent continuer à voir l'ancienne valeur.</p>
+  <div class="modern"><span class="lbl">Évolution</span>
+    <p>Le JDK s'oriente vers « final veut vraiment dire final » (JEP 500) : la modification de champs final par réflexion profonde émet désormais des avertissements, en vue d'être interdite par défaut. Les champs de records et de classes cachées ne sont déjà plus modifiables.</p>
+  </div>
+  <h3 id="s17-5-4"><span class="sec">§17.5.4</span>Champs protégés en écriture</h3>
+  <p><code>System.in</code>, <code>System.out</code> et <code>System.err</code> sont <code>static final</code> mais modifiables par <code>System.setIn/setOut/setErr</code> : ils sont dits <b>protégés en écriture</b>, et leurs lectures ne bénéficient pas des optimisations des champs final ordinaires.</p>
+
+  <h2 id="s17-6"><span class="sec">§17.6</span>Arrachement de mot (word tearing)</h2>
+  <p>Chaque champ et chaque composant de tableau est une variable <b>indépendante</b> : écrire dans <code>bytes[0]</code> ne peut jamais modifier <code>bytes[1]</code>, même si le processeur ne sait écrire que des mots de 32 ou 64 bits. Une JVM sur une telle architecture doit simuler les écritures fines, éventuellement au prix de performances (exemple 17.6-1).</p>
+
+  <h2 id="s17-7"><span class="sec">§17.7</span>Traitement non atomique de double et long</h2>
+  <div class="rule"><span class="lbl">Règle</span>
+    <p>Une écriture d'un <code>long</code> ou d'un <code>double</code> <b>non volatile</b> peut être réalisée en deux écritures de 32 bits : un autre thread peut lire une valeur « mixte », moitié ancienne, moitié nouvelle. Les écritures et lectures de <code>long</code> et <code>double</code> <b>volatile</b> sont toujours atomiques, de même que celles des références et de tous les autres types primitifs.</p>
+  </div>
+  <p>Les JVM 64 bits actuelles rendent en pratique toutes ces écritures atomiques, mais la spec ne le garantit pas : déclarez <code>volatile</code> (ou utilisez <code>AtomicLong</code>) un <code>long</code> partagé sans verrou.</p>
+
+  <h2 id="s17-recap">Récapitulatif : publier un objet en sécurité</h2>
+  <div class="tbl"><table>
+    <thead><tr><th>Technique</th><th>Pourquoi ça marche</th></tr></thead>
+    <tbody>
+      <tr><td>Champs <code>final</code> et pas de fuite de this</td><td>gel à la fin du constructeur (§17.5)</td></tr>
+      <tr><td>Référence stockée dans un champ <code>volatile</code></td><td>écriture volatile hb lecture volatile (§17.4.4)</td></tr>
+      <tr><td>Accès sous un même verrou</td><td>unlock hb lock suivant</td></tr>
+      <tr><td>Initialiseur statique</td><td>l'initialisation de classe est synchronisée (§12.4.2)</td></tr>
+      <tr><td>Collection concurrente, <code>AtomicReference</code>, <code>CompletableFuture</code>…</td><td>garanties hb documentées par l'API</td></tr>
+    </tbody>
+  </table></div>
+  <div class="code"><div class="bar"><span>Java · double-checked locking</span></div><pre><code class="java">class Cache {
+    private static volatile Ressource instance;          // volatile est INDISPENSABLE
+    static Ressource get() {
+        Ressource r = instance;
+        if (r == null) {
+            synchronized (Cache.class) {
+                r = instance;
+                if (r == null) instance = r = new Ressource();
+            }
+        }
+        return r;
+    }
+}
+// Sans volatile, un thread pourrait voir instance != null mais des champs non final
+// de Ressource pas encore initialisés.  L'idiome du détenteur (§12.4.1) est plus simple.</code></pre></div>
+
+  <h2 id="s17-quiz">Vérifier ses acquis</h2>
+  <div data-w="quiz"><script type="application/json">[
+    {"q":"<code>wait()</code> appelé hors d'un bloc synchronized sur le même objet…","o":["attend normalement","lève IllegalMonitorStateException","ne fait rien"],"a":1,"e":"Il faut détenir le moniteur de l'objet (§17.2.1)."},
+    {"q":"Pourquoi <code>wait()</code> doit-il être dans une boucle while ?","o":["Par convention seulement","À cause des réveils intempestifs et des changements de condition par d'autres threads","Pour libérer le verrou"],"a":1,"e":"La spec autorise les réveils intempestifs ; la condition doit être revérifiée."},
+    {"q":"<code>Thread.sleep</code> libère-t-il les verrous détenus ?","o":["Oui","Non"],"a":1,"e":"§17.3 : sleep ne libère aucun moniteur et n'a aucun effet de synchronisation."},
+    {"q":"Un programme sans course de données…","o":["peut quand même montrer des réordonnancements","se comporte comme s'il était séquentiellement cohérent","doit utiliser volatile partout"],"a":1,"e":"C'est la garantie DRF-SC du §17.4.5."},
+    {"q":"Un objet avec des champs final, publié sans synchronisation et sans fuite de this : un autre thread voit…","o":["peut-être 0 pour les champs final","les bonnes valeurs des champs final","une exception"],"a":1,"e":"Sémantique du gel des champs final (§17.5)."},
+    {"q":"Une écriture d'un <code>long</code> non volatile est-elle garantie atomique ?","o":["Oui","Non (§17.7)"],"a":1,"e":"Elle peut être découpée en deux écritures de 32 bits ; volatile la rend atomique."},
+    {"q":"Écrire <code>tab[0]</code> d'un byte[] peut-il modifier <code>tab[1]</code> ?","o":["Oui sur certaines architectures","Jamais (§17.6)"],"a":1,"e":"Pas d'arrachement de mot : chaque composant est une variable indépendante."}
+  ]</script></div>
+</div>
+
+<script>
+ATLAS.w.jmm = function(el){
+  el.classList.add('jmm');
+  const P = [
+    { nom:'Réordonnancement (17.4-1)', vars:['A','B'],
+      t1:{txt:'r2 = A;\nB = 1;', ops:[s=>{s.r2=s.A}, s=>{s.B=1}], lab:['r2 = A','B = 1']},
+      t2:{txt:'r1 = B;\nA = 2;', ops:[s=>{s.r1=s.B}, s=>{s.A=2}], lab:['r1 = B','A = 2']},
+      res:s=>'r1='+s.r1+', r2='+s.r2, relax:['r1=1, r2=2'],
+      expl:'Sans synchronisation, chaque thread peut voir les écritures de l\'autre « dans le désordre » : le compilateur ou le processeur peut exécuter B = 1 avant r2 = A, car ces deux instructions sont indépendantes pour le thread 1. Le résultat r1 = 1, r2 = 2 est alors possible, alors qu\'aucun entrelacement ne le produit.' },
+    { nom:'Passage de message', vars:['donnee','pret'],
+      t1:{txt:'donnee = 42;\npret = true;', ops:[s=>{s.donnee=42}, s=>{s.pret=1}], lab:['donnee = 42','pret = true']},
+      t2:{txt:'if (pret) r = donnee;\nelse r = -1;', ops:[s=>{s.t=s.pret}, s=>{s.r=s.t?s.donnee:-1}], lab:['lit pret','r = donnee ou -1']},
+      res:s=>'r='+s.r, relax:['r=0'],
+      expl:'Sans volatile, le thread 2 peut voir pret = true et pourtant lire donnee = 0 : rien n\'ordonne les deux écritures du point de vue du thread 2. Avec <code>volatile boolean pret</code>, l\'écriture de pret synchronise-avec sa lecture : donnee = 42 happens-before r = donnee.' },
+    { nom:'Tampon d\'écriture (Dekker)', vars:['x','y'],
+      t1:{txt:'x = 1;\nr1 = y;', ops:[s=>{s.x=1}, s=>{s.r1=s.y}], lab:['x = 1','r1 = y']},
+      t2:{txt:'y = 1;\nr2 = x;', ops:[s=>{s.y=1}, s=>{s.r2=s.x}], lab:['y = 1','r2 = x']},
+      res:s=>'r1='+s.r1+', r2='+s.r2, relax:['r1=0, r2=0'],
+      expl:'Les processeurs modernes mettent les écritures dans un tampon avant de les rendre visibles : chaque thread peut lire l\'ancienne valeur de l\'autre variable. r1 = r2 = 0 est observable en pratique sur x86 sans volatile. C\'est pourquoi l\'algorithme d\'exclusion mutuelle de Dekker ne marche pas sans barrières.' }
+  ];
+  let cur=0;
+  el.innerHTML='<div class="btnrow">'+P.map((p,i)=>'<button type="button" class="btn pg" data-i="'+i+'">'+p.nom+'</button>').join('')+'</div><div class="progs"></div><div class="tbl"><table><thead><tr><th>Résultat</th><th>Entrelacement séquentiel</th><th>Modèle mémoire, sans volatile</th><th>Avec volatile</th></tr></thead><tbody></tbody></table></div><p class="ex"></p><div><span class="lbl" style="color:var(--muted)">Les 6 entrelacements séquentiels</span><div class="il"></div></div>';
+  function inter(a,b){ if(!a.length) return [b.map(x=>['2',x])]; if(!b.length) return [a.map(x=>['1',x])]; return inter(a.slice(1),b).map(r=>[['1',a[0]]].concat(r)).concat(inter(a,b.slice(1)).map(r=>[['2',b[0]]].concat(r))); }
+  function run(){
+    const p=P[cur];
+    el.querySelectorAll('.pg').forEach((b,i)=>b.classList.toggle('on',i===cur));
+    el.querySelector('.progs').innerHTML='<div class="th"><b>Thread 1</b>'+ATLAS.esc(p.t1.txt)+'</div><div class="th"><b>Thread 2</b>'+ATLAS.esc(p.t2.txt)+'</div>';
+    const idx1=p.t1.ops.map((f,i)=>i), idx2=p.t2.ops.map((f,i)=>i);
+    const seqs=inter(idx1.map(i=>i),idx2.map(i=>i));
+    const sc=new Map();
+    const lines=seqs.map(seq=>{ const s={}; p.vars.forEach(v=>s[v]=0); seq.forEach(([t,i])=>(t==='1'?p.t1:p.t2).ops[i](s)); const r=p.res(s); sc.set(r,true); return seq.map(([t,i])=>'T'+t+':'+(t==='1'?p.t1:p.t2).lab[i]).join(' → ')+'  ⇒  '+r; });
+    const all=[...sc.keys()].concat(p.relax.filter(r=>!sc.has(r)));
+    el.querySelector('tbody').innerHTML=all.map(r=>{ const s=sc.has(r); return '<tr><td class="res">'+r+'</td><td class="'+(s?'y':'n')+'">'+(s?'oui':'non')+'</td><td class="'+(s?'y':'w')+'">'+(s?'oui':'oui !')+'</td><td class="'+(s?'y':'n')+'">'+(s?'oui':'non')+'</td></tr>'; }).join('');
+    el.querySelector('.ex').innerHTML=p.expl;
+    el.querySelector('.il').innerHTML=lines.map(l=>'<span>'+ATLAS.esc(l)+'</span>').join('');
+  }
+  el.querySelectorAll('.pg').forEach(b=>b.onclick=()=>{ cur=+b.dataset.i; run(); });
+  run();
+};
+</script>

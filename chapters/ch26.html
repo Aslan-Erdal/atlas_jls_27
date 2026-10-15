@@ -1,0 +1,235 @@
+<style>
+.vs .vrow{display:flex; gap:8px; flex-wrap:wrap; margin-bottom:12px}
+.vs .snip{display:grid; grid-template-columns:minmax(0,1.3fr) minmax(0,1fr); gap:14px; border:1px solid var(--rule); border-radius:10px; padding:12px; margin-bottom:10px; background:var(--sheet)}
+.vs .snip pre{margin:0; border-radius:8px; font-size:.8rem}
+.vs .snip .v{font-family:var(--f-display); font-weight:800; font-size:1.05rem}
+.vs .snip .v.ok{color:var(--ok)} .vs .snip .v.err{color:var(--err)}
+.jt .filters{display:flex; gap:8px; flex-wrap:wrap; margin-bottom:12px}
+.jt .cols{display:grid; grid-template-columns:repeat(3,minmax(0,1fr)); gap:12px}
+.jt .col h4{margin:0 0 8px; font-size:.95rem}
+.jt .col h4 small{font-family:var(--f-display); font-weight:500; color:var(--muted); font-size:.75rem; display:block}
+.jt .jep{border:1px solid var(--rule); border-left:4px solid var(--plate-edge); border-radius:8px; padding:8px 10px; margin-bottom:8px; background:var(--sheet); font-size:.86rem; line-height:1.4}
+.jt .jep b{font-family:var(--f-display); display:block; font-size:.88rem}
+.jt .jep .n{font-family:var(--f-mono); font-size:.72rem; color:var(--muted)}
+.jt .jep.prev{border-left-color:var(--ember)} .jt .jep.inc{border-left-color:var(--violet)} .jt .jep.fin{border-left-color:var(--ok)} .jt .jep.rem{border-left-color:var(--err)}
+.jt .jep[hidden]{display:none}
+.jt .leg{display:flex; gap:14px; flex-wrap:wrap; font-family:var(--f-display); font-size:.75rem; color:var(--muted); margin-top:6px}
+.jt .leg i{display:inline-block; width:10px; height:10px; border-radius:2px; margin-right:4px; vertical-align:-1px}
+.tocdiff{display:grid; grid-template-columns:repeat(19,minmax(0,1fr)); gap:3px; margin:10px 0}
+.tocdiff span{height:34px; border-radius:4px; background:var(--ok-soft); border:1px solid var(--ok); font-family:var(--f-mono); font-size:.68rem; display:flex; align-items:center; justify-content:center; color:var(--ok)}
+@media (max-width:760px){ .jt .cols{grid-template-columns:minmax(0,1fr)} .vs .snip{grid-template-columns:minmax(0,1fr)} .tocdiff{grid-template-columns:repeat(10,minmax(0,1fr))} }
+</style>
+
+<div class="col">
+  <div class="eyebrow">Section 26 · Annexe de l'atlas</div>
+  <h1>Java 25 vs Java 27</h1>
+  <p class="lede">Ce qui a changé entre la JLS 25 et la JLS 27, et autour d'elles dans la plateforme Java SE et le JDK. La réponse courte pour le langage : presque rien de permanent. La réponse longue tient dans les détails de la preview, d'Unicode et des 19 JEP livrés par les JDK 26 et 27.</p>
+  <div class="meta">
+    <span>Sources : <a href="https://docs.oracle.com/javase/specs/jls/se25/html/index.html" target="_blank" rel="noopener">JLS SE 25</a> · <a href="https://docs.oracle.com/javase/specs/jls/se27/html/index.html" target="_blank" rel="noopener">JLS SE 27</a></span>
+    <span>Comparaison faite le <b>15 octobre 2026</b></span>
+  </div>
+
+  <h2 id="s26-1"><span class="sec">26.1</span>Les trois versions en un coup d'œil</h2>
+  <div class="tbl"><table>
+    <thead><tr><th></th><th>Java 25</th><th>Java 26</th><th>Java 27</th></tr></thead>
+    <tbody>
+      <tr><td>Disponibilité générale (GA)</td><td class="num">16 sept. 2025</td><td class="num">17 mars 2026</td><td class="num">15 sept. 2026</td></tr>
+      <tr><td>Support à long terme</td><td><span class="pill o">LTS</span></td><td>non</td><td>non (prochaine LTS : Java 29)</td></tr>
+      <tr><td>Date de l'édition de la JLS</td><td class="num">29 juillet 2025</td><td>—</td><td class="num">11 août 2026</td></tr>
+      <tr><td>Version majeure du fichier .class</td><td class="num">69</td><td class="num">70</td><td class="num">71</td></tr>
+      <tr><td>Version d'Unicode (§1.7)</td><td class="num">16.0.0</td><td class="num">17.0.0</td><td class="num">17.0.0</td></tr>
+      <tr><td>Preview de langage (§1.5.2)</td><td>types primitifs dans les motifs, 3ᵉ preview (JEP 507)</td><td>4ᵉ preview (JEP 530)</td><td>5ᵉ preview (JEP 532)</td></tr>
+      <tr><td>Nombre de JEP livrés</td><td class="num">18</td><td class="num">10</td><td class="num">9</td></tr>
+      <tr><td>Constructions du langage finalisées</td><td>import de module, unités compactes et main d'instance, corps de constructeur flexibles</td><td>aucune</td><td>aucune</td></tr>
+    </tbody>
+  </table></div>
+  <div class="rule"><span class="lbl">Conclusion pour le langage</span>
+    <p>Un programme Java 25 compilé <b>sans</b> <code>--enable-preview</code> a exactement le même sens en Java 27. Aucune règle permanente de la JLS n'a été ajoutée, retirée ou modifiée de façon visible entre les deux éditions. Les écarts portent sur les références (Unicode, JVMS), sur la preview, et sur la plateforme.</p>
+  </div>
+
+  <h2 id="s26-2"><span class="sec">26.2</span>La spécification du langage</h2>
+  <h3>Structure : identique</h3>
+  <p>Les tables des matières des deux éditions ont été comparées entrée par entrée : mêmes 19 chapitres, mêmes sections et sous-sections, mêmes numéros, y compris la numérotation particulière <code>14.30 Patterns</code> et la coquille historique de l'exemple « 7.1.1-1 » placé au §7.7.1.</p>
+  <div class="tocdiff" aria-label="19 chapitres identiques">
+    <span>1</span><span>2</span><span>3</span><span>4</span><span>5</span><span>6</span><span>7</span><span>8</span><span>9</span><span>10</span><span>11</span><span>12</span><span>13</span><span>14</span><span>15</span><span>16</span><span>17</span><span>18</span><span>19</span>
+  </div>
+  <p class="nolink" style="font-family:var(--f-display); font-size:var(--s-1); color:var(--muted)">Chaque case : un chapitre dont la liste de sections est identique dans la JLS 25 et la JLS 27. Aucune section ajoutée ni supprimée.</p>
+
+  <h3>Ce qui change dans le texte</h3>
+  <div class="tbl"><table>
+    <thead><tr><th>Endroit</th><th>JLS 25</th><th>JLS 27</th><th>Conséquence</th></tr></thead>
+    <tbody>
+      <tr><td>Introduction, §1.3</td><td>renvois à la JVMS Java SE 25</td><td>renvois à la JVMS Java SE 27</td><td>le format binaire de référence est celui de Java 27 (version 71)</td></tr>
+      <tr><td>§1.5.2</td><td>« Java SE 25 defines one preview language feature »</td><td>« Java SE 27 defines one preview language feature »</td><td>même fonctionnalité, deux itérations plus tard</td></tr>
+      <tr><td>§1.7 Références</td><td>Unicode 16.0.0 (2024)</td><td>Unicode 17.0.0 (2025)</td><td>nouveaux caractères reconnus dans les identifiants, littéraux et commentaires (§3.1, §3.8)</td></tr>
+      <tr><td>Document de preview (« diff » à la JLS)</td><td>version JEP 507</td><td>version JEP 532</td><td>règles de dominance plus strictes pour les motifs (voir 26.3)</td></tr>
+    </tbody>
+  </table></div>
+  <div class="nn"><span class="lbl">Note non normative</span>
+    <p>Comme chaque année, des corrections éditoriales ponctuelles (formulations, exemples) peuvent exister entre deux éditions sans changer la structure. La spec ne publie pas de liste de ces corrections ; elles n'ont pas d'effet connu sur des programmes réels.</p>
+  </div>
+
+  <h3>Unicode 17 : ce que ça change pour vous</h3>
+  <p>Le langage délègue la notion de lettre et de chiffre Java à <code>Character.isJavaIdentifierStart</code> et <code>isJavaIdentifierPart</code> (§3.8), qui suivent la version d'Unicode de la plateforme. Avec Unicode 17, de nouveaux caractères (nouvelles écritures, idéogrammes, symboles) deviennent valides dans les identifiants ou reçoivent des propriétés. En pratique :</p>
+  <ul>
+    <li>un identifiant écrit avec un caractère introduit par Unicode 17 compile en Java 26 et 27, mais <b>pas</b> en Java 25 ;</li>
+    <li>les méthodes de <code>Character</code>, les expressions régulières (<code>\p{L}</code>…) et les conversions de casse peuvent répondre différemment pour ces caractères ;</li>
+    <li>le code existant n'est pas affecté.</li>
+  </ul>
+
+  <h2 id="s26-3"><span class="sec">26.3</span>La preview de langage : de la 3ᵉ à la 5ᵉ itération</h2>
+  <p>La seule fonctionnalité preview de langage est la même dans les trois versions : les types primitifs dans les motifs, <code>instanceof</code> et <code>switch</code> (section 27). Mais ses règles ont évolué. D'après les tests publiés par HappyCoders, le JDK 26 (JEP 530) a introduit deux contrôles de <b>dominance</b> plus stricts ; le JDK 27 (JEP 532) ne change pas ce qui compile, et améliore le message d'erreur d'exhaustivité, qui nomme désormais le motif manquant.</p>
+  <div class="trap"><span class="lbl">Sources divergentes</span>
+    <p>Le résumé d'InfoQ attribue ces deux raffinements (exactitude inconditionnelle, dominance) à la 5ᵉ preview. Les essais de HappyCoders les situent dès Java 26. Les deux s'accordent sur le résultat en Java 27, que décrit la figure ci-dessous.</p>
+  </div>
+  <p>Choisissez une version pour voir le verdict du compilateur (avec <code>--enable-preview</code> pour chaque version) :</p>
+</div>
+
+<div class="wide">
+  <figure>
+    <p class="fig-title">Figure 26.1 · Le même code, trois compilateurs</p>
+    <div data-w="vsnips"></div>
+  </figure>
+</div>
+
+<div class="col">
+  <div class="rule"><span class="lbl">Conséquence pour la migration</span>
+    <p>Du code qui utilisait la preview en Java 25 peut ne <b>plus compiler</b> en Java 26 ou 27. C'est précisément le contrat d'une preview (§1.5) : elle peut changer à chaque version. En plus, les classes compilées en preview pour Java 25 (version 69.65535) ne se chargent pas sur une JVM 27 : il faut recompiler.</p>
+  </div>
+
+  <h2 id="s26-4"><span class="sec">26.4</span>La plateforme : les JEP des JDK 26 et 27</h2>
+  <p>Le langage bouge peu, mais le JDK, lui, évolue à chaque version. Voici tous les JEP livrés depuis Java 25, filtrables par domaine :</p>
+</div>
+
+<div class="wide">
+  <figure>
+    <p class="fig-title">Figure 26.2 · Frise des JEP, de Java 25 à Java 27</p>
+    <div data-w="jeptimeline"></div>
+  </figure>
+</div>
+
+<div class="col">
+  <h3>Les JEP qui comptent le plus pour un développeur</h3>
+  <div class="grid2">
+    <div class="card"><b class="h">HTTP/3 dans HttpClient (JEP 517, Java 26)</b>Le client HTTP de <code>java.net.http</code> sait parler HTTP/3 (sur QUIC). On l'active explicitement par version : <code>HttpClient.newBuilder().version(HttpClient.Version.HTTP_3)</code>.</div>
+    <div class="card"><b class="h">« final veut dire final » (JEP 500, Java 26)</b>Modifier un champ <code>final</code> par réflexion profonde (<code>Field.set</code> après <code>setAccessible(true)</code>) émet désormais un avertissement à l'exécution, en vue d'être interdit par défaut. Des options de ligne de commande permettent d'autoriser explicitement ces mutations pour certains modules. Voir §17.5.3.</div>
+    <div class="card"><b class="h">Suppression de l'API Applet (JEP 504, Java 26)</b><code>java.applet</code>, <code>javax.swing.JApplet</code> et les classes associées, dépréciées pour suppression depuis Java 17, disparaissent. Un code qui les référence ne compile plus.</div>
+    <div class="card"><b class="h">G1 par défaut partout (JEP 523, Java 27)</b>Sans option, HotSpot choisit toujours G1, même sur les petites machines et conteneurs où il choisissait auparavant Serial. Pour garder l'ancien comportement : <code>-XX:+UseSerialGC</code>.</div>
+    <div class="card"><b class="h">En-têtes d'objets compacts par défaut (JEP 534, Java 27)</b>Les en-têtes d'objets passent à 8 octets sur les plateformes 64 bits (fonctionnalité de production depuis Java 25, JEP 519). Gain mémoire sans changer le code ; désactivable avec <code>-XX:-UseCompactObjectHeaders</code>.</div>
+    <div class="card"><b class="h">Cryptographie post-quantique pour TLS 1.3 (JEP 527, Java 27)</b>Échange de clés hybride (algorithme classique combiné à ML-KEM) dans les connexions TLS 1.3, pour protéger les échanges contre un futur ordinateur quantique.</div>
+  </div>
+
+  <h2 id="s26-5"><span class="sec">26.5</span>Migrer de Java 25 à Java 27 : la liste de contrôle</h2>
+  <div class="tbl"><table>
+    <thead><tr><th>Risque</th><th>Origine</th><th>Que faire</th></tr></thead>
+    <tbody>
+      <tr><td>Références à l'API Applet</td><td>JEP 504 (26)</td><td>supprimer le code, ou rester sur 25 pour ce module</td></tr>
+      <tr><td>Avertissements « final field mutation » au démarrage</td><td>JEP 500 (26)</td><td>mettre à jour les bibliothèques de sérialisation, mock ou injection qui modifient des champs final ; autoriser explicitement en attendant</td></tr>
+      <tr><td>Code preview qui ne compile plus</td><td>JEP 530 / 532</td><td>réordonner les étiquettes <code>case</code> (constantes avant motifs), retirer les étiquettes dominées</td></tr>
+      <tr><td>Classes preview compilées en 25</td><td>§1.5.1</td><td>recompiler avec <code>--release 27 --enable-preview</code></td></tr>
+      <tr><td>API preview modifiées (<code>FailedException</code>, <code>DEREncodable</code>, <code>LazyConstant.isInitialized</code>…)</td><td>JEP 531, 533, 538</td><td>voir la section 27</td></tr>
+      <tr><td>Empreinte mémoire ou pauses différentes</td><td>JEP 523, 534</td><td>vérifier les réglages de GC et de mémoire des petits conteneurs</td></tr>
+      <tr><td>Outils de bytecode (ASM, Byte Buddy, Mockito, JaCoCo…)</td><td>version de classe 71</td><td>mettre à jour vers une version qui lit le format Java 27</td></tr>
+      <tr><td>Support à long terme</td><td>Java 27 n'est pas LTS</td><td>en production conservatrice, rester sur 25 jusqu'à Java 29</td></tr>
+    </tbody>
+  </table></div>
+
+  <h2 id="s26-6"><span class="sec">26.6</span>Rappel : ce que Java 25 avait apporté</h2>
+  <p>Java 25 est le point de référence de cette comparaison, et une version riche pour le langage. Les fonctionnalités finalisées en 25 sont déjà intégrées dans cet atlas :</p>
+  <div class="tbl"><table>
+    <thead><tr><th>JEP</th><th>Fonctionnalité finalisée en Java 25</th><th>Dans l'atlas</th></tr></thead>
+    <tbody>
+      <tr><td class="num">511</td><td>Déclarations d'import de module</td><td>§7.5.5</td></tr>
+      <tr><td class="num">512</td><td>Fichiers source compacts et méthodes main d'instance</td><td>§7.3, §8.1.8, §12.1.4</td></tr>
+      <tr><td class="num">513</td><td>Corps de constructeur flexibles (prologue)</td><td>§8.8.7, §12.5</td></tr>
+      <tr><td class="num">506</td><td>Scoped values (API)</td><td>—</td></tr>
+      <tr><td class="num">510</td><td>API de dérivation de clés (KDF)</td><td>—</td></tr>
+      <tr><td class="num">519</td><td>En-têtes d'objets compacts (option de production)</td><td>—</td></tr>
+      <tr><td class="num">514, 515</td><td>Ergonomie et profilage des méthodes pour le cache AOT</td><td>—</td></tr>
+      <tr><td class="num">521</td><td>Shenandoah générationnel</td><td>—</td></tr>
+      <tr><td class="num">509, 518, 520</td><td>Profilage CPU, échantillonnage coopératif et chronométrage des méthodes dans JFR</td><td>—</td></tr>
+      <tr><td class="num">503</td><td>Suppression du portage x86 32 bits</td><td>—</td></tr>
+    </tbody>
+  </table></div>
+  <p>Les previews de Java 25 étaient : types primitifs dans les motifs (JEP 507), Stable Values (JEP 502, devenues Lazy Constants), Structured Concurrency 5ᵉ preview (JEP 505), encodages PEM (JEP 470) ; et l'incubateur Vector API (JEP 508).</p>
+
+  <h2 id="s26-quiz">Vérifier ses acquis</h2>
+  <div data-w="quiz"><script type="application/json">[
+    {"q":"Combien de sections ont été ajoutées à la JLS entre Java 25 et Java 27 ?","o":["Aucune","Trois, pour les motifs primitifs","Un chapitre entier"],"a":0,"e":"Les tables des matières sont identiques ; la preview est décrite dans un document séparé (§1.5)."},
+    {"q":"Quelle version d'Unicode la JLS 27 référence-t-elle ?","o":["15.1","16.0","17.0"],"a":2,"e":"Java 25 : 16.0 ; Java 26 et 27 : 17.0."},
+    {"q":"<code>case int i -&gt; …; case 42 -&gt; …;</code> avec un sélecteur int et --enable-preview…","o":["compile en 25, 26 et 27","compile en 25, erreur en 26 et 27","erreur partout"],"a":1,"e":"Le motif inconditionnel domine la constante qui suit depuis Java 26."},
+    {"q":"Une classe compilée avec --enable-preview sur JDK 25 tourne-t-elle sur JDK 27 ?","o":["Oui avec --enable-preview","Non, il faut la recompiler"],"a":1,"e":"Version 69.65535 : seule une JVM 25 l'accepte (§1.5.1)."},
+    {"q":"Java 27 est-il une version LTS ?","o":["Oui","Non"],"a":1,"e":"Les LTS suivent un rythme de deux ans : 21, 25, puis 29."},
+    {"q":"Quel JEP du JDK 26 peut casser la compilation de code existant ?","o":["JEP 517 (HTTP/3)","JEP 504 (suppression de l'API Applet)","JEP 522 (débit de G1)"],"a":1,"e":"Les classes java.applet et JApplet n'existent plus."}
+  ]</script></div>
+</div>
+
+<script>
+ATLAS.w.vsnips = function(el){
+  el.classList.add('vs');
+  const S = [
+    {t:'Motif inconditionnel puis constante', c:'int v = …;\nswitch (v) {\n    case int i -> "tout";\n    case 42    -> "réponse";\n}', r:{25:['ok','compile'],26:['err','case 42 dominé par case int i'],27:['err','case 42 dominé par case int i']}},
+    {t:'Motif float puis constante représentable', c:'int v = …;\nswitch (v) {\n    case float f    -> "float";\n    case 16_777_216 -> "2^24";\n    default         -> "autre";\n}', r:{25:['ok','compile'],26:['err','16_777_216 est exactement un float : dominée'],27:['err','16_777_216 est exactement un float : dominée']}},
+    {t:'Étiquette après un motif sans nom inconditionnel', c:'int v = …;\nswitch (v) {\n    case int _   -> "int";\n    case float _ -> "float";\n}', r:{25:['ok','compile'],26:['err','dominé par une étiquette précédente'],27:['err','dominé par une étiquette précédente']}},
+    {t:'Ordre correct : constantes d\'abord', c:'int v = …;\nswitch (v) {\n    case 42    -> "réponse";\n    case int i -> "tout";\n}', r:{25:['ok','compile'],26:['ok','compile'],27:['ok','compile']}},
+    {t:'Switch sur long avec gardes', c:'long n = …;\nString s = switch (n) {\n    case 0L -> "vide";\n    case long x when x < 1024 -> x + " o";\n    case long x -> (x / 1024) + " Ko";\n};', r:{25:['ok','compile (preview)'],26:['ok','compile (preview)'],27:['ok','compile (preview)']}},
+    {t:'Switch double non exhaustif', c:'double d = …;\nString s = switch (d) {\n    case 0.0 -> "zéro";\n};', r:{25:['err','pas exhaustif'],26:['err','pas exhaustif'],27:['err','pas exhaustif ; le message nomme le motif manquant : double _']}}
+  ];
+  let v=27;
+  el.innerHTML='<div class="vrow">'+[25,26,27].map(x=>'<button type="button" class="btn ver" data-v="'+x+'">JDK '+x+' --enable-preview</button>').join('')+'</div><div class="list"></div>';
+  const list=el.querySelector('.list');
+  function run(){
+    el.querySelectorAll('.ver').forEach(b=>b.classList.toggle('on',+b.dataset.v===v));
+    list.innerHTML=S.map(s=>{ const [k,m]=s.r[v]; return '<div class="snip"><div><span class="lbl" style="color:var(--muted)">'+s.t+'</span><div class="code"><pre><code>'+ATLAS.hlJava(s.c)+'</code></pre></div></div><div><div class="v '+k+'">'+(k==='ok'?'Compile':'Erreur de compilation')+'</div><p style="margin:.3em 0 0;font-size:.9rem">'+m+'</p></div></div>'; }).join('');
+  }
+  el.querySelectorAll('.ver').forEach(b=>b.onclick=()=>{ v=+b.dataset.v; run(); });
+  run();
+};
+
+ATLAS.w.jeptimeline = function(el){
+  el.classList.add('jt');
+  const J = [
+    [25,507,'Types primitifs dans les motifs (3ᵉ preview)','Langage','prev'],
+    [25,511,'Import de module','Langage','fin'],
+    [25,512,'Fichiers source compacts, main d\'instance','Langage','fin'],
+    [25,513,'Corps de constructeur flexibles','Langage','fin'],
+    [25,502,'Stable Values (preview)','Bibliothèques','prev'],
+    [25,505,'Structured Concurrency (5ᵉ preview)','Bibliothèques','prev'],
+    [25,506,'Scoped Values','Bibliothèques','fin'],
+    [25,508,'Vector API (10ᵉ incubateur)','Bibliothèques','inc'],
+    [25,470,'Encodages PEM (preview)','Sécurité','prev'],
+    [25,510,'API de dérivation de clés','Sécurité','fin'],
+    [25,519,'En-têtes d\'objets compacts','JVM et GC','fin'],
+    [25,521,'Shenandoah générationnel','JVM et GC','fin'],
+    [25,514,'Ergonomie du cache AOT','JVM et GC','fin'],
+    [25,515,'Profilage des méthodes AOT','JVM et GC','fin'],
+    [25,509,'JFR : profilage CPU (expérimental)','Outils','fin'],
+    [25,518,'JFR : échantillonnage coopératif','Outils','fin'],
+    [25,520,'JFR : chronométrage des méthodes','Outils','fin'],
+    [25,503,'Suppression du portage x86 32 bits','Retraits','rem'],
+    [26,530,'Types primitifs dans les motifs (4ᵉ preview)','Langage','prev'],
+    [26,526,'Lazy Constants (2ᵉ preview)','Bibliothèques','prev'],
+    [26,525,'Structured Concurrency (6ᵉ preview)','Bibliothèques','prev'],
+    [26,529,'Vector API (11ᵉ incubateur)','Bibliothèques','inc'],
+    [26,517,'HTTP/3 pour le client HTTP','Bibliothèques','fin'],
+    [26,524,'Encodages PEM (2ᵉ preview)','Sécurité','prev'],
+    [26,500,'Préparer « final veut dire final »','JVM et GC','fin'],
+    [26,516,'Cache d\'objets AOT avec tout GC','JVM et GC','fin'],
+    [26,522,'G1 : meilleur débit','JVM et GC','fin'],
+    [26,504,'Suppression de l\'API Applet','Retraits','rem'],
+    [27,532,'Types primitifs dans les motifs (5ᵉ preview)','Langage','prev'],
+    [27,531,'Lazy Constants (3ᵉ preview)','Bibliothèques','prev'],
+    [27,533,'Structured Concurrency (7ᵉ preview)','Bibliothèques','prev'],
+    [27,537,'Vector API (12ᵉ incubateur)','Bibliothèques','inc'],
+    [27,538,'Encodages PEM (3ᵉ preview)','Sécurité','prev'],
+    [27,527,'Échange de clés hybride post-quantique (TLS 1.3)','Sécurité','fin'],
+    [27,523,'G1 par défaut dans tous les environnements','JVM et GC','fin'],
+    [27,534,'En-têtes d\'objets compacts par défaut','JVM et GC','fin'],
+    [27,536,'JFR : masquage des données sensibles','Outils','fin']
+  ];
+  const doms=['Tout','Langage','Bibliothèques','Sécurité','JVM et GC','Outils','Retraits'];
+  const sub={25:'16 sept. 2025 · LTS · point de départ',26:'17 mars 2026',27:'15 sept. 2026'};
+  el.innerHTML='<div class="filters">'+doms.map((d,i)=>'<button type="button" class="btn'+(i===0?' on':'')+'" data-d="'+d+'">'+d+'</button>').join('')+'</div><div class="cols">'+[25,26,27].map(v=>'<div class="col"><h4>JDK '+v+'<small>'+sub[v]+'</small></h4>'+J.filter(j=>j[0]===v).map(j=>'<div class="jep '+j[4]+'" data-d="'+j[3]+'"><span class="n">JEP '+j[1]+' · '+j[3]+'</span><b>'+j[2]+'</b></div>').join('')+'</div>').join('')+'</div><div class="leg"><span><i style="background:var(--ok)"></i>final</span><span><i style="background:var(--ember)"></i>preview</span><span><i style="background:var(--violet)"></i>incubateur</span><span><i style="background:var(--err)"></i>retrait</span></div>';
+  el.querySelectorAll('.filters .btn').forEach(b=>b.onclick=()=>{ const d=b.dataset.d; el.querySelectorAll('.filters .btn').forEach(x=>x.classList.toggle('on',x===b)); el.querySelectorAll('.jep').forEach(j=>j.hidden = d!=='Tout' && j.dataset.d!==d); });
+};
+</script>

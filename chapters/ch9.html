@@ -1,0 +1,244 @@
+<div class="col">
+  <div class="eyebrow">Chapitre 9 · Java SE 27 Edition</div>
+  <h1>Interfaces</h1>
+  <p class="lede">Une interface déclare un contrat que des classes sans lien entre elles peuvent remplir. Ce chapitre couvre ses membres (constantes, méthodes abstraites, default, static et private), l'héritage multiple et ses conflits, les annotations, et les interfaces fonctionnelles qui rendent les lambdas possibles.</p>
+  <div class="meta">
+    <span>Source : <a href="https://docs.oracle.com/javase/specs/jls/se27/html/jls-9.html" target="_blank" rel="noopener">JLS SE 27, chapitre 9</a></span>
+    <span>Sections : <b>9.1 à 9.9</b></span>
+  </div>
+
+  <h2 id="s9-1"><span class="sec">§9.1</span>Déclarations d'interfaces</h2>
+  <p>Il existe deux sortes d'interfaces : les interfaces <b>normales</b> (<code>interface</code>) et les interfaces d'<b>annotation</b> (<code>@interface</code>, §9.6). Une interface peut être de plus haut niveau, membre ou locale (depuis Java 16, une interface locale est permise dans un bloc).</p>
+
+  <h3 id="s9-1-1"><span class="sec">§9.1.1</span>Modificateurs d'interface</h3>
+  <p>Annotations, <code>public</code>, <code>protected</code>, <code>private</code>, <code>abstract</code>, <code>static</code>, <code>sealed</code>, <code>non-sealed</code>, <code>strictfp</code>. Une interface n'est jamais <code>final</code> : ce serait absurde, elle n'existe que pour être implémentée.</p>
+  <ul>
+    <li id="s9-1-1-1"><b>§9.1.1.1 abstract</b> : toute interface est implicitement abstraite ; le mot-clé est permis mais redondant et déconseillé.</li>
+    <li id="s9-1-1-2"><b>§9.1.1.2 strictfp</b> : sans effet depuis Java 17.</li>
+    <li id="s9-1-1-3"><b>§9.1.1.3 static</b> : une interface membre ou locale est implicitement <code>static</code> ; elle n'a jamais d'instance englobante.</li>
+    <li id="s9-1-1-4"><b>§9.1.1.4 sealed et non-sealed</b> : une interface <code>sealed</code> liste les classes et interfaces autorisées à l'étendre ou l'implémenter directement. Chaque sous-type autorisé est une classe (<code>final</code>, <code>sealed</code> ou <code>non-sealed</code>, ou un record/enum) ou une interface (<code>sealed</code> ou <code>non-sealed</code>).</li>
+  </ul>
+
+  <h3 id="s9-1-2"><span class="sec">§9.1.2</span>Interfaces génériques</h3>
+  <p>Comme les classes (§8.1.2) : <code>interface Fonction&lt;T, R&gt; { R appliquer(T t); }</code>. Les paramètres de type ne sont pas en portée dans les membres <code>static</code>.</p>
+
+  <h3 id="s9-1-3"><span class="sec">§9.1.3</span>Superinterfaces et sous-interfaces</h3>
+  <p>Une interface peut étendre <b>plusieurs</b> interfaces : <code>interface Lecteur extends AutoCloseable, Iterable&lt;String&gt;</code>. Elle ne peut pas étendre une classe, et elle ne peut pas dépendre d'elle-même. Une interface sans clause <code>extends</code> n'a pas de superinterface, et <code>Object</code> n'est <b>pas</b> son supertype au sens de l'héritage (voir §9.2).</p>
+
+  <h3 id="s9-1-4"><span class="sec">§9.1.4</span>Sous-types directs autorisés</h3>
+  <p>Clause <code>permits</code> d'une interface <code>sealed</code>, avec les mêmes règles que pour les classes (§8.1.6) : même module, extension directe, clause omise ⇒ sous-types déclarés dans la même unité.</p>
+
+  <h3 id="s9-1-5"><span class="sec">§9.1.5</span>Corps d'interface</h3>
+  <p>Il contient des constantes, des méthodes, et des classes ou interfaces membres. Pas de constructeur, pas d'initialiseur, pas de champ d'instance : une interface n'a pas d'état propre.</p>
+
+  <h2 id="s9-2"><span class="sec">§9.2</span>Membres d'une interface</h2>
+  <p>Les membres d'une interface sont ses membres déclarés et ceux hérités de ses superinterfaces directes. Une règle subtile concerne <code>Object</code> :</p>
+  <div class="rule"><span class="lbl">Règle · les méthodes implicites de Object</span>
+    <p>Une interface sans superinterface déclare <b>implicitement</b> une méthode abstraite publique pour chaque méthode <code>public</code> d'instance de <code>Object</code> (<code>equals</code>, <code>hashCode</code>, <code>toString</code>, <code>getClass</code>, <code>notify</code>…), sauf si elle déclare explicitement une méthode de même signature. C'est ce qui permet d'écrire <code>monInterface.toString()</code>.</p>
+    <p>Redéclarer explicitement une méthode <code>final</code> de Object (<code>getClass</code>, <code>wait</code>…) est une erreur ; changer le type de retour d'une de ces méthodes aussi.</p>
+  </div>
+
+  <h2 id="s9-3"><span class="sec">§9.3</span>Champs (constantes)</h2>
+  <p>Tout champ d'interface est implicitement <code>public static final</code>. Il doit avoir un initialiseur. Si deux superinterfaces fournissent un champ de même nom, l'utiliser par son nom simple est ambigu ; il faut le qualifier.</p>
+  <div class="code"><div class="bar"><span>Java</span></div><pre><code class="java">interface Couleurs { int ROUGE = 1; }
+interface Feux    { int ROUGE = 10; }
+class Carrefour implements Couleurs, Feux {
+    int f() { return ROUGE; }          // ERREUR : référence ambiguë
+    int g() { return Feux.ROUGE; }     // OK
+}</code></pre></div>
+  <div class="nn"><span class="lbl">Note non normative</span>
+    <p>« Implémenter une interface pour hériter de ses constantes » (le <i>constant interface antipattern</i>) pollue l'API publique de la classe. Préférez une classe finale de constantes et un <code>import static</code>.</p>
+  </div>
+  <h3 id="s9-3-1"><span class="sec">§9.3.1</span>Initialisation des champs d'interface</h3>
+  <p>Les champs sont initialisés quand l'interface est initialisée (§12.4). Mêmes restrictions de référence en avant que pour les classes. Une variable constante n'entraîne jamais l'initialisation : sa valeur est recopiée dans le code client.</p>
+
+  <h2 id="s9-4"><span class="sec">§9.4</span>Déclarations de méthodes</h2>
+  <p>Depuis Java 8 et 9, une interface peut contenir quatre sortes de méthodes :</p>
+  <div class="tbl"><table>
+    <thead><tr><th>Sorte</th><th>Déclaration</th><th>Corps</th><th>Héritée par les classes ?</th><th>Accès</th></tr></thead>
+    <tbody>
+      <tr><td><b>abstraite</b></td><td>sans modificateur spécial</td><td>non (<code>;</code>)</td><td>oui, à implémenter</td><td>public</td></tr>
+      <tr><td><b>default</b></td><td><code>default</code></td><td>oui</td><td>oui, redéfinissable</td><td>public</td></tr>
+      <tr><td><b>static</b></td><td><code>static</code></td><td>oui</td><td><b>non</b> : appel par <code>Interface.m()</code></td><td>public ou private</td></tr>
+      <tr><td><b>private</b></td><td><code>private</code> (instance ou static)</td><td>oui</td><td>non</td><td>private</td></tr>
+    </tbody>
+  </table></div>
+  <div class="code"><div class="bar"><span>Java</span></div><pre><code class="java">interface Forme {
+    double aire();                                         // abstraite, implicitement public abstract
+    default String decrire() { return nom() + " : " + format(aire()); }  // default
+    static Forme unite() { return () -&gt; 1.0; }             // static : Forme.unite()
+    private String format(double d) { return "%.2f".formatted(d); }  // aide privée
+    default String nom() { return getClass().getSimpleName(); }
+}
+class Carre implements Forme { public double aire() { return 4; } }
+new Carre().decrire();      // "Carre : 4,00"
+Carre.unite();              // ERREUR : les méthodes static d'interface ne sont pas héritées</code></pre></div>
+  <div class="rule"><span class="lbl">Règles</span>
+    <p>Une méthode d'interface ne peut pas être <code>protected</code>, ni à accès paquetage, ni <code>final</code>, <code>synchronized</code> ou <code>native</code>. Une méthode <code>default</code> ne peut pas avoir la signature d'une méthode publique de <code>Object</code> : <code>default boolean equals(Object o)</code> est interdit, car la classe gagnerait toujours (§9.4.1.3).</p>
+  </div>
+
+  <h3 id="s9-4-1"><span class="sec">§9.4.1</span>Héritage et redéfinition</h3>
+  <p>Une interface I hérite des méthodes abstraites et <code>default</code> de ses superinterfaces qui ne sont pas redéfinies par une déclaration de I, ni <b>déjà redéfinies</b> par une autre superinterface de I (§9.4.1.1). Les exigences du §9.4.1.2 sont celles des classes : retour substituable, pas de nouvelles exceptions vérifiées.</p>
+
+  <h4 id="s9-4-1-3"><span class="sec">§9.4.1.3</span>Hériter plusieurs méthodes équivalentes : les règles de résolution</h4>
+  <div class="rule"><span class="lbl">Les trois règles</span>
+    <ol style="margin:0">
+      <li><b>La classe gagne.</b> Une méthode concrète héritée d'une superclasse l'emporte sur toute méthode <code>default</code>.</li>
+      <li><b>L'interface la plus spécifique gagne.</b> Si B étend A et que les deux fournissent un default, celui de B l'emporte.</li>
+      <li><b>Sinon, c'est un conflit</b> : la classe doit redéfinir la méthode, et peut appeler une version précise avec <code>X.super.m()</code>.</li>
+    </ol>
+  </div>
+</div>
+
+<div class="wide">
+  <figure>
+    <p class="fig-title">Figure 9.1 · Résoudre un conflit de méthodes default</p>
+    <div data-w="explorer"><script type="application/json">{"items":[
+      {"k":"La classe gagne","sub":"superclasse vs default","d":"<p>La méthode concrète de la superclasse <code>Base</code> l'emporte sur le default de <code>Volant</code>, même si Base ne connaît pas Volant.</p><p>C'est ce qui garantit qu'ajouter une méthode default à une interface ne change pas le comportement des classes existantes qui avaient déjà cette méthode.</p>","code":"interface Volant { default String bouger() { return \"vole\"; } }\nclass Base { public String bouger() { return \"marche\"; } }\nclass Canard extends Base implements Volant { }\nnew Canard().bouger();   // \"marche\""},
+      {"k":"Le plus spécifique gagne","sub":"sous-interface vs interface","d":"<p>B étend A et redéfinit le default : B est plus spécifique, son default est choisi. Le default de A est considéré comme <b>déjà redéfini</b>, il n'entre pas en conflit.</p>","code":"interface A { default String qui() { return \"A\"; } }\ninterface B extends A { default String qui() { return \"B\"; } }\nclass C implements A, B { }\nnew C().qui();   // \"B\""},
+      {"k":"Conflit : redéfinition obligatoire","sub":"deux interfaces sans lien","d":"<p>A et B, sans lien entre elles, fournissent toutes deux un default <code>qui()</code>. La classe C doit le redéfinir, sinon erreur de compilation. La syntaxe <code>X.super.m()</code> appelle la version d'une superinterface <b>directe</b>.</p>","code":"interface A { default String qui() { return \"A\"; } }\ninterface B { default String qui() { return \"B\"; } }\nclass C implements A, B {\n    public String qui() { return A.super.qui() + B.super.qui(); }   // \"AB\"\n}"},
+      {"k":"Default contre abstraite","sub":"un des deux est abstrait","d":"<p>Si A fournit un default et que B, sans lien, déclare la même méthode <b>abstraite</b>, c'est aussi un conflit : une classe qui implémente A et B doit redéfinir la méthode (ou être abstraite). Le default ne « remplit » pas l'abstraite d'une interface sans lien.</p>","code":"interface A { default void f() { } }\ninterface B { void f(); }\nclass C implements A, B { }              // ERREUR\nclass D implements A, B { public void f() { A.super.f(); } }   // OK"},
+      {"k":"Diamant","sub":"un seul default en haut","d":"<p>B et C étendent A sans redéfinir <code>qui()</code>. D implémente B et C : il n'hérite qu'<b>une</b> méthode, celle de A. Pas de conflit : c'est la même déclaration.</p>","code":"interface A { default String qui() { return \"A\"; } }\ninterface B extends A { }\ninterface C extends A { }\nclass D implements B, C { }\nnew D().qui();   // \"A\""},
+      {"k":"Réabstraction","sub":"une sous-interface rend la méthode abstraite","d":"<p>Une sous-interface peut redéclarer un default comme abstrait. Les classes qui l'implémentent doivent alors fournir une implémentation.</p>","code":"interface A { default String qui() { return \"A\"; } }\ninterface B extends A { String qui(); }   // redevient abstraite\nclass C implements B { }                  // ERREUR : qui() non implémentée"}
+    ]}</script></div>
+  </figure>
+</div>
+
+<div class="col">
+  <h3 id="s9-4-2"><span class="sec">§9.4.2</span>Surcharge</h3>
+  <p>Comme pour les classes : même nom, signatures non équivalentes. Aucune contrainte sur les types de retour ou les exceptions des surcharges.</p>
+  <h3 id="s9-4-3"><span class="sec">§9.4.3</span>Corps d'une méthode d'interface</h3>
+  <p>Une méthode <code>default</code>, <code>static</code> ou <code>private</code> a un bloc ; une méthode abstraite, <code>;</code>. Dans un default ou une private d'instance, <code>this</code> désigne l'objet qui implémente l'interface. <code>super</code> seul n'a pas de sens dans une interface ; seule la forme <code>X.super.m()</code> existe.</p>
+
+  <h2 id="s9-5"><span class="sec">§9.5</span>Classes et interfaces membres</h2>
+  <p>Toute classe ou interface membre d'une interface est implicitement <code>public</code> et <code>static</code>. On s'en sert pour regrouper un type avec son contrat : <code>Map.Entry</code>, <code>Thread.UncaughtExceptionHandler</code>.</p>
+
+  <h2 id="s9-6"><span class="sec">§9.6</span>Interfaces d'annotation</h2>
+  <p>Une interface d'annotation se déclare avec <code>@interface</code>. Elle définit un type d'annotation. Elle ne peut pas être générique, avoir de clause <code>extends</code>, ni être scellée ; sa superinterface implicite est <code>java.lang.annotation.Annotation</code>.</p>
+  <h3 id="s9-6-1"><span class="sec">§9.6.1</span>Éléments</h3>
+  <p>Ses méthodes sont des <b>éléments</b> : sans paramètre, sans paramètre de type, sans <code>throws</code>. Leur type de retour est limité à : un type primitif, <code>String</code>, <code>Class</code> (éventuellement paramétré), un enum, une autre interface d'annotation, ou un tableau à une dimension de ces types.</p>
+  <h3 id="s9-6-2"><span class="sec">§9.6.2</span>Valeurs par défaut</h3>
+  <p>Un élément peut avoir une valeur par défaut, qui doit être une <b>expression constante</b> (ou un littéral de classe, une constante d'enum, une annotation, un tableau de ceux-ci). <code>null</code> n'est jamais permis.</p>
+  <div class="code"><div class="bar"><span>Java</span></div><pre><code class="java">@Retention(RetentionPolicy.RUNTIME)
+@Target({ElementType.METHOD, ElementType.TYPE})
+public @interface Cache {
+    String nom();                          // obligatoire à l'usage
+    int dureeSecondes() default 60;
+    Class&lt;?&gt;[] exclure() default {};
+    Niveau niveau() default Niveau.LOCAL;  // enum
+    String description() default "";      // null interdit : "" sert de « vide »
+}
+
+@Cache(nom = "produits", dureeSecondes = 300)
+List&lt;Produit&gt; lister() { … }</code></pre></div>
+  <h3 id="s9-6-3"><span class="sec">§9.6.3</span>Annotations répétables</h3>
+  <p>Une annotation annotée <code>@Repeatable(Conteneur.class)</code> peut apparaître plusieurs fois au même endroit. Le compilateur regroupe les occurrences dans une annotation <b>conteneur</b>, dont l'élément <code>value()</code> est un tableau du type répétable. Le conteneur doit avoir une rétention au moins aussi longue et des cibles compatibles.</p>
+  <div class="code"><div class="bar"><span>Java</span></div><pre><code class="java">@Repeatable(Roles.class)
+@interface Role { String value(); }
+@interface Roles { Role[] value(); }       // conteneur
+
+@Role("admin") @Role("audit")              // stocké comme @Roles({@Role("admin"), @Role("audit")})
+class Service { }
+Service.class.getAnnotationsByType(Role.class);   // les deux @Role</code></pre></div>
+
+  <h3 id="s9-6-4"><span class="sec">§9.6.4</span>Annotations prédéfinies</h3>
+  <div class="tbl"><table>
+    <thead><tr><th>Annotation</th><th>Rôle</th><th>Effet du compilateur</th></tr></thead>
+    <tbody>
+      <tr id="s9-6-4-1"><td><code>@Target</code> §9.6.4.1</td><td>où l'annotation peut apparaître (voir ci-dessous)</td><td>erreur si placée ailleurs</td></tr>
+      <tr id="s9-6-4-2"><td><code>@Retention</code> §9.6.4.2</td><td><code>SOURCE</code> (supprimée du .class), <code>CLASS</code> (défaut, dans le .class mais pas visible par réflexion), <code>RUNTIME</code> (visible par réflexion)</td><td>—</td></tr>
+      <tr id="s9-6-4-3"><td><code>@Inherited</code> §9.6.4.3</td><td>une annotation de <b>classe</b> est héritée par les sous-classes (pas via les interfaces, pas sur les méthodes)</td><td>—</td></tr>
+      <tr id="s9-6-4-4"><td><code>@Override</code> §9.6.4.4</td><td>déclare l'intention de redéfinir</td><td>erreur si la méthode ne redéfinit ni n'implémente rien</td></tr>
+      <tr id="s9-6-4-5"><td><code>@SuppressWarnings</code> §9.6.4.5</td><td>supprime des avertissements : <code>"unchecked"</code>, <code>"deprecation"</code>, <code>"removal"</code>, <code>"preview"</code>…</td><td>supprime dans la déclaration annotée et ses déclarations internes</td></tr>
+      <tr id="s9-6-4-6"><td><code>@Deprecated</code> §9.6.4.6</td><td>élément obsolète ; <code>forRemoval = true</code> pour une suppression prévue, <code>since</code></td><td>avertissement à l'usage (plus fort si forRemoval)</td></tr>
+      <tr id="s9-6-4-7"><td><code>@SafeVarargs</code> §9.6.4.7</td><td>affirme qu'une méthode variadique générique ne pollue pas le tas</td><td>supprime les avertissements unchecked liés ; permis seulement sur constructeurs et méthodes static, final ou private</td></tr>
+      <tr id="s9-6-4-8"><td><code>@Repeatable</code> §9.6.4.8</td><td>voir §9.6.3</td><td>vérifie la cohérence du conteneur</td></tr>
+      <tr id="s9-6-4-9"><td><code>@FunctionalInterface</code> §9.6.4.9</td><td>déclare l'intention d'être une interface fonctionnelle</td><td>erreur si ce n'en est pas une (§9.8)</td></tr>
+    </tbody>
+  </table></div>
+  <p>Les cibles de <code>@Target</code> (<code>ElementType</code>) : <code>TYPE</code>, <code>FIELD</code>, <code>METHOD</code>, <code>PARAMETER</code>, <code>CONSTRUCTOR</code>, <code>LOCAL_VARIABLE</code>, <code>ANNOTATION_TYPE</code>, <code>PACKAGE</code>, <code>TYPE_PARAMETER</code>, <code>TYPE_USE</code>, <code>MODULE</code>, <code>RECORD_COMPONENT</code>. Sans <code>@Target</code>, une annotation est applicable dans tous les contextes de déclaration (mais pas comme annotation de type).</p>
+
+  <h2 id="s9-7"><span class="sec">§9.7</span>Annotations</h2>
+  <p>Une annotation associe des métadonnées à une construction du programme. Elle n'a <b>aucun effet</b> sur la sémantique du langage : ce sont les outils, le compilateur ou les frameworks qui l'exploitent.</p>
+  <div class="grid2">
+    <div class="card" id="s9-7-1"><b class="h">§9.7.1 Normale</b><code>@Cache(nom = "p", dureeSecondes = 30)</code> : paires élément = valeur. Un tableau à un élément peut s'écrire sans accolades.</div>
+    <div class="card" id="s9-7-2"><b class="h">§9.7.2 Marqueur</b><code>@Override</code> : aucun élément (ou tous ont une valeur par défaut). Forme courte de <code>@Override()</code>.</div>
+    <div class="card" id="s9-7-3"><b class="h">§9.7.3 Élément unique</b><code>@SuppressWarnings("unchecked")</code> : forme courte de <code>value = "unchecked"</code>, si l'élément s'appelle <code>value</code>.</div>
+  </div>
+
+  <h3 id="s9-7-4"><span class="sec">§9.7.4</span>Où les annotations peuvent apparaître</h3>
+  <p>Deux catégories : les annotations de <b>déclaration</b> (sur une classe, un champ, une méthode…) et les annotations de <b>type</b> (<code>TYPE_USE</code>, Java 8), qui s'appliquent à un usage de type dans l'un des 17 contextes du §4.11.</p>
+  <div class="code"><div class="bar"><span>Java · annotations de type</span></div><pre><code class="java">@NonNull String nom;                  // si @NonNull cible TYPE_USE, il annote le type String
+List&lt;@NonNull String&gt; noms;           // argument de type
+String @NonNull [] tab;               // le TABLEAU est non nul (les éléments, eux, ne le sont pas forcément)
+@NonNull String[] tab2;               // les ÉLÉMENTS sont non nuls
+java.lang.@NonNull String q;          // dans un nom qualifié, l'annotation se place juste avant le nom simple
+@NonNull java.lang.String r;          // ERREUR pour une annotation TYPE_USE seule : elle viserait le paquetage
+Object o = (@NonNull Object) x;       // dans un cast
+void m() throws @Critique IOException // dans throws</code></pre></div>
+  <div class="rule"><span class="lbl">Règle · ambiguïté</span>
+    <p>Une annotation placée devant une déclaration de champ, de méthode, de paramètre ou de variable peut être à la fois une annotation de déclaration et une annotation de type, si ses cibles l'autorisent. Elle s'applique alors aux deux.</p>
+  </div>
+  <h3 id="s9-7-5"><span class="sec">§9.7.5</span>Plusieurs annotations du même type</h3>
+  <p>Erreur, sauf si l'interface d'annotation est répétable (§9.6.3) : les occurrences sont alors regroupées dans un conteneur.</p>
+
+  <h2 id="s9-8"><span class="sec">§9.8</span>Interfaces fonctionnelles</h2>
+  <p>Une <b>interface fonctionnelle</b> est une interface (non scellée) qui n'a qu'<b>une seule méthode abstraite</b>, en dehors des méthodes publiques de <code>Object</code>. Elle représente un contrat de fonction unique, et c'est le seul type cible possible pour une lambda (§15.27) ou une référence de méthode (§15.13).</p>
+  <div class="rule"><span class="lbl">Règles de comptage</span>
+    <p>Ne comptent pas : les méthodes <code>default</code>, <code>static</code>, <code>private</code>, et les méthodes abstraites qui correspondent à une méthode publique de <code>Object</code>. Si plusieurs méthodes abstraites héritées ont des signatures équivalentes et qu'une d'elles a un retour substituable à tous les autres, elles comptent pour <b>une</b>.</p>
+  </div>
+</div>
+
+<div class="wide">
+  <figure>
+    <p class="fig-title">Figure 9.2 · Interface fonctionnelle ou non ?</p>
+    <div data-w="explorer"><script type="application/json">{"items":[
+      {"k":"Runnable","sub":"void run()","d":"<p><span class=\"pill o\">fonctionnelle</span> Une seule méthode abstraite.</p>","code":"Runnable r = () -> IO.println(\"ok\");"},
+      {"k":"Comparator<T>","sub":"compare + equals","d":"<p><span class=\"pill o\">fonctionnelle</span> Comparator déclare <code>compare</code> et <code>equals(Object)</code>, mais <code>equals</code> est une méthode publique de Object : elle ne compte pas. Ses nombreuses méthodes default et static non plus.</p>"},
+      {"k":"interface A { void f(); default void g() {} }","sub":"default","d":"<p><span class=\"pill o\">fonctionnelle</span> Les méthodes default ne comptent pas.</p>"},
+      {"k":"interface Vide { }","sub":"aucune méthode","d":"<p><span class=\"pill r\">non</span> Il faut exactement une méthode abstraite. Une interface marqueur (comme <code>Serializable</code>) n'est pas fonctionnelle.</p>"},
+      {"k":"interface B { void f(); void g(); }","sub":"deux méthodes","d":"<p><span class=\"pill r\">non</span> Deux méthodes abstraites distinctes.</p>"},
+      {"k":"interface X { Iterable m(Iterable<String> a); }  interface Y { Iterable<String> m(Iterable a); }  interface Z extends X, Y { }","sub":"héritage, effacement","d":"<p><span class=\"pill o\">fonctionnelle</span> Les deux méthodes héritées ont des signatures équivalentes pour la redéfinition (l'une est l'effacement de l'autre), et le retour <code>Iterable&lt;String&gt;</code> est substituable : elles comptent pour une (exemple 9.8-2 de la spec).</p>"},
+      {"k":"interface G { <T> T faire(T t); }","sub":"méthode générique","d":"<p><span class=\"pill e\">fonctionnelle, mais…</span> L'interface est fonctionnelle, et son type de fonction est générique (§9.9). Une <b>lambda</b> ne peut pas l'implémenter (elle ne peut pas déclarer de paramètres de type) ; une <b>référence de méthode</b> générique, si.</p>","code":"G g1 = x -> x;              // ERREUR\nG g2 = Objects::requireNonNull;   // OK"},
+      {"k":"sealed interface S permits ... { void f(); }","sub":"scellée","d":"<p><span class=\"pill r\">non</span> Une interface scellée n'est jamais fonctionnelle : une lambda créerait une implémentation hors de la liste autorisée.</p>"},
+      {"k":"interface F { boolean equals(Object o); }","sub":"seulement Object","d":"<p><span class=\"pill r\">non</span> Sa seule méthode abstraite est celle de Object : elle ne compte pas, il reste zéro méthode.</p>"}
+    ]}</script></div>
+  </figure>
+</div>
+
+<div class="col">
+  <p><code>@FunctionalInterface</code> n'est pas nécessaire pour qu'une interface soit fonctionnelle ; elle protège seulement contre l'ajout accidentel d'une deuxième méthode abstraite. Le paquetage <code>java.util.function</code> fournit les formes courantes :</p>
+  <div class="tbl"><table>
+    <thead><tr><th>Interface</th><th>Type de fonction</th><th>Variantes primitives</th></tr></thead>
+    <tbody>
+      <tr><td><code>Supplier&lt;T&gt;</code></td><td><code>() → T</code></td><td><code>IntSupplier</code>, <code>BooleanSupplier</code>…</td></tr>
+      <tr><td><code>Consumer&lt;T&gt;</code></td><td><code>T → void</code></td><td><code>IntConsumer</code>, <code>BiConsumer&lt;T,U&gt;</code></td></tr>
+      <tr><td><code>Function&lt;T,R&gt;</code></td><td><code>T → R</code></td><td><code>IntFunction&lt;R&gt;</code>, <code>ToIntFunction&lt;T&gt;</code>, <code>BiFunction</code></td></tr>
+      <tr><td><code>Predicate&lt;T&gt;</code></td><td><code>T → boolean</code></td><td><code>IntPredicate</code>, <code>BiPredicate</code></td></tr>
+      <tr><td><code>UnaryOperator&lt;T&gt;</code></td><td><code>T → T</code></td><td><code>IntUnaryOperator</code></td></tr>
+      <tr><td><code>BinaryOperator&lt;T&gt;</code></td><td><code>(T, T) → T</code></td><td><code>IntBinaryOperator</code></td></tr>
+    </tbody>
+  </table></div>
+
+  <h2 id="s9-9"><span class="sec">§9.9</span>Types de fonction</h2>
+  <p>Le <b>type de fonction</b> d'une interface fonctionnelle I est ce qu'une lambda doit respecter : les types de paramètres, le type de retour et les exceptions de sa méthode abstraite unique, vus à travers le paramétrage de I. Pour un type paramétré avec jokers, comme <code>Function&lt;? super String, ? extends Number&gt;</code>, la spec dérive d'abord un paramétrage sans joker (<i>non-wildcard parameterization</i>, §9.9) : ici <code>Function&lt;String, Number&gt;</code>, donc le type de fonction <code>String → Number</code>.</p>
+  <div class="code"><div class="bar"><span>Java</span></div><pre><code class="java">Function&lt;? super String, ? extends Number&gt; f = s -&gt; s.length();
+// paramétrage sans joker : Function&lt;String, Number&gt;
+// type de fonction : (String) -&gt; Number ; s est un String, s.length() (int) est boxé en Integer &lt;: Number
+
+interface Lecteur { String lire() throws IOException; }
+Lecteur l = () -&gt; Files.readString(Path.of("a.txt"));   // OK : le type de fonction autorise IOException
+Supplier&lt;String&gt; s = () -&gt; Files.readString(Path.of("a.txt"));  // ERREUR : get() ne lève rien de vérifié</code></pre></div>
+  <p>Quand plusieurs méthodes abstraites héritées comptent pour une, leurs clauses <code>throws</code> sont <b>intersectées</b> : la lambda ne peut lever que ce que toutes autorisent.</p>
+
+  <h2 id="s9-quiz">Vérifier ses acquis</h2>
+  <div data-w="quiz"><script type="application/json">[
+    {"q":"Une classe peut-elle appeler une méthode <code>static</code> d'une interface qu'elle implémente par son nom simple ?","o":["Oui","Non : les méthodes static d'interface ne sont pas héritées","Seulement depuis Java 17"],"a":1,"e":"Il faut écrire Interface.methode() (§9.4)."},
+    {"q":"C extends Base implements I ; Base et I fournissent la même méthode (concrète / default). Laquelle est utilisée ?","o":["Celle de I","Celle de Base","Erreur de compilation"],"a":1,"e":"La classe gagne toujours (§9.4.1.3)."},
+    {"q":"Deux interfaces sans lien fournissent chacune un default <code>f()</code>. La classe qui implémente les deux…","o":["hérite de la première listée","doit redéfinir f()","hérite des deux"],"a":1,"e":"Conflit : redéfinition obligatoire, avec éventuellement A.super.f()."},
+    {"q":"<code>Comparator</code> déclare <code>compare</code> et <code>equals</code>. Est-il fonctionnel ?","o":["Non, deux méthodes abstraites","Oui : equals est une méthode publique de Object","Seulement avec @FunctionalInterface"],"a":1,"e":"Les méthodes publiques de Object ne comptent pas (§9.8)."},
+    {"q":"Quelle rétention faut-il pour lire une annotation par réflexion ?","o":["SOURCE","CLASS","RUNTIME"],"a":2,"e":"CLASS (le défaut) garde l'annotation dans le .class mais la réflexion ne la voit pas."},
+    {"q":"Peut-on déclarer <code>default boolean equals(Object o)</code> dans une interface ?","o":["Oui","Non"],"a":1,"e":"Un default ne peut pas porter la signature d'une méthode publique de Object : la classe gagnerait toujours."},
+    {"q":"Où se place une annotation de type sur un nom qualifié ?","o":["@A java.lang.String","java.lang.@A String","java.@A lang.String"],"a":1,"e":"Juste avant le nom simple du type (§9.7.4)."}
+  ]</script></div>
+</div>

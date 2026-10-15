@@ -1,0 +1,502 @@
+<style>
+.stage{position:relative; height:430px; perspective:1400px; perspective-origin:50% 30%; overflow:hidden; border-radius:8px; background:radial-gradient(ellipse at 50% 70%, var(--accent-soft), transparent 70%)}
+.stack{position:absolute; left:50%; top:62%; width:250px; height:170px; margin:-85px 0 0 -125px; transform-style:preserve-3d; transform:rotateX(58deg) rotateZ(-36deg); transition:transform .6s ease}
+.plate{position:absolute; inset:0; transform-style:preserve-3d; transform:translateZ(calc(var(--i) * 44px)); transition:transform .35s ease; cursor:pointer; border:1.5px solid var(--plate-edge); border-radius:10px; background:var(--plate); padding:10px 12px; display:flex; flex-direction:column; justify-content:space-between; color:var(--ink); font:inherit; text-align:left}
+.plate .pl-name{font-family:var(--f-display); font-weight:700; font-size:.82rem; line-height:1.15}
+.plate .tiles{display:flex; flex-wrap:wrap; gap:5px}
+.plate .tiles span{font-family:var(--f-mono); font-size:.66rem; padding:2px 5px; border-radius:3px; background:var(--accent-soft); color:var(--accent); font-weight:600}
+.plate:hover{transform:translateZ(calc(var(--i) * 44px + 10px))}
+.plate.sel{transform:translateZ(calc(var(--i) * 44px + 22px)); border-color:var(--accent); background:var(--accent); color:var(--accent-ink)}
+.plate.sel .tiles span{background:var(--accent-ink); color:var(--accent)}
+.stage.flat{height:auto; perspective:none}
+.stage.flat .stack{transform:none !important; top:0; left:0; width:100%; height:auto; margin:0; position:relative; display:flex; flex-direction:column-reverse; gap:8px; padding:12px}
+.stage.flat .plate{position:relative; inset:auto; transform:none; min-height:64px}
+.chip{display:grid; grid-template-columns:2.6em minmax(0,1fr); gap:10px; padding:8px 10px; border:1px solid var(--rule); border-radius:8px; font-size:.92rem; line-height:1.4; background:var(--paper); margin-top:8px}
+.chip b{font-family:var(--f-mono); color:var(--accent); font-size:.85rem}
+.chip strong{font-family:var(--f-display); font-size:.9rem}
+.lane-h{font-family:var(--f-display); font-size:.72rem; letter-spacing:.1em; text-transform:uppercase; font-weight:700; color:var(--muted); margin:10px 0 8px; display:flex; gap:8px; align-items:center}
+.lane-h .dot{width:10px; height:10px; border-radius:50%}
+.steps{display:flex; gap:6px; flex-wrap:wrap}
+.step{flex:1 1 120px; min-width:0; border:1px solid var(--rule); background:var(--paper); border-radius:8px; padding:10px; text-align:left; cursor:pointer; font:inherit; color:var(--ink)}
+.step .n{font-family:var(--f-mono); font-size:.7rem; color:var(--muted)}
+.step .t{font-family:var(--f-display); font-weight:700; font-size:.85rem; line-height:1.2; display:block; margin-top:2px}
+.step.sel{border-color:var(--accent); background:var(--accent-soft)}
+.step.rt.sel{border-color:var(--ember); background:var(--ember-soft)}
+.artifact{display:flex; align-items:center; gap:10px; font-family:var(--f-mono); font-size:.8rem; color:var(--muted); justify-content:center; flex-wrap:wrap; margin:12px 0}
+.artifact span{border:1px dashed var(--plate-edge); border-radius:6px; padding:4px 10px; background:var(--sheet); color:var(--ink)}
+.step-detail{margin-top:16px; border-top:1px solid var(--rule); padding-top:14px; min-height:120px}
+.step-detail h4{margin:0 0 4px}
+.step-detail .refs{font-family:var(--f-mono); font-size:.8rem; color:var(--accent)}
+.timeline{display:grid; grid-template-columns:repeat(5, minmax(0,1fr)); margin:1.4em 0; position:relative}
+.timeline::before{content:""; position:absolute; left:10%; right:10%; top:19px; height:2px; background:var(--rule)}
+.tlp{text-align:center; position:relative; font-family:var(--f-display); font-size:.8rem; padding:0 4px}
+.tlp i{display:block; width:14px; height:14px; border-radius:50%; background:var(--sheet); border:2px solid var(--accent); margin:12px auto 8px; position:relative}
+.tlp.now i{background:var(--ember); border-color:var(--ember); box-shadow:0 0 0 5px var(--ember-soft)}
+.tlp b{display:block; font-size:.95rem} .tlp span{color:var(--muted)}
+.refs-list{display:grid; grid-template-columns:repeat(auto-fill, minmax(230px,1fr)); gap:10px; margin:1em 0}
+.refs-list .card em{display:block; margin-top:6px; color:var(--accent); font-style:normal; font-family:var(--f-display); font-size:.78rem; font-weight:600}
+@media (max-width:480px){ .stage{height:360px} .tlp{font-size:.7rem} }
+</style>
+
+<div class="col">
+  <div class="eyebrow">Chapitre 1 · Java SE 27 Edition</div>
+  <h1>Introduction</h1>
+  <p class="lede">Ce que la spécification couvre, comment elle est rédigée, et comment fonctionnent les fonctionnalités « preview ». C'est la carte avant le terrain : chaque chapitre suivant détaille une des zones esquissées ici.</p>
+  <div class="meta">
+    <span>Source : <a href="https://docs.oracle.com/javase/specs/jls/se27/html/jls-1.html" target="_blank" rel="noopener">JLS SE 27, chapitre 1</a></span>
+    <span>Spec datée du <b>11 août 2026</b></span>
+    <span>Niveau : <b>intermédiaire → avancé</b></span>
+  </div>
+
+  <h2 id="s1-0"><span class="sec">§1</span>Quel genre de langage est Java ?</h2>
+  <p>La spec ouvre sur une définition en quelques adjectifs. Chacun est un engagement précis que le reste du document tient :</p>
+  <div class="tbl"><table>
+    <thead><tr><th>Propriété</th><th>Ce que ça veut dire concrètement</th><th>Où c'est défini</th></tr></thead>
+    <tbody>
+      <tr><td><b>Généraliste</b></td><td>Pas de domaine cible : serveurs, outils, mobile, embarqué.</td><td>—</td></tr>
+      <tr><td><b>Concurrent</b></td><td>Les threads, verrous et le modèle mémoire font partie du langage lui-même, pas d'une bibliothèque ajoutée.</td><td>ch. 17</td></tr>
+      <tr><td><b>Basé sur les classes, orienté objet</b></td><td>Tout code vit dans une classe ou une interface ; héritage simple de classes, héritage multiple d'interfaces.</td><td>ch. 8, ch. 9</td></tr>
+      <tr><td><b>Fortement et statiquement typé</b></td><td>Chaque expression a un type connu à la compilation ; aucune conversion silencieuse dangereuse.</td><td>ch. 4, ch. 5, ch. 15</td></tr>
+      <tr><td><b>Haut niveau</b></td><td>Pas d'accès à la représentation machine (pas de pointeurs, pas d'arithmétique d'adresses), gestion mémoire automatique.</td><td>ch. 4, ch. 12</td></tr>
+      <tr><td><b>Sûr</b></td><td>Aucune construction au comportement non spécifié : un accès hors bornes lève une exception au lieu de corrompre la mémoire.</td><td>ch. 10, ch. 15</td></tr>
+    </tbody>
+  </table></div>
+  <p>Le choix de conception le plus structurant est la philosophie « langage de production, pas de recherche » : les auteurs citent l'article de C. A. R. Hoare sur la conception des langages pour justifier qu'on n'intègre que des idées déjà éprouvées ailleurs. C'est pour cette raison que Java évolue lentement et passe par des phases de <em>preview</em> (§1.5) avant de figer une fonctionnalité.</p>
+  <div class="rule"><span class="lbl">Distinction fondamentale</span>
+    <p>La spec sépare rigoureusement deux mondes. Les <b>erreurs de compilation</b> sont celles que le compilateur <em>peut et doit</em> détecter ; tout le reste se passe à <b>l'exécution</b> (chargement, liaison, optimisation dynamique, exécution). Savoir de quel côté tombe une règle est la première question à se poser en lisant n'importe quelle section.</p>
+  </div>
+</div>
+
+<div class="wide">
+  <figure>
+    <p class="fig-title">Figure 1.1 · Le voyage d'un fichier <code>.java</code></p>
+    <p class="fig-hint">Cliquez une étape pour voir ce qui s'y passe et quels chapitres la spécifient.</p>
+    <div data-w="ch1pipe"></div>
+  </figure>
+</div>
+
+<div class="col">
+  <p>Les deux couloirs ne se confondent jamais. Le même programme peut illustrer les deux catégories :</p>
+  <div class="code"><div class="bar"><span>Java</span></div><pre><code class="java">String s = 42;            // ERREUR de compilation : int n'est pas assignable à String (§5.2)
+
+Object o = "texte";
+Integer i = (Integer) o;  // compile (le cast est permis, §5.5)
+                          // mais lève ClassCastException à l'exécution (§15.16)
+
+int[] t = new int[3];
+t[3] = 1;                 // compile, puis ArrayIndexOutOfBoundsException (§15.10.4)</code></pre></div>
+  <p>Le deuxième cas montre une idée-clé du chapitre : il n'y a <em>pas de faille</em> dans le système de types. Un cast vers un type référence que le compilateur ne peut pas prouver correct est accepté, mais un contrôle est exécuté au moment du cast. Le programme ne peut jamais manipuler un <code>String</code> en croyant tenir un <code>Integer</code>.</p>
+
+  <h2 id="s1-1"><span class="sec">§1.1</span>Organisation de la spécification</h2>
+  <p>Le §1.1 résume les 18 autres chapitres. Plutôt que de les lire dans l'ordre, il est plus utile de voir comment ils s'empilent : du texte brut tout en bas jusqu'au comportement des threads tout en haut. Chaque couche s'appuie sur celles du dessous.</p>
+</div>
+
+<div class="wide">
+  <figure>
+    <p class="fig-title">Figure 1.2 · Les 19 chapitres en six couches</p>
+    <p class="fig-hint">Cliquez une plaque (ou glissez pour tourner la pile). « À plat » donne une vue lisible sur petit écran.</p>
+    <div data-w="ch1stack"></div>
+    <figcaption><b>Lecture :</b> la couche 1 transforme des caractères en jetons, la couche 6 décrit ce qui se passe quand des threads exécutent le bytecode. Le chapitre 19 (grammaire complète) est rangé avec le texte source car il récapitule les règles de syntaxe des chapitres 4 à 18.</figcaption>
+  </figure>
+</div>
+
+<div class="col">
+  <h3>Les points que le §1.1 pose dès maintenant</h3>
+  <h4>Deux familles de types</h4>
+  <p>Les <b>types primitifs</b> sont identiques sur toutes les machines et toutes les implémentations. C'est une rupture nette avec C, où la taille d'un <code>int</code> dépend de la plateforme. Les valeurs primitives ne partagent jamais d'état : copier un <code>int</code> copie la valeur.</p>
+  <div class="tbl"><table>
+    <thead><tr><th>Type</th><th>Taille</th><th>Représentation</th><th>Plage / remarque</th></tr></thead>
+    <tbody>
+      <tr><td><code>byte</code></td><td class="num">8 bits</td><td>entier signé, complément à deux</td><td class="num">−128 … 127</td></tr>
+      <tr><td><code>short</code></td><td class="num">16 bits</td><td>entier signé, complément à deux</td><td class="num">−32 768 … 32 767</td></tr>
+      <tr><td><code>int</code></td><td class="num">32 bits</td><td>entier signé, complément à deux</td><td class="num">−2³¹ … 2³¹−1</td></tr>
+      <tr><td><code>long</code></td><td class="num">64 bits</td><td>entier signé, complément à deux</td><td class="num">−2⁶³ … 2⁶³−1</td></tr>
+      <tr><td><code>char</code></td><td class="num">16 bits</td><td>entier <b>non signé</b>, unité de code UTF-16</td><td class="num">'\u0000' … '￿'</td></tr>
+      <tr><td><code>float</code></td><td class="num">32 bits</td><td>IEEE 754 binary32</td><td>≈ 7 chiffres décimaux significatifs</td></tr>
+      <tr><td><code>double</code></td><td class="num">64 bits</td><td>IEEE 754 binary64</td><td>≈ 15–17 chiffres significatifs</td></tr>
+      <tr><td><code>boolean</code></td><td>non spécifiée</td><td>deux valeurs</td><td><code>true</code>, <code>false</code> ; aucune conversion depuis un entier</td></tr>
+    </tbody>
+  </table></div>
+  <p>Les <b>types référence</b> sont les classes, les interfaces et les tableaux. Ils désignent des objets créés dynamiquement, vers lesquels plusieurs références peuvent pointer. Tout objet, tableaux compris, possède les méthodes de <code>Object</code>, racine unique de la hiérarchie.</p>
+
+  <h4>Ce qu'une variable peut contenir</h4>
+  <div class="code"><div class="bar"><span>Java</span></div><pre><code class="java">int n = 7;                       // exactement un int, jamais null
+Number x = Integer.valueOf(7);   // null, ou une instance de Number ou d'une sous-classe
+Comparable&lt;String&gt; c = "abc";    // null, ou toute instance d'une classe qui implémente l'interface
+int[] tab = {1, 2, 3};           // null, ou une référence vers un tableau d'int
+Object o = tab;                  // null, ou n'importe quel objet, tableaux compris</code></pre></div>
+
+  <h4>Boxing et unboxing</h4>
+  <p>Chaque primitif a une classe enveloppe (<code>Integer</code>, <code>Double</code>…). Le compilateur insère lui-même les conversions dans beaucoup de contextes. Pratique, mais c'est une vraie conversion avec ses pièges :</p>
+  <div class="code"><div class="bar"><span>Java</span></div><pre><code class="java">Integer a = 127, b = 127;
+System.out.println(a == b);      // true  : valeurs dans le cache garanti -128..127 (§5.1.7)
+Integer c = 128, d = 128;
+System.out.println(c == d);      // false en général : == compare des références
+System.out.println(c.equals(d)); // true
+
+Integer rien = null;
+int v = rien;                    // NullPointerException : l'unboxing appelle rien.intValue()</code></pre></div>
+
+  <h4>L'ordre des déclarations compte peu</h4>
+  <p>Une classe peut utiliser une méthode ou une autre classe déclarée plus bas. L'ordre n'a d'importance que pour les variables locales, les classes et interfaces locales, et l'ordre des initialiseurs de champs.</p>
+  <div class="code"><div class="bar"><span>Java</span></div><pre><code class="java">class A {
+    void m() { aide(); }  // OK : aide() est déclarée plus bas
+    void aide() {}
+
+    int b = a + 1;        // ERREUR : référence en avant illégale vers a (§8.3.3)
+    int a = 1;
+}</code></pre></div>
+
+  <h4>Pas de <code>goto</code>, des booléens stricts</h4>
+  <div class="code"><div class="bar"><span>Java</span></div><pre><code class="java">int n = 3;
+if (n) { }          // ERREUR : int ne se convertit pas en boolean
+if (n = 0) { }      // ERREUR aussi : le bug classique du C devient impossible
+if (n != 0) { }     // correct
+
+externe:
+for (int i = 0; i &lt; 10; i++)
+    for (int j = 0; j &lt; 10; j++)
+        if (i * j &gt; 20) break externe;   // sort des deux boucles d'un coup (§14.15)</code></pre></div>
+
+  <h4>Des tableaux de tableaux</h4>
+  <div class="code"><div class="bar"><span>Java</span></div><pre><code class="java">int[][] triangle = new int[3][];
+triangle[0] = new int[1];
+triangle[1] = new int[2];
+triangle[2] = new int[3];   // trois lignes de longueurs 1, 2, 3</code></pre></div>
+
+  <h4>Trois sortes d'exceptions</h4>
+  <div class="tbl"><table>
+    <thead><tr><th>Sorte</th><th>Racine</th><th>Vérifiée à la compilation ?</th><th>Exemple</th></tr></thead>
+    <tbody>
+      <tr><td>Exception vérifiée</td><td><code>Exception</code> (hors <code>RuntimeException</code>)</td><td>Oui : à attraper ou déclarer</td><td><code>IOException</code></td></tr>
+      <tr><td>Exception d'exécution</td><td><code>RuntimeException</code></td><td>Non</td><td><code>NullPointerException</code></td></tr>
+      <tr><td>Erreur</td><td><code>Error</code></td><td>Non</td><td><code>OutOfMemoryError</code></td></tr>
+    </tbody>
+  </table></div>
+  <div class="nn"><span class="lbl">Note non normative</span>
+    <p>La spec recommande que la plupart des exceptions définies par l'utilisateur soient vérifiées. En pratique, beaucoup de bibliothèques modernes préfèrent des exceptions non vérifiées, car les exceptions vérifiées s'accordent mal avec les lambdas. Le chapitre 11 donne les règles exactes pour trancher en connaissance de cause.</p>
+  </div>
+  <div class="modern"><span class="lbl">Évolution depuis le texte d'origine</span>
+    <p>Le §1.1 décrit encore la méthode <code>finalize</code> comme un moyen de nettoyer un objet avant sa récupération. Elle est <b>dépréciée pour suppression</b> depuis le JDK 18 (JEP 421). Pour libérer des ressources, on utilise try-with-resources (§14.20.3) ou <code>java.lang.ref.Cleaner</code>.</p>
+  </div>
+
+  <h2 id="s1-2"><span class="sec">§1.2</span>Les exemples de la spec</h2>
+  <p>La plupart des exemples sont des programmes complets, exécutables tels quels. Le modèle type est une classe avec une méthode <code>main</code> :</p>
+  <div class="code"><div class="bar"><span>Test.java</span></div><pre><code class="java">class Test {
+    public static void main(String[] args) {
+        for (int i = 0; i &lt; args.length; i++)
+            System.out.print(i == 0 ? args[i] : " " + args[i]);
+        System.out.println();
+    }
+}</code></pre></div>
+  <div class="code"><div class="bar"><span>Terminal</span></div><pre><code class="sh">javac Test.java
+java Test Hello, world.
+# affiche : Hello, world.</code></pre></div>
+  <p>L'opérateur conditionnel <code>? :</code> n'insère l'espace qu'entre les mots, pas avant le premier.</p>
+  <div class="modern"><span class="lbl">Ce que Java 27 permet en plus</span>
+    <p>Depuis Java 11 on peut lancer un fichier source sans compilation séparée, et depuis Java 25 (JEP 512) un fichier peut se réduire à une méthode <code>main</code> d'instance dans une <b>classe implicitement déclarée</b> (§8.1.8, §12.1.4).</p>
+  </div>
+  <div class="code"><div class="bar"><span>Hello.java</span></div><pre><code class="java">void main() {
+    IO.println("Hello, world.");
+}</code></pre></div>
+  <div class="code"><div class="bar"><span>Terminal</span></div><pre><code class="sh">java Hello.java    # compile en mémoire puis exécute</code></pre></div>
+
+  <h2 id="s1-3"><span class="sec">§1.3</span>Notation</h2>
+  <div class="tbl"><table>
+    <thead><tr><th>Convention</th><th>Signification</th><th>Exemple</th></tr></thead>
+    <tbody>
+      <tr><td>Nom simple d'une classe de l'API</td><td>Désigne la classe du paquetage <code>java.lang</code></td><td><code>Thread</code> = <code>java.lang.Thread</code></td></tr>
+      <tr><td>Nom canonique (§6.7)</td><td>Pour tout ce qui n'est pas dans <code>java.lang</code></td><td><code>java.util.List</code></td></tr>
+      <tr><td>(§x.y)</td><td>Renvoi interne à la JLS (cliquable dans cet atlas)</td><td>§15.12.2.5</td></tr>
+      <tr><td>(JVMS §x.y)</td><td>Renvoi vers la spécification de la machine virtuelle</td><td>JVMS §4.10</td></tr>
+      <tr><td>Texte en retrait, plus petit</td><td><b>Non normatif</b> : explications, exemples, justifications</td><td>blocs gris en retrait</td></tr>
+      <tr><td><i>iff</i></td><td>« si et seulement si »</td><td>« S est un sous-type de T iff … »</td></tr>
+      <tr><td><code>[F1:=T1, …, Fn:=Tn]</code></td><td>Substitution simultanée de chaque Fi par Ti</td><td>voir ci-dessous</td></tr>
+    </tbody>
+  </table></div>
+  <div class="rule"><span class="lbl">Normatif ou non normatif ?</span>
+    <p>Seul le texte normatif définit le langage. Les exemples et notes en retrait servent à comprendre mais <b>ne créent aucune règle</b>. Dans cet atlas, les encadrés bleus « Règle » correspondent au texte normatif, les blocs gris « Note non normative » au texte explicatif.</p>
+  </div>
+  <h3>La substitution, en pratique</h3>
+  <div class="code"><div class="bar"><span>Java</span></div><pre><code class="java">class Boite&lt;T&gt; {
+    T contenu;
+    T get() { return contenu; }
+}
+// Pour Boite&lt;String&gt;, la spec applique [T:=String] :
+//   champ   T contenu   devient   String contenu
+//   méthode T get()     devient   String get()
+Boite&lt;String&gt; b = new Boite&lt;&gt;();
+String s = b.get();   // aucun cast nécessaire</code></pre></div>
+  <p>Avec plusieurs paramètres, la substitution est simultanée : pour <code>Map&lt;K,V&gt;</code> utilisé comme <code>Map&lt;String,Integer&gt;</code>, on applique <code>[K:=String, V:=Integer]</code> en une fois.</p>
+
+  <h2 id="s1-4"><span class="sec">§1.4</span>Classes et interfaces prédéfinies</h2>
+  <p>Certaines classes de l'API ont un lien privilégié avec le langage :</p>
+  <div class="tbl"><table>
+    <thead><tr><th>Classe ou interface</th><th>Pourquoi le langage en dépend</th></tr></thead>
+    <tbody>
+      <tr><td><code>Object</code></td><td>Racine de toutes les classes et des tableaux (§4.3.2)</td></tr>
+      <tr><td><code>String</code></td><td>Littéraux, concaténation avec <code>+</code>, constantes internées (§3.10.5, §15.18.1)</td></tr>
+      <tr><td><code>Class</code></td><td>Littéraux <code>Foo.class</code> (§15.8.2), verrou des méthodes <code>static synchronized</code></td></tr>
+      <tr><td><code>ClassLoader</code></td><td>Chargement des classes (§12.2)</td></tr>
+      <tr><td><code>Thread</code></td><td>Threads et modèle mémoire (ch. 17)</td></tr>
+      <tr><td><code>Throwable</code> et sous-classes</td><td><code>throw</code>, <code>catch</code>, exceptions vérifiées (ch. 11)</td></tr>
+      <tr><td><code>Iterable</code>, <code>AutoCloseable</code></td><td>Boucle <code>for</code> améliorée (§14.14.2), try-with-resources (§14.20.3)</td></tr>
+      <tr><td><code>Enum</code>, <code>Record</code></td><td>Superclasses implicites des enums et records (§8.9, §8.10)</td></tr>
+      <tr><td>Classes enveloppes</td><td>Boxing et unboxing (§5.1.7, §5.1.8)</td></tr>
+    </tbody>
+  </table></div>
+  <div class="trap"><span class="lbl">Angle mort volontaire</span>
+    <p>La spec ne décrit pas la réflexion (<code>java.lang.reflect</code>) ni <code>javax.lang.model</code>. Quand elle énumère les façons de créer un objet, elle ne compte que les moyens du langage. En réalité, <code>Constructor.newInstance</code>, <code>clone()</code>, la désérialisation ou les <code>MethodHandle</code> créent aussi des objets, parfois sans passer par un constructeur. Gardez ces chemins en tête quand vous raisonnez sur des invariants.</p>
+  </div>
+
+  <h2 id="s1-5"><span class="sec">§1.5</span>Les fonctionnalités preview</h2>
+  <p>Une fonctionnalité preview est <b>entièrement spécifiée, entièrement implémentée, mais provisoire</b>. Elle est livrée pour recueillir des retours sur du code réel, et peut devenir permanente, changer ou disparaître. Le processus est décrit par le JEP 12 d'OpenJDK.</p>
+  <div class="tbl"><table>
+    <thead><tr><th>Type</th><th>Nature</th><th>Spécifiée dans</th><th>Intégrée à la spec</th></tr></thead>
+    <tbody>
+      <tr><td><b>Langage</b></td><td>syntaxe ou sémantique nouvelle</td><td>document « diff » de la JLS</td><td>seulement si previews activées <b>à la compilation</b></td></tr>
+      <tr><td><b>Machine virtuelle</b></td><td>comportement nouveau de la JVM</td><td>document « diff » de la JVMS</td><td>seulement si previews activées <b>à l'exécution</b></td></tr>
+      <tr><td><b>API</b></td><td>module, paquetage, classe, méthode, champ, constante d'enum de <code>java.*</code> / <code>javax.*</code></td><td>documentation de l'API</td><td>présente, encadrée par le §1.5.1</td></tr>
+    </tbody>
+  </table></div>
+  <h3>Activer les previews</h3>
+  <div class="code"><div class="bar"><span>Terminal</span></div><pre><code class="sh">javac --release 27 --enable-preview Main.java
+java --enable-preview Main
+
+# lanceur de fichier source
+java --enable-preview --source 27 Main.java
+
+# shell interactif
+jshell --enable-preview</code></pre></div>
+  <div class="code"><div class="bar"><span>build.gradle.kts</span></div><pre><code class="java">tasks.withType&lt;JavaCompile&gt;().configureEach { options.compilerArgs.add("--enable-preview") }
+tasks.withType&lt;Test&gt;().configureEach { jvmArgs("--enable-preview") }
+tasks.withType&lt;JavaExec&gt;().configureEach { jvmArgs("--enable-preview") }</code></pre></div>
+  <div class="code"><div class="bar"><span>pom.xml (extrait)</span></div><pre><code class="sh">&lt;plugin&gt;
+  &lt;artifactId&gt;maven-compiler-plugin&lt;/artifactId&gt;
+  &lt;configuration&gt;
+    &lt;release&gt;27&lt;/release&gt;
+    &lt;compilerArgs&gt;&lt;arg&gt;--enable-preview&lt;/arg&gt;&lt;/compilerArgs&gt;
+  &lt;/configuration&gt;
+&lt;/plugin&gt;
+&lt;plugin&gt;
+  &lt;artifactId&gt;maven-surefire-plugin&lt;/artifactId&gt;
+  &lt;configuration&gt;&lt;argLine&gt;--enable-preview&lt;/argLine&gt;&lt;/configuration&gt;
+&lt;/plugin&gt;</code></pre></div>
+  <div class="rule"><span class="lbl">Règle · tout ou rien</span>
+    <p>Il est impossible d'activer une seule preview : <code>--enable-preview</code> active <b>toutes</b> celles de la version. L'option n'est acceptée qu'avec la version courante du JDK (<code>--release 27</code> sur un JDK 27).</p>
+  </div>
+  <div class="trap"><span class="lbl">Piège de déploiement</span>
+    <p>Une classe compilée avec des previews est marquée dans son <code>.class</code> : version majeure de Java 27 (71) et version mineure <code>0xFFFF</code>. La JVM refuse de la charger sans <code>--enable-preview</code>, et <b>un JDK 28 la refusera aussi</b>, car la preview a pu changer entre-temps.</p>
+  </div>
+
+  <h3 id="s1-5-1"><span class="sec">§1.5.1</span>Les règles d'usage à la compilation</h3>
+  <p>La spec distingue quatre sortes de référence dans le code source et trois issues : une <b>erreur</b>, un <b>avertissement preview</b>, ou rien. Les avertissements preview peuvent être supprimés par <code>@SuppressWarnings("preview")</code> (§9.6.4.5). Testez les règles :</p>
+</div>
+
+<div class="wide">
+  <figure>
+    <p class="fig-title">Figure 1.3 · Simulateur des règles du §1.5.1</p>
+    <p class="fig-hint">Choisissez ce que votre code référence et dans quelles conditions.</p>
+    <div data-w="ch1sim"></div>
+  </figure>
+</div>
+
+<div class="col">
+  <p><b>L'asymétrie de l'API réflexive.</b> Utiliser une API preview réflexive ne provoque <em>jamais</em> d'erreur, même previews désactivées : les outils (IDE, processeurs d'annotations, frameworks) doivent pouvoir inspecter du code preview sans l'activer.</p>
+  <p><b>L'avertissement sur la syntaxe preview n'est pas exigé.</b> La JLS encourage fortement les compilateurs à émettre un avertissement <em>non supprimable</em> pour chaque usage de syntaxe preview ; <code>javac</code> le fait sous forme de note.</p>
+  <p><b>Le même module est exempté.</b> Le JDK doit pouvoir utiliser ses propres API preview en interne.</p>
+
+  <h3 id="s1-5-2"><span class="sec">§1.5.2</span>La preview de langage de Java SE 27</h3>
+  <p>Java SE 27 définit <b>une seule</b> preview de langage : les <b>types primitifs dans les motifs, <code>instanceof</code> et <code>switch</code></b>, en cinquième version preview.</p>
+  <div class="timeline" role="list">
+    <div class="tlp" role="listitem"><i></i><b>JEP 455</b><span>JDK 23</span></div>
+    <div class="tlp" role="listitem"><i></i><b>JEP 488</b><span>JDK 24</span></div>
+    <div class="tlp" role="listitem"><i></i><b>JEP 507</b><span>JDK 25</span></div>
+    <div class="tlp" role="listitem"><i></i><b>JEP 530</b><span>JDK 26</span></div>
+    <div class="tlp now" role="listitem"><i></i><b>JEP 532</b><span>JDK 27</span></div>
+  </div>
+  <p>Un motif de type peut désormais être primitif, et <code>instanceof</code> vers un type primitif répond à la question « cette valeur se convertit-elle <b>sans perte</b> vers ce type ? ».</p>
+  <div class="code"><div class="bar"><span>Java · preview</span></div><pre><code class="java">int n = 300;
+if (n instanceof byte b) { }      // faux : 300 sort de -128..127, rien n'est tronqué
+int m = 42;
+if (m instanceof byte b) { }      // vrai : b vaut 42
+
+double d = 3.0;
+if (d instanceof int i) { }       // vrai : 3.0 → 3 sans perte
+double e = 3.5;
+if (e instanceof int i) { }       // faux : la partie décimale serait perdue
+
+int grand = 16_777_217;
+if (grand instanceof float f) { } // faux : 2^24 + 1 n'est pas représentable exactement en float</code></pre></div>
+  <div class="code"><div class="bar"><span>Java · preview</span></div><pre><code class="java">static String taille(long octets) {
+    return switch (octets) {
+        case 0L -> "vide";
+        case long n when n &lt; 1_024     -> n + " o";
+        case long n when n &lt; 1_048_576 -> (n / 1_024) + " Ko";
+        case long n                    -> (n / 1_048_576) + " Mo"; // motif inconditionnel : exhaustif
+    };
+}
+
+static String libelle(boolean ok) {
+    return switch (ok) {
+        case true  -> "succès";
+        case false -> "échec";      // exhaustif sans default
+    };
+}
+
+record NombreJson(double valeur) {}
+// ne correspond que si valeur est un entier exact représentable en int
+if (json instanceof NombreJson(int age)) { }</code></pre></div>
+  <div class="nn"><span class="lbl">Note non normative</span>
+    <p>Les règles exactes (conversions inconditionnellement exactes, dominance, exhaustivité) sont dans le document de modifications publié avec la JLS 27. Elles touchent les §5.7, §14.11, §14.30 et §15.20.2 ; elles sont reprises dans les chapitres 5, 14 et 15.</p>
+  </div>
+
+  <h2 id="s1-6"><span class="sec">§1.6</span>Signaler un problème</h2>
+  <div class="tbl"><table>
+    <thead><tr><th>Vous avez trouvé…</th><th>Adresse</th></tr></thead>
+    <tbody>
+      <tr><td>une erreur ou une ambiguïté dans le texte de la JLS</td><td><code>jls-jvms-spec-comments@openjdk.org</code> <button class="btn" type="button" data-copy="jls-jvms-spec-comments@openjdk.org">Copier</button></td></tr>
+      <tr><td>un comportement de <code>javac</code> qui semble s'écarter de la spec</td><td><code>compiler-dev@openjdk.org</code> <button class="btn" type="button" data-copy="compiler-dev@openjdk.org">Copier</button></td></tr>
+    </tbody>
+  </table></div>
+  <p>Avant d'écrire, réduisez le problème à un fichier minimal et vérifiez qu'il ne s'agit pas d'un comportement prévu : c'est souvent le cas pour l'inférence (ch. 18) ou la résolution de surcharge (§15.12.2).</p>
+
+  <h2 id="s1-7"><span class="sec">§1.7</span>Références</h2>
+  <p>La bibliographie montre d'où viennent les idées de Java :</p>
+  <div class="refs-list">
+    <div class="card"><b class="h">Kernighan &amp; Ritchie · The C Programming Language</b>1988<em>→ syntaxe des instructions et expressions</em></div>
+    <div class="card"><b class="h">Stroustrup · The C++ Programming Language ; Ellis &amp; Stroustrup, ARM</b>1990-1991<em>→ classes, surcharge, structure lexicale</em></div>
+    <div class="card"><b class="h">Mitchell et al. · Mesa</b>Xerox PARC, 1979<em>→ moniteurs et synchronisation</em></div>
+    <div class="card"><b class="h">Goldberg &amp; Robson · Smalltalk-80</b>1989<em>→ tout objet, racine unique, GC</em></div>
+    <div class="card"><b class="h">Harbison · Modula-3</b>1992<em>→ sûreté du typage, modules</em></div>
+    <div class="card"><b class="h">Bobrow et al. · CLOS</b>1988<em>→ modèle objet, dispatch</em></div>
+    <div class="card"><b class="h">Apple · Dylan Reference Manual</b>1995<em>→ langage dynamique à objets</em></div>
+    <div class="card"><b class="h">Madsen et al. · Beta</b>1993<em>→ classes internes et imbrication</em></div>
+    <div class="card"><b class="h">Hoare · Hints on Programming Language Design</b>1973<em>→ ne rien inclure de non éprouvé</em></div>
+    <div class="card"><b class="h">IEEE 754-2019</b>arithmétique flottante<em>→ float et double</em></div>
+    <div class="card"><b class="h">The Unicode Standard 17.0.0</b>2025<em>→ caractères et identifiants</em></div>
+  </div>
+  <div class="nn"><span class="lbl">Note non normative</span><p>Les rapprochements en bleu sont une lecture de l'atlas : la JLS se contente de lister ces références.</p></div>
+
+  <h2 id="s1-quiz">Vérifier ses acquis</h2>
+  <div data-w="quiz"><script type="application/json">[
+    {"q":"Dans <code>t = new int[3]; t[3] = 1;</code> — quand le problème est-il détecté ?","o":["À la compilation","À l'exécution, par une exception","Jamais : la mémoire voisine est écrasée"],"a":1,"e":"Le compilateur ne suit pas les valeurs des indices. L'accès est vérifié à l'exécution et lève ArrayIndexOutOfBoundsException."},
+    {"q":"Peut-on activer seulement la preview « types primitifs dans les motifs » ?","o":["Oui, avec une option dédiée","Non : --enable-preview active toutes les previews de la version","Oui, via @SuppressWarnings(\"preview\")"],"a":1,"e":"Le §1.5.1 précise qu'aucune implémentation ne permet d'activer seulement une partie des previews."},
+    {"q":"Une classe compilée avec --enable-preview sur JDK 27 est lancée sur JDK 28 avec --enable-preview. Résultat ?","o":["Elle s'exécute","La JVM refuse de la charger","Elle s'exécute avec un avertissement"],"a":1,"e":"Le .class porte la version 71.65535 ; une JVM n'accepte des classes preview que de sa propre version."},
+    {"q":"Sans --enable-preview, votre code référence une API preview réflexive. Résultat ?","o":["Erreur de compilation","Avertissement preview","Rien"],"a":1,"e":"Les API réflexives ne provoquent jamais d'erreur, seulement un avertissement, sauf exemption."},
+    {"q":"Dans la spec, que désigne le nom simple <code>Thread</code> ?","o":["N'importe quelle classe nommée Thread","java.lang.Thread","java.util.concurrent.Thread"],"a":1,"e":"Selon le §1.3, un identifiant seul désigne la classe de java.lang."},
+    {"q":"Un exemple non normatif semble contredire une règle. Qui a raison ?","o":["L'exemple","La règle normative","javac"],"a":1,"e":"Seul le texte normatif définit le langage ; javac peut lui-même avoir des bogues."}
+  ]</script></div>
+</div>
+
+<script>
+ATLAS.w.ch1pipe = function(el){
+  const A = [
+    ["Lecture lexicale","3","Le texte est lu comme une suite de caractères Unicode. Les échappements \\uXXXX sont traduits en premier, puis les fins de ligne, puis le flux est découpé en jetons. Commentaires et espaces sont écartés.","§3.2 à §3.12"],
+    ["Analyse syntaxique","2 · 19","Les jetons sont assemblés selon la grammaire syntaxique en un arbre. Une parenthèse manquante échoue ici.","ch. 2, ch. 19"],
+    ["Noms et portée","6 · 7","Chaque nom est rattaché à sa déclaration ; le compilateur applique portée, masquage et contrôle d'accès.","§6.3 à §6.6, §7.5"],
+    ["Typage","4 · 5 · 15 · 18","Chaque expression reçoit un type ; conversions permises par contexte, choix de la surcharge, inférence des génériques.","§5.2, §15.12, ch. 18"],
+    ["Analyses de flux","11 · 14 · 16","Affectation définie des locales, code inaccessible, exceptions vérifiées attrapées ou déclarées.","§11.2, §14.22, ch. 16"],
+    ["Génération","13","Un .class par classe ou interface. Les choix faits ici (constantes recopiées, signatures effacées) déterminent la compatibilité binaire.","§13.1"]
+  ];
+  const C = [
+    ["Chargement","12","Un chargeur de classes trouve la représentation binaire et crée l'objet Class. Deux chargeurs peuvent définir deux classes distinctes de même nom.","§12.2"],
+    ["Liaison","12","Vérification du bytecode, préparation des champs statiques à leur valeur par défaut, résolution (éventuellement paresseuse) des références symboliques.","§12.3"],
+    ["Initialisation","12","Initialiseurs statiques exécutés une seule fois, au premier usage actif ; superclasses d'abord.","§12.4"],
+    ["Exécution","15 · 17","Ordre d'évaluation imposé par le ch. 15 ; interprétation et JIT libres tant qu'ils respectent le modèle mémoire.","§12.5, ch. 15, ch. 17"],
+    ["Récupération","12","Objets inatteignables récupérés par le GC ; classes déchargées quand leur chargeur est inatteignable.","§12.6, §12.7"],
+    ["Fin","12","Fin quand tous les threads non démons ont fini, ou appel à Runtime.exit.","§12.8"]
+  ];
+  el.innerHTML = '<div class="lane-h"><span class="dot" style="background:var(--accent)"></span>À la compilation · javac</div><div class="steps sa"></div>'+
+    '<div class="artifact"><span>Test.java</span>→ javac →<span>Test.class</span>→ java →<span>JVM</span></div>'+
+    '<div class="lane-h"><span class="dot" style="background:var(--ember)"></span>À l\'exécution · JVM</div><div class="steps sc"></div><div class="step-detail" aria-live="polite"></div>';
+  const det = el.querySelector('.step-detail');
+  function build(box, data, p, rt){
+    data.forEach((s,i)=>{ const b=document.createElement('button'); b.type='button'; b.className='step'+(rt?' rt':'');
+      b.innerHTML='<span class="n">'+p+(i+1)+' · ch. '+s[1]+'</span><span class="t">'+s[0]+'</span>';
+      b.onclick=()=>sel(b,s,rt); box.appendChild(b); });
+  }
+  function sel(b,s,rt){
+    el.querySelectorAll('.step').forEach(x=>x.classList.remove('sel')); b.classList.add('sel');
+    det.innerHTML='<span class="lbl" style="color:'+(rt?'var(--ember)':'var(--accent)')+'">'+(rt?'Exécution':'Compilation')+'</span><h4>'+s[0]+'</h4><p>'+s[2]+'</p><span class="refs">'+s[3]+'</span>';
+  }
+  build(el.querySelector('.sa'),A,'A',false); build(el.querySelector('.sc'),C,'C',true);
+  sel(el.querySelector('.step'),A[0],false);
+};
+
+ATLAS.w.ch1stack = function(el){
+  const CH = ATLAS.CH;
+  const L = [
+    ["Texte source",[2,3,19],"Ce que le compilateur lit : caractères Unicode, jetons, grammaire."],
+    ["Noms et organisation",[6,7],"Modules, paquetages, unités de compilation, et à quelle déclaration chaque nom renvoie."],
+    ["Système de types",[4,5,18],"Types, valeurs, conversions, et l'inférence qui déduit les types non écrits."],
+    ["Déclarations",[8,9,10,11],"Classes, interfaces, tableaux, et les exceptions qu'ils peuvent lever."],
+    ["Code exécutable",[14,15,16],"Instructions, expressions, motifs, et garanties d'affectation définie."],
+    ["Exécution et JVM",[12,13,17],"Initialisation, évolution des binaires, threads et modèle mémoire."]
+  ];
+  el.innerHTML='<div class="btnrow"><button class="btn v3" type="button" aria-pressed="true">Vue 3D</button><button class="btn vf" type="button" aria-pressed="false">À plat</button><button class="btn vs" type="button" aria-pressed="false">Tourner</button></div>'+
+    '<div class="two"><div class="stage"><div class="stack"></div></div><div class="ld" aria-live="polite"></div></div>';
+  const stage=el.querySelector('.stage'), stack=el.querySelector('.stack'), ld=el.querySelector('.ld');
+  L.forEach((x,i)=>{ const b=document.createElement('button'); b.type='button'; b.className='plate'; b.style.setProperty('--i',i);
+    b.innerHTML='<span class="pl-name">'+(i+1)+' · '+x[0]+'</span><span class="tiles">'+x[1].map(n=>'<span>ch.'+n+'</span>').join('')+'</span>';
+    b.onclick=()=>pick(i); stack.appendChild(b); });
+  function pick(i){
+    [...stack.children].forEach((p,j)=>p.classList.toggle('sel',j===i));
+    const x=L[i];
+    ld.innerHTML='<span class="lbl" style="color:var(--accent)">Couche '+(i+1)+' sur 6</span><h4 style="margin:0">'+x[0]+'</h4><p style="margin:.3em 0 0">'+x[2]+'</p>'+
+      x[1].map(n=>{const c=CH[n-1]; return '<a class="chip" href="#ch'+n+'" style="text-decoration:none;color:inherit"><b>'+n+'</b><div><strong>'+c[1]+'</strong><br><span style="color:var(--muted)">'+c[2]+'</span></div></a>';}).join('');
+  }
+  pick(2);
+  const v3=el.querySelector('.v3'), vf=el.querySelector('.vf'), vs=el.querySelector('.vs');
+  let angle=-36, raf=null, drag=null;
+  const sm=()=>window.matchMedia('(max-width:480px)').matches;
+  const setRot=()=>{ stack.style.transform='rotateX(58deg) rotateZ('+angle+'deg)'+(sm()?' scale(.82)':''); };
+  const stop=()=>{ if(raf){cancelAnimationFrame(raf); raf=null;} vs.setAttribute('aria-pressed','false'); };
+  v3.onclick=()=>{ stage.classList.remove('flat'); v3.setAttribute('aria-pressed','true'); vf.setAttribute('aria-pressed','false'); setRot(); };
+  vf.onclick=()=>{ stop(); stage.classList.add('flat'); vf.setAttribute('aria-pressed','true'); v3.setAttribute('aria-pressed','false'); };
+  vs.onclick=()=>{ if(raf){stop();return;} if(stage.classList.contains('flat')) v3.onclick();
+    if(window.matchMedia('(prefers-reduced-motion: reduce)').matches){ angle-=45; setRot(); return; }
+    vs.setAttribute('aria-pressed','true'); const t=()=>{ if(!document.body.contains(el)){stop();return;} angle-=.35; setRot(); raf=requestAnimationFrame(t); }; t(); };
+  stage.addEventListener('pointerdown',e=>{ if(stage.classList.contains('flat')||e.target.closest('.plate')) return; drag=e.clientX; stop(); });
+  window.addEventListener('pointermove',e=>{ if(drag===null) return; angle+=(e.clientX-drag)*.4; drag=e.clientX; setRot(); });
+  window.addEventListener('pointerup',()=>drag=null);
+  setRot();
+};
+
+ATLAS.w.ch1sim = function(el){
+  el.innerHTML='<div class="two"><form onsubmit="return false">'+
+   '<fieldset><legend>Le code référence…</legend>'+
+   '<label class="opt"><input type="radio" name="k1" value="lang" checked><span>une fonctionnalité de langage preview<small>ex. <code>x instanceof byte b</code></small></span></label>'+
+   '<label class="opt"><input type="radio" name="k1" value="decl"><span>une classe déclarée avec une fonctionnalité preview</span></label>'+
+   '<label class="opt"><input type="radio" name="k1" value="normal"><span>un élément d\'API preview « normal »<small>la plupart des API preview</small></span></label>'+
+   '<label class="opt"><input type="radio" name="k1" value="refl"><span>un élément d\'API preview « réflexif »<small>surtout java.lang.reflect, java.lang.invoke, javax.lang.model</small></span></label></fieldset>'+
+   '<fieldset><legend>Contexte</legend>'+
+   '<label class="opt"><input type="checkbox" class="c-on"><span>Compilé avec --enable-preview</span></label>'+
+   '<label class="opt"><input type="checkbox" class="c-mod"><span>Même module que l\'API preview<small>cas du code du JDK lui-même</small></span></label>'+
+   '<label class="opt"><input type="checkbox" class="c-sup"><span>Déclaration annotée @SuppressWarnings("preview")</span></label>'+
+   '<label class="opt"><input type="checkbox" class="c-imp"><span>Référence dans une déclaration import</span></label></fieldset>'+
+   '</form><div><div class="verdict" aria-live="polite"></div></div></div>';
+  const f=el.querySelector('form'), out=el.querySelector('.verdict'), q=s=>el.querySelector(s);
+  function ev(){
+    const kind=f.querySelector('input[name=k1]:checked').value;
+    const on=q('.c-on').checked, sup=q('.c-sup').checked, imp=q('.c-imp').checked;
+    const api=kind==='normal'||kind==='refl'; q('.c-mod').disabled=!api; if(!api) q('.c-mod').checked=false;
+    const mod=q('.c-mod').checked;
+    let c,v,t,w;
+    if(kind==='lang'){ if(!on){c='err';v='Erreur de compilation';t='Previews désactivées : toute utilisation d\'une fonctionnalité de langage preview est refusée.';w='§1.5.1, 1re règle';}
+      else{c='warn';v='Accepté · note non supprimable';t='La spec n\'impose pas d\'avertissement preview ici mais encourage un avertissement que @SuppressWarnings ne peut pas masquer. javac affiche cette note.';w='§1.5.1, paragraphe non normatif';} }
+    else if(kind==='decl'){ if(!on){c='err';v='Erreur de compilation';t='Référencer une classe déclarée avec une fonctionnalité preview est interdit sans --enable-preview, même dans un import.';w='§1.5.1, 1re règle';}
+      else if(sup||imp){c='ok';v='Aucun avertissement';t=imp?'Les références dans un import sont exemptées.':'@SuppressWarnings("preview") supprime l\'avertissement.';w='§1.5.1, exceptions de la 2e règle';}
+      else{c='warn';v='Avertissement preview';t='La référence compile mais signale sa dépendance à une fonctionnalité provisoire.';w='§1.5.1, 2e règle';} }
+    else if(kind==='refl'){ if(mod||sup||imp){c='ok';v='Aucun avertissement';t=mod?'Même module : exemption.':imp?'Référence dans un import : exemption.':'Avertissement supprimé.';w='§1.5.1, API réflexives';}
+      else{c='warn';v='Avertissement preview';t=(on?'':'Même previews désactivées : ')+'une API réflexive ne provoque jamais d\'erreur.';w='§1.5.1, API réflexives';} }
+    else{ if(!on){ if(mod){c='ok';v='Accepté';t='Dans le même module, la référence est permise même previews désactivées.';w='§1.5.1, API normales';}
+        else{c='err';v='Erreur de compilation';t='Une API preview normale est inutilisable sans --enable-preview hors de son module, même dans un import.';w='§1.5.1, API normales';} }
+      else if(mod||sup||imp){c='ok';v='Aucun avertissement';t=mod?'Même module : exemption.':imp?'Référence dans un import : exemption.':'Avertissement supprimé.';w='§1.5.1, API normales';}
+      else{c='warn';v='Avertissement preview';t='La référence compile avec un avertissement.';w='§1.5.1, API normales';} }
+    out.className='verdict '+c;
+    out.innerHTML='<div class="v">'+v+'</div><p>'+t+'</p>'+(c!=='err'&&on?'<p><b>À l\'exécution :</b> la classe produite exigera java --enable-preview sur un JDK 27 exactement.</p>':'')+'<div class="why">'+w+'</div>';
+  }
+  f.addEventListener('change',ev); ev();
+};
+</script>

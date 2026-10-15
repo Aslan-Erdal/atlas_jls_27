@@ -1,0 +1,564 @@
+<div class="col">
+  <div class="eyebrow">Chapitre 8 · Java SE 27 Edition</div>
+  <h1>Classes</h1>
+  <p class="lede">Le plus long chapitre de la spec. Déclarer une classe, ses champs, méthodes et constructeurs ; hériter, redéfinir, masquer et surcharger ; construire un objet dans le bon ordre ; et les trois formes spécialisées : classes scellées, enums et records.</p>
+  <div class="meta">
+    <span>Source : <a href="https://docs.oracle.com/javase/specs/jls/se27/html/jls-8.html" target="_blank" rel="noopener">JLS SE 27, chapitre 8</a></span>
+    <span>Sections : <b>8.1 à 8.10</b></span>
+  </div>
+
+  <h2 id="s8-0"><span class="sec">§8</span>Vue d'ensemble</h2>
+  <p>Une déclaration de classe définit un nouveau type référence et décrit son implémentation. La spec distingue plusieurs sortes de classes selon l'endroit où elles sont déclarées :</p>
+  <div class="tbl"><table>
+    <thead><tr><th>Sorte</th><th>Où</th><th>Exemple</th></tr></thead>
+    <tbody>
+      <tr><td>De plus haut niveau</td><td>directement dans une unité de compilation (§7.6)</td><td><code>public class Facture { }</code></td></tr>
+      <tr><td>Imbriquée</td><td>toute classe qui n'est pas de plus haut niveau</td><td>—</td></tr>
+      <tr><td>&nbsp;&nbsp;membre</td><td>dans le corps d'une autre classe ou interface (§8.5)</td><td><code>class Ligne { }</code> dans <code>Facture</code></td></tr>
+      <tr><td>&nbsp;&nbsp;locale</td><td>dans un bloc (§14.3)</td><td>classe déclarée dans une méthode</td></tr>
+      <tr><td>&nbsp;&nbsp;anonyme</td><td>dans une expression <code>new</code> (§15.9.5)</td><td><code>new Runnable() { … }</code></td></tr>
+      <tr><td>Implicitement déclarée</td><td>unité compacte (§8.1.8)</td><td>un fichier avec <code>void main()</code></td></tr>
+    </tbody>
+  </table></div>
+  <p>Et trois formes spécialisées : les <b>enums</b> (§8.9), les <b>records</b> (§8.10), et, transversale, les classes <b>scellées</b> (§8.1.1.2).</p>
+
+  <h2 id="s8-1"><span class="sec">§8.1</span>Déclarations de classes</h2>
+  <div class="code"><div class="bar"><span>Grammaire (§8.1, simplifiée)</span></div><pre><code class="gram">NormalClassDeclaration:
+    {ClassModifier} class TypeIdentifier [TypeParameters]
+        [ClassExtends] [ClassImplements] [ClassPermits] ClassBody</code></pre></div>
+
+  <h3 id="s8-1-1"><span class="sec">§8.1.1</span>Modificateurs de classe</h3>
+  <p>Modificateurs possibles : annotations, <code>public</code>, <code>protected</code>, <code>private</code>, <code>abstract</code>, <code>static</code>, <code>final</code>, <code>sealed</code>, <code>non-sealed</code>, <code>strictfp</code>. Un même modificateur ne peut apparaître qu'une fois. <code>protected</code>, <code>private</code> et <code>static</code> ne s'appliquent qu'aux classes membres. Un seul parmi <code>final</code>, <code>sealed</code>, <code>non-sealed</code>.</p>
+
+  <h4 id="s8-1-1-1"><span class="sec">§8.1.1.1</span>Classes abstraites</h4>
+  <p>Une classe <code>abstract</code> est incomplète : elle ne peut pas être instanciée par <code>new</code>, mais peut avoir des constructeurs (appelés par les sous-classes). Une classe normale qui a, déclare ou hérite une méthode abstraite sans l'implémenter est une erreur, sauf si elle est elle-même abstraite.</p>
+  <div class="code"><div class="bar"><span>Java</span></div><pre><code class="java">abstract class Forme {
+    private final String nom;
+    protected Forme(String nom) { this.nom = nom; }   // constructeur d'une classe abstraite
+    abstract double aire();
+    String decrire() { return nom + " d'aire " + aire(); }   // méthode concrète qui appelle l'abstraite
+}
+new Forme("x");     // ERREUR : Forme est abstraite
+final abstract class X { }  // ERREUR : final et abstract sont contradictoires</code></pre></div>
+
+  <h4 id="s8-1-1-2"><span class="sec">§8.1.1.2</span>Classes sealed, non-sealed et final</h4>
+  <p>Depuis Java 17, une classe <code>sealed</code> liste explicitement ses <b>sous-classes directes autorisées</b>. Chacune doit à son tour choisir : <code>final</code> (fin de la hiérarchie), <code>sealed</code> (nouvelle liste fermée) ou <code>non-sealed</code> (réouverture à tous).</p>
+  <div class="svgwrap"><svg viewBox="0 0 640 230" width="640" role="img" aria-label="Hiérarchie scellée de Forme">
+    <rect class="d-acc" x="250" y="10" width="140" height="44" rx="8"/><text class="d-txt d-b" x="320" y="30" text-anchor="middle">Forme</text><text class="d-mut" x="320" y="46" text-anchor="middle">sealed interface</text>
+    <rect class="d-box" x="20" y="100" width="150" height="44" rx="8"/><text class="d-txt d-b" x="95" y="120" text-anchor="middle">Cercle</text><text class="d-mut" x="95" y="136" text-anchor="middle">record (final)</text>
+    <rect class="d-acc" x="245" y="100" width="150" height="44" rx="8"/><text class="d-txt d-b" x="320" y="120" text-anchor="middle">Rectangle</text><text class="d-mut" x="320" y="136" text-anchor="middle">sealed class</text>
+    <rect class="d-emb" x="470" y="100" width="150" height="44" rx="8"/><text class="d-txt d-b" x="545" y="120" text-anchor="middle">Polygone</text><text class="d-mut" x="545" y="136" text-anchor="middle">non-sealed class</text>
+    <rect class="d-box" x="245" y="180" width="150" height="40" rx="8"/><text class="d-txt d-b" x="320" y="198" text-anchor="middle">Carre</text><text class="d-mut" x="320" y="213" text-anchor="middle">final class</text>
+    <rect class="d-box d-dash" x="470" y="180" width="150" height="40" rx="8"/><text class="d-txt" x="545" y="204" text-anchor="middle">… n'importe qui</text>
+    <path class="d-line" d="M95,100 L280,56" marker-end="url(#arr)"/><path class="d-line" d="M320,100 L320,56" marker-end="url(#arr)"/><path class="d-line" d="M545,100 L360,56" marker-end="url(#arr)"/>
+    <path class="d-line" d="M320,180 L320,146" marker-end="url(#arr)"/><path class="d-line d-dash" d="M545,180 L545,146" marker-end="url(#arr)"/>
+  </svg></div>
+  <div class="code"><div class="bar"><span>Java</span></div><pre><code class="java">sealed interface Forme permits Cercle, Rectangle, Polygone { }
+record Cercle(double r) implements Forme { }                  // record : implicitement final
+sealed class Rectangle implements Forme permits Carre { }
+final class Carre extends Rectangle { }
+non-sealed class Polygone implements Forme { }                 // la hiérarchie se rouvre ici
+
+static double aire(Forme f) {
+    return switch (f) {                  // exhaustif sans default : le compilateur connaît tous les cas
+        case Cercle c    -&gt; Math.PI * c.r() * c.r();
+        case Rectangle r -&gt; 0;           // couvre aussi Carre
+        case Polygone p  -&gt; 0;
+    };
+}</code></pre></div>
+  <div class="rule"><span class="lbl">Règles</span>
+    <p>Les sous-classes autorisées doivent être dans le <b>même module</b> que la classe scellée (ou dans le même paquetage si elle est dans le module sans nom), et doivent l'étendre <b>directement</b>. Si la clause <code>permits</code> est omise, les sous-classes autorisées sont celles déclarées dans la <b>même unité de compilation</b>. Une classe <code>final</code> ne peut pas avoir de sous-classe ; une classe <code>non-sealed</code> peut être étendue par n'importe quelle classe.</p>
+  </div>
+
+  <h4 id="s8-1-1-3"><span class="sec">§8.1.1.3</span>Classes strictfp</h4>
+  <p>Toujours accepté, sans effet depuis Java 17 (JEP 306) : toutes les expressions flottantes sont strictes. Le compilateur peut émettre un avertissement.</p>
+
+  <h4 id="s8-1-1-4"><span class="sec">§8.1.1.4</span>Classes static</h4>
+  <p><code>static</code> ne s'applique qu'aux classes membres : une classe membre <code>static</code> n'a pas d'instance englobante. Les enums, records et interfaces membres sont implicitement <code>static</code>.</p>
+
+  <h3 id="s8-1-2"><span class="sec">§8.1.2</span>Classes génériques et paramètres de type</h3>
+  <p>Une classe est générique si elle déclare des paramètres de type (§4.4). Les paramètres de type sont en portée dans toute la déclaration, mais une classe générique ne peut pas être une sous-classe directe ou indirecte de <code>Throwable</code>, et les paramètres de type ne peuvent pas être utilisés dans un contexte statique.</p>
+  <div class="code"><div class="bar"><span>Java</span></div><pre><code class="java">class Noeud&lt;T extends Comparable&lt;T&gt;&gt; {    // borne récursive (F-bound)
+    T valeur; Noeud&lt;T&gt; gauche, droite;
+    static T defaut;                         // ERREUR : T dans un contexte statique
+}
+class Erreur&lt;T&gt; extends Exception { }        // ERREUR : générique et Throwable</code></pre></div>
+
+  <h3 id="s8-1-3"><span class="sec">§8.1.3</span>Classes internes et instances englobantes</h3>
+  <p>Une <b>classe interne</b> est une classe imbriquée qui n'est pas <code>static</code> (explicitement ou implicitement). Les classes locales et anonymes non statiques sont aussi internes. Chaque instance d'une classe interne déclarée dans un contexte non statique possède une <b>instance immédiatement englobante</b> : une référence cachée vers l'objet de la classe externe.</p>
+  <div class="svgwrap"><svg viewBox="0 0 600 150" width="600" role="img" aria-label="Un objet interne référence son objet externe">
+    <rect class="d-acc" x="20" y="30" width="200" height="90" rx="10"/><text class="d-txt d-b" x="120" y="55" text-anchor="middle">objet Externe</text><text class="d-mono" x="40" y="82">int compteur = 3</text>
+    <rect class="d-emb" x="370" y="30" width="210" height="90" rx="10"/><text class="d-txt d-b" x="475" y="55" text-anchor="middle">objet Externe.Interne</text><text class="d-mono" x="388" y="82">int x</text><text class="d-mono" x="388" y="102">Externe this$0 ●</text>
+    <path class="d-line d-embl" d="M512,98 C470,140 260,140 222,98" marker-end="url(#arr)"/>
+    <text class="d-mut" x="300" y="146" text-anchor="middle">référence cachée créée par externe.new Interne()</text>
+  </svg></div>
+  <div class="code"><div class="bar"><span>Java</span></div><pre><code class="java">class Externe {
+    int compteur = 3;
+    class Interne {
+        int x = compteur;                // accède au champ de l'instance englobante
+        void reset() { Externe.this.compteur = 0; }
+        static int nbCrees;              // permis depuis Java 16 (membres static dans une classe interne)
+    }
+    static class Imbriquee { }           // pas d'instance englobante
+}
+Externe e = new Externe();
+Externe.Interne i = e.new Interne();     // syntaxe qualifiée : précise l'instance englobante
+Externe.Imbriquee n = new Externe.Imbriquee();</code></pre></div>
+  <div class="rule"><span class="lbl">Règle · capture des locales</span>
+    <p>Une classe locale ou anonyme peut utiliser les variables locales et paramètres de la méthode englobante, à condition qu'ils soient <code>final</code> ou <b>effectivement final</b> (§4.12.4). La valeur est copiée dans l'objet au moment de sa création.</p>
+  </div>
+  <div class="trap"><span class="lbl">Piège · fuite mémoire</span>
+    <p>Une instance de classe interne garde son objet externe en vie tant qu'elle-même vit. Un écouteur anonyme ou une classe interne stockée dans un cache peut ainsi retenir un gros objet. Préférez une classe membre <code>static</code> quand l'instance englobante n'est pas nécessaire.</p>
+  </div>
+
+  <h3 id="s8-1-4"><span class="sec">§8.1.4</span>Superclasses et sous-classes</h3>
+  <p>La clause <code>extends</code> nomme la <b>superclasse directe</b>. Sans elle, c'est <code>Object</code> (sauf pour <code>Object</code> lui-même, qui n'en a pas). Le type nommé doit être une classe accessible, non <code>final</code>, et non scellée sauf si la classe courante est autorisée. On ne peut pas étendre <code>Enum</code> ou <code>Record</code> directement.</p>
+  <p>Une classe ne peut pas <b>dépendre d'elle-même</b> : <code>class A extends B {}</code> et <code>class B extends A {}</code> forment une circularité interdite. La relation « sous-classe » est la fermeture transitive de « sous-classe directe ».</p>
+
+  <h3 id="s8-1-5"><span class="sec">§8.1.5</span>Superinterfaces</h3>
+  <p>La clause <code>implements</code> liste les superinterfaces directes. Une même interface ne peut pas être nommée deux fois, et une classe ne peut pas être sous-type de deux paramétrages différents de la même interface générique :</p>
+  <div class="code"><div class="bar"><span>Java</span></div><pre><code class="java">class A implements Comparable&lt;A&gt; { … }
+class B extends A implements Comparable&lt;B&gt; { }   // ERREUR : Comparable&lt;A&gt; et Comparable&lt;B&gt;</code></pre></div>
+  <p>C'est une conséquence directe de l'effacement : la JVM ne verrait qu'une seule interface <code>Comparable</code>.</p>
+
+  <h3 id="s8-1-6"><span class="sec">§8.1.6</span>Sous-classes directes autorisées</h3>
+  <p>La clause <code>permits</code> d'une classe <code>sealed</code> nomme ses sous-classes directes autorisées. Chaque nom doit désigner une classe accessible, distincte, qui étend directement la classe scellée. Une clause <code>permits</code> sur une classe non scellée est une erreur.</p>
+
+  <h3 id="s8-1-7"><span class="sec">§8.1.7</span>Corps de classe et déclarations de membres</h3>
+  <p>Le corps contient des déclarations de membres (champs, méthodes, classes et interfaces membres), des initialiseurs d'instance et statiques, et des constructeurs. La portée de chaque membre est tout le corps (§6.3).</p>
+
+  <h3 id="s8-1-8"><span class="sec">§8.1.8</span>Classes implicitement déclarées</h3>
+  <p>Une unité de compilation <b>compacte</b> (§7.3) déclare implicitement une classe. Depuis Java 25 (JEP 512), c'est la façon la plus simple d'écrire un programme.</p>
+  <div class="rule"><span class="lbl">Règles</span>
+    <p>La classe implicite est <code>final</code>, de plus haut niveau, dans le paquetage sans nom, et étend <code>Object</code>. Ses membres sont les champs et méthodes déclarés au niveau de l'unité. Elle n'a que le constructeur par défaut. Son nom est choisi par l'hôte (en pratique, celui du fichier) mais <b>ne peut pas être utilisé</b> dans le code. Elle doit déclarer une méthode <code>main</code> lançable (§12.1.4).</p>
+  </div>
+  <div class="code"><div class="bar"><span>Compteur.java</span></div><pre><code class="java">int total = 0;                     // champ d'instance de la classe implicite
+
+void ajouter(int n) { total += n; }
+
+void main() {                      // méthode main d'instance, sans String[] args
+    ajouter(3); ajouter(4);
+    IO.println("Total : " + total);
+}</code></pre></div>
+
+  <h2 id="s8-2"><span class="sec">§8.2</span>Membres d'une classe</h2>
+  <p>Les membres d'une classe sont :</p>
+  <ul>
+    <li>les membres <b>hérités</b> de sa superclasse directe (sauf pour <code>Object</code>) ;</li>
+    <li>les membres hérités de ses superinterfaces directes ;</li>
+    <li>les membres <b>déclarés</b> dans son corps.</li>
+  </ul>
+  <div class="rule"><span class="lbl">Règle</span>
+    <p>Les membres <code>private</code> ne sont <b>pas hérités</b>. Les membres à accès paquetage ne sont hérités que par les sous-classes du même paquetage. Les <b>constructeurs</b>, initialiseurs statiques et initialiseurs d'instance ne sont <b>pas des membres</b> : ils ne sont jamais hérités.</p>
+  </div>
+  <div class="code"><div class="bar"><span>Java</span></div><pre><code class="java">class Point { private int x; int y; protected int z; public int w; }
+class Point3D extends Point {
+    void f() {
+        x = 1;   // ERREUR : x n'est pas hérité (il existe pourtant dans l'objet !)
+        y = 1;   // OK seulement si Point3D est dans le même paquetage que Point
+        z = 1;   // OK
+        w = 1;   // OK
+    }
+}</code></pre></div>
+  <p>Remarquez la nuance : l'objet <code>Point3D</code> contient bien un emplacement pour <code>x</code>, initialisé par le constructeur de <code>Point</code>. « Non hérité » signifie seulement que le nom n'est pas un membre de <code>Point3D</code>.</p>
+
+  <h2 id="s8-3"><span class="sec">§8.3</span>Déclarations de champs</h2>
+  <p>Un champ est déclaré par un type et un ou plusieurs déclarateurs, chacun avec un initialiseur facultatif. Deux champs de même nom dans une même classe sont une erreur. Un champ <b>masque</b> (hides) tout champ de même nom hérité d'une superclasse ou superinterface, même de type différent : les deux coexistent, et l'accès dépend du type statique.</p>
+  <div class="code"><div class="bar"><span>Java · masquage de champ</span></div><pre><code class="java">class A { String nom = "A"; }
+class B extends A { String nom = "B"; }   // masque A.nom, ne le redéfinit pas
+
+A a = new B();
+a.nom;               // "A" : les champs sont liés statiquement, selon le type de l'expression
+((B) a).nom;         // "B"
+// dans B : super.nom vaut "A", ((A) this).nom aussi</code></pre></div>
+
+  <h3 id="s8-3-1"><span class="sec">§8.3.1</span>Modificateurs de champ</h3>
+  <h4 id="s8-3-1-1"><span class="sec">§8.3.1.1</span>Champs static</h4>
+  <p>Un champ <code>static</code> (variable de classe) existe en un seul exemplaire, quel que soit le nombre d'instances, y compris zéro. Un champ non statique (variable d'instance) existe une fois par objet. Un champ <code>static</code> peut masquer un champ d'instance hérité, et inversement.</p>
+  <h4 id="s8-3-1-2"><span class="sec">§8.3.1.2</span>Champs final</h4>
+  <p>Un champ <code>final</code> doit être affecté exactement une fois : dans son initialiseur, ou (blank final) dans chaque constructeur pour un champ d'instance, ou dans un initialiseur statique pour un champ statique. Un champ <code>final</code> bien initialisé bénéficie de garanties particulières du modèle mémoire (§17.5).</p>
+  <h4 id="s8-3-1-3"><span class="sec">§8.3.1.3</span>Champs transient</h4>
+  <p><code>transient</code> marque un champ qui ne fait pas partie de l'état persistant de l'objet. La spec n'en dit pas plus ; c'est la sérialisation Java (<code>java.io.Serializable</code>) qui l'ignore.</p>
+  <h4 id="s8-3-1-4"><span class="sec">§8.3.1.4</span>Champs volatile</h4>
+  <p>Un champ <code>volatile</code> garantit que tous les threads voient une valeur cohérente : chaque écriture <i>happens-before</i> chaque lecture qui la suit dans l'ordre de synchronisation (§17.4). Les lectures et écritures d'un <code>long</code> ou <code>double</code> volatile sont atomiques (§17.7). Un champ ne peut pas être à la fois <code>final</code> et <code>volatile</code>.</p>
+  <div class="code"><div class="bar"><span>Java</span></div><pre><code class="java">class Tache implements Runnable {
+    private volatile boolean arret;          // sans volatile, la boucle pourrait ne jamais voir l'écriture
+    public void run() { while (!arret) travailler(); }
+    void stop() { arret = true; }
+}</code></pre></div>
+
+  <h3 id="s8-3-2"><span class="sec">§8.3.2</span>Initialisation des champs</h3>
+  <p>L'initialiseur d'un champ statique est exécuté une fois, à l'initialisation de la classe (§12.4.2), dans l'ordre textuel avec les initialiseurs statiques. Celui d'un champ d'instance est exécuté à chaque création d'objet, dans l'ordre textuel avec les initialiseurs d'instance, juste après l'appel du constructeur de la superclasse (§12.5).</p>
+  <div class="rule"><span class="lbl">Règles</span>
+    <p>Un initialiseur de champ statique ne peut pas utiliser <code>this</code>, <code>super</code>, ni un champ d'instance. Un initialiseur ne peut lever une exception vérifiée que dans des cas très limités (§11.2.3).</p>
+  </div>
+
+  <h3 id="s8-3-3"><span class="sec">§8.3.3</span>Restrictions sur les références en avant</h3>
+  <p>Dans les initialiseurs (de champ, d'instance ou statiques) d'une classe C, utiliser un champ de C <b>déclaré plus bas</b> est une erreur si les quatre conditions suivantes sont réunies : l'usage est un <b>nom simple</b> ; il n'est pas à gauche d'une affectation ; il est dans un initialiseur du même genre (instance/statique) que le champ ; et il est dans C, pas dans une classe imbriquée.</p>
+  <div class="code"><div class="bar"><span>Java</span></div><pre><code class="java">class F {
+    int a = b + 1;          // ERREUR : référence en avant, nom simple
+    int c = this.b + 1;     // compile ! vaut 1 car b vaut encore 0 (valeur par défaut)
+    int d = lireB() + 1;    // compile, vaut aussi 1
+    { b = 5; }              // permis : b est à gauche d'une affectation
+    int b = 10;             // l'initialiseur écrase le 5
+    int lireB() { return b; }
+}</code></pre></div>
+  <p>Ces règles empêchent les erreurs évidentes, pas toutes : un accès qualifié ou via une méthode voit la valeur par défaut. L'ordre textuel des champs est donc significatif.</p>
+
+  <h2 id="s8-4"><span class="sec">§8.4</span>Déclarations de méthodes</h2>
+  <div class="code"><div class="bar"><span>Grammaire (§8.4, simplifiée)</span></div><pre><code class="gram">MethodDeclaration:
+    {MethodModifier} MethodHeader MethodBody
+
+MethodHeader:
+    Result MethodDeclarator [Throws]
+    TypeParameters {Annotation} Result MethodDeclarator [Throws]
+
+MethodDeclarator:
+    Identifier ( [ReceiverParameter ,] [FormalParameterList] ) [Dims]</code></pre></div>
+
+  <h3 id="s8-4-1"><span class="sec">§8.4.1</span>Paramètres formels</h3>
+  <p>Chaque paramètre a un type et un nom ; il peut être <code>final</code>. Le dernier paramètre peut être <b>variadique</b> (<code>T... args</code>) : il est de type <code>T[]</code> et accepte zéro ou plusieurs arguments. Un <b>paramètre récepteur</b> facultatif (<code>void m(@NonNull MaClasse this)</code>) ne sert qu'à annoter le type de <code>this</code>.</p>
+  <div class="code"><div class="bar"><span>Java</span></div><pre><code class="java">static int somme(int... t) { int s = 0; for (int x : t) s += x; return s; }
+somme();            // 0 : tableau vide
+somme(1, 2, 3);     // 6
+somme(new int[]{4, 5}); // 9 : un tableau peut être passé directement
+void f(int... a, int b) { }  // ERREUR : le paramètre variadique doit être le dernier</code></pre></div>
+  <div class="trap"><span class="lbl">Piège</span>
+    <p>Pour un paramètre <code>Object...</code>, passer <code>null</code> ou un <code>Object[]</code> remplit directement le tableau. <code>f(null)</code> donne un tableau <code>null</code>, pas un tableau contenant <code>null</code> ; <code>f((Object) null)</code> donne <code>[null]</code>.</p>
+  </div>
+
+  <h3 id="s8-4-2"><span class="sec">§8.4.2</span>Signature de méthode</h3>
+  <p>La <b>signature</b> d'une méthode est son nom et les types de ses paramètres formels (après adaptation des paramètres de type). Le type de retour et la clause <code>throws</code> n'en font pas partie. Deux méthodes d'une même classe ne peuvent pas avoir des signatures <b>équivalentes pour la redéfinition</b> (override-equivalent).</p>
+  <ul>
+    <li>m1 est une <b>sous-signature</b> de m2 si les signatures sont identiques, ou si celle de m1 est l'effacement de celle de m2.</li>
+    <li>m1 et m2 sont <b>équivalentes pour la redéfinition</b> si l'une est une sous-signature de l'autre.</li>
+  </ul>
+  <div class="code"><div class="bar"><span>Java</span></div><pre><code class="java">class C {
+    int f(int x) { return x; }
+    long f(int y) { return y; }          // ERREUR : même signature f(int), seul le retour diffère
+    void g(List&lt;String&gt; l) { }
+    void g(List l) { }                   // ERREUR : g(List) est une sous-signature de g(List&lt;String&gt;)
+}</code></pre></div>
+
+  <h3 id="s8-4-3"><span class="sec">§8.4.3</span>Modificateurs de méthode</h3>
+  <div class="tbl"><table>
+    <thead><tr><th>Modificateur</th><th>Sens</th><th>Incompatible avec</th></tr></thead>
+    <tbody>
+      <tr><td><code>abstract</code> §8.4.3.1</td><td>pas de corps ; la classe doit être abstraite ; doit être implémentée</td><td><code>private</code>, <code>static</code>, <code>final</code>, <code>native</code>, <code>strictfp</code>, <code>synchronized</code></td></tr>
+      <tr><td><code>static</code> §8.4.3.2</td><td>méthode de classe : pas de <code>this</code> ni <code>super</code></td><td><code>abstract</code></td></tr>
+      <tr><td><code>final</code> §8.4.3.3</td><td>ne peut pas être redéfinie ni masquée ; <code>private</code> est implicitement non redéfinissable</td><td><code>abstract</code></td></tr>
+      <tr><td><code>native</code> §8.4.3.4</td><td>implémentée hors de Java (JNI) ; corps <code>;</code></td><td><code>abstract</code>, <code>strictfp</code></td></tr>
+      <tr><td><code>strictfp</code> §8.4.3.5</td><td>sans effet depuis Java 17</td><td><code>abstract</code></td></tr>
+      <tr><td><code>synchronized</code> §8.4.3.6</td><td>acquiert le moniteur de <code>this</code> (ou de l'objet <code>Class</code> si <code>static</code>) avant d'exécuter le corps</td><td><code>abstract</code></td></tr>
+    </tbody>
+  </table></div>
+  <div class="code"><div class="bar"><span>Java · synchronized</span></div><pre><code class="java">class Compte {
+    private long solde;
+    synchronized void deposer(long m) { solde += m; }        // verrou : this
+    void deposer2(long m) { synchronized (this) { solde += m; } }   // strictement équivalent
+    static synchronized void audit() { }                     // verrou : Compte.class
+}</code></pre></div>
+
+  <h3 id="s8-4-4"><span class="sec">§8.4.4</span>Méthodes génériques</h3>
+  <p>Une méthode est générique si elle déclare ses propres paramètres de type, placés avant le type de retour. Ils sont en portée dans toute la déclaration. Les arguments de type sont en général inférés (ch. 18), mais peuvent être explicites : <code>Collections.&lt;String&gt;emptyList()</code>.</p>
+  <div class="code"><div class="bar"><span>Java</span></div><pre><code class="java">static &lt;K, V extends Comparable&lt;? super V&gt;&gt; K cleDuMax(Map&lt;K, V&gt; m) {
+    return m.entrySet().stream().max(Map.Entry.comparingByValue()).orElseThrow().getKey();
+}</code></pre></div>
+
+  <h3 id="s8-4-5"><span class="sec">§8.4.5</span>Résultat d'une méthode</h3>
+  <p>Le résultat est <code>void</code> ou un type. Quand une méthode en redéfinit une autre, son type de retour doit être <b>substituable</b> : identique pour <code>void</code> et les primitifs ; pour un type référence R1 à la place de R2, R1 doit être un sous-type de R2 (retour <b>covariant</b>), ou convertible par conversion non vérifiée (avec avertissement), ou les signatures doivent différer et R1 = |R2|.</p>
+  <div class="code"><div class="bar"><span>Java</span></div><pre><code class="java">class Animal { Animal reproduire() { return new Animal(); } }
+class Chat extends Animal {
+    @Override Chat reproduire() { return new Chat(); }   // retour covariant : Chat &lt;: Animal
+}</code></pre></div>
+
+  <h3 id="s8-4-6"><span class="sec">§8.4.6</span>Clause throws</h3>
+  <p>La clause <code>throws</code> liste les exceptions <b>vérifiées</b> que la méthode peut lever (§11.2). Y lister des exceptions non vérifiées est permis, à titre documentaire. Une variable de type bornée par <code>Exception</code> peut apparaître : <code>&lt;X extends Throwable&gt; void f() throws X</code>.</p>
+
+  <h3 id="s8-4-7"><span class="sec">§8.4.7</span>Corps de méthode</h3>
+  <p>Un bloc, ou <code>;</code> pour une méthode <code>abstract</code> ou <code>native</code> (et seulement pour elles). Une méthode non <code>void</code> ne doit pas pouvoir se terminer normalement (§14.1) : chaque chemin doit finir par <code>return</code> avec valeur ou <code>throw</code>. Une méthode <code>void</code> ne peut pas contenir <code>return expr;</code>.</p>
+
+  <h3 id="s8-4-8"><span class="sec">§8.4.8</span>Héritage, redéfinition et masquage</h3>
+  <p>Une classe C hérite de sa superclasse et de ses superinterfaces toutes les méthodes concrètes, abstraites et <code>default</code> qui sont accessibles et <b>ne sont pas</b> redéfinies ou masquées par une déclaration de C. Trois relations sont à distinguer soigneusement :</p>
+</div>
+
+<div class="wide">
+  <figure>
+    <p class="fig-title">Figure 8.1 · Redéfinir, masquer, surcharger</p>
+    <div data-w="explorer"><script type="application/json">{"items":[
+      {"k":"Redéfinition (override)","sub":"méthode d'instance, même signature","d":"<p>Une méthode d'instance m de C <b>redéfinit</b> une méthode d'instance m' d'une superclasse si m' est accessible depuis C et si la signature de m est une sous-signature de celle de m' (§8.4.8.1). Le choix de la méthode exécutée se fait <b>à l'exécution</b>, selon la classe réelle de l'objet : c'est la liaison dynamique.</p>","code":"class A { String qui() { return \"A\"; } }\nclass B extends A { @Override String qui() { return \"B\"; } }\nA x = new B();\nx.qui();   // \"B\" : décidé à l'exécution"},
+      {"k":"Masquage (hiding)","sub":"méthode static, même signature","d":"<p>Une méthode <code>static</code> de C <b>masque</b> une méthode static de même signature d'une superclasse (§8.4.8.2). Le choix se fait <b>à la compilation</b>, selon le type statique : aucune liaison dynamique.</p><p>Une méthode static ne peut pas masquer une méthode d'instance, et une méthode d'instance ne peut pas redéfinir une méthode static : erreur dans les deux cas.</p>","code":"class A { static String qui() { return \"A\"; } }\nclass B extends A { static String qui() { return \"B\"; } }\nA x = new B();\nx.qui();   // \"A\" : type statique de x (style déconseillé)\nB.qui();   // \"B\""},
+      {"k":"Surcharge (overload)","sub":"même nom, signatures différentes","d":"<p>Deux méthodes de même nom dont les signatures ne sont pas équivalentes pour la redéfinition se <b>surchargent</b> (§8.4.9). Elles peuvent avoir des types de retour et des throws différents. La méthode appelée est choisie <b>à la compilation</b>, d'après les types statiques des arguments (§15.12.2).</p>","code":"void afficher(Object o) { IO.println(\"Object\"); }\nvoid afficher(String s) { IO.println(\"String\"); }\nObject o = \"texte\";\nafficher(o);   // \"Object\" : type statique de l'argument"},
+      {"k":"Le piège equals","sub":"surcharge au lieu de redéfinition","d":"<p>Écrire <code>equals(Point p)</code> au lieu de <code>equals(Object o)</code> <b>surcharge</b> au lieu de redéfinir. Les collections, qui appellent <code>equals(Object)</code>, ne la verront jamais. <code>@Override</code> (§9.6.4.4) transforme cette erreur silencieuse en erreur de compilation.</p>","code":"class Point {\n    int x;\n    public boolean equals(Point p) { return x == p.x; }   // surcharge !\n}\nnew HashSet<>(List.of(new Point(), new Point())).size();   // 2"},
+      {"k":"Méthode private","sub":"ni héritée ni redéfinie","d":"<p>Une méthode <code>private</code> n'est pas héritée : une méthode de même signature dans une sous-classe est une méthode <b>nouvelle et sans lien</b>, pas une redéfinition. Les appels depuis la superclasse continuent d'appeler la version privée.</p>","code":"class A { private String f() { return \"A\"; } String g() { return f(); } }\nclass B extends A { String f() { return \"B\"; } }\nnew B().g();   // \"A\""},
+      {"k":"Champ","sub":"jamais redéfini","d":"<p>Les champs ne participent pas à la liaison dynamique : un champ de même nom dans une sous-classe <b>masque</b> celui de la superclasse (§8.3). L'accès dépend toujours du type statique.</p>"}
+    ]}</script></div>
+  </figure>
+</div>
+
+<div class="col">
+  <h4 id="s8-4-8-3"><span class="sec">§8.4.8.3</span>Exigences pour redéfinir et masquer</h4>
+  <div class="tbl"><table>
+    <thead><tr><th>Exigence</th><th>Exemple d'erreur</th></tr></thead>
+    <tbody>
+      <tr><td>Retour substituable (§8.4.5)</td><td><code>int f()</code> redéfinie par <code>long f()</code></td></tr>
+      <tr><td>Ne pas lever de nouvelles exceptions vérifiées : chaque exception vérifiée de la clause <code>throws</code> doit être un sous-type d'une exception de la méthode redéfinie</td><td><code>void f() throws IOException</code> redéfinie par <code>… throws Exception</code></td></tr>
+      <tr><td>Accès au moins aussi large</td><td><code>public void f()</code> redéfinie par <code>void f()</code> (paquetage)</td></tr>
+      <tr><td>La méthode redéfinie n'est pas <code>final</code></td><td>redéfinir <code>Object.getClass()</code></td></tr>
+      <tr><td>Pas de mélange static / instance</td><td>méthode static de même signature qu'une méthode d'instance héritée</td></tr>
+      <tr><td>Pas de conflit d'effacement : deux méthodes dont les effacements coïncident sans qu'elles se redéfinissent</td><td><code>void f(List&lt;String&gt;)</code> dans A et <code>void f(List&lt;Integer&gt;)</code> dans B extends A</td></tr>
+    </tbody>
+  </table></div>
+  <p>Ordre des accès, du plus large au plus étroit : <code>public</code> &gt; <code>protected</code> &gt; paquetage &gt; <code>private</code>.</p>
+
+  <h4 id="s8-4-8-4"><span class="sec">§8.4.8.4</span>Hériter plusieurs méthodes équivalentes</h4>
+  <p>Une classe peut hériter plusieurs méthodes de signatures équivalentes (d'une superclasse et d'interfaces). Si l'une est concrète, elle implémente les autres (et doit respecter leurs exigences de retour et de throws). Si aucune n'est concrète et que la classe n'est pas abstraite, erreur. Deux méthodes <code>default</code> conflictuelles exigent une redéfinition explicite (§9.4.1.3).</p>
+
+  <h3 id="s8-4-9"><span class="sec">§8.4.9</span>Surcharge</h3>
+  <p>Si deux méthodes d'une classe (déclarées ou héritées) ont le même nom sans être équivalentes pour la redéfinition, le nom est <b>surchargé</b>. Cela n'impose aucune contrainte de retour ou de throws. La surcharge est résolue à la compilation (§15.12.2) ; la redéfinition, à l'exécution (§15.12.4).</p>
+
+  <h2 id="s8-5"><span class="sec">§8.5</span>Classes et interfaces membres</h2>
+  <p>Une classe membre est déclarée directement dans le corps d'une autre. Elle peut avoir tous les modificateurs d'accès. Une classe membre masque les classes membres de même nom héritées. Les interfaces, enums et records membres sont implicitement <code>static</code>.</p>
+
+  <h2 id="s8-6"><span class="sec">§8.6</span>Initialiseurs d'instance</h2>
+  <p>Un bloc <code>{ … }</code> au niveau du corps de la classe est exécuté à chaque création d'objet, dans l'ordre textuel avec les initialiseurs de champs, après l'appel au constructeur de la superclasse. Il ne peut pas contenir <code>return</code> et ne peut lever une exception vérifiée que si tous les constructeurs la déclarent. Il est surtout utile dans les classes anonymes, qui n'ont pas de constructeur.</p>
+
+  <h2 id="s8-7"><span class="sec">§8.7</span>Initialiseurs statiques</h2>
+  <p>Un bloc <code>static { … }</code> est exécuté une seule fois, à l'initialisation de la classe (§12.4.2). Il ne peut pas utiliser <code>this</code>, <code>super</code>, ni <code>return</code>, et doit pouvoir se terminer normalement. Une exception non vérifiée qu'il lève devient une <code>ExceptionInInitializerError</code>, et la classe est inutilisable ensuite (<code>NoClassDefFoundError</code>).</p>
+
+  <h2 id="s8-8"><span class="sec">§8.8</span>Déclarations de constructeurs</h2>
+  <p>Un constructeur sert à créer une instance. Il porte le nom de sa classe, n'a pas de type de retour, et n'est <b>pas un membre</b> : il n'est jamais hérité ni redéfini.</p>
+  <h3 id="s8-8-1"><span class="sec">§8.8.1</span>Paramètres formels</h3>
+  <p>Comme pour les méthodes (§8.4.1). Le constructeur d'une classe interne a en plus un paramètre implicite, l'instance englobante, que la JVM voit dans la signature binaire.</p>
+  <h3 id="s8-8-2"><span class="sec">§8.8.2</span>Signature de constructeur</h3>
+  <p>Mêmes règles que pour les méthodes : deux constructeurs aux signatures équivalentes sont une erreur.</p>
+  <h3 id="s8-8-3"><span class="sec">§8.8.3</span>Modificateurs de constructeur</h3>
+  <p>Seulement les modificateurs d'accès et les annotations. Pas de <code>abstract</code>, <code>static</code>, <code>final</code>, <code>native</code>, <code>synchronized</code> : un constructeur n'est pas hérité et l'objet en construction n'est pas encore partagé.</p>
+  <h3 id="s8-8-4"><span class="sec">§8.8.4</span>Constructeurs génériques</h3>
+  <p>Un constructeur peut déclarer ses propres paramètres de type, indépendants de ceux de la classe : <code>&lt;T&gt; Boite(T graine) { … }</code>. L'appel peut les préciser : <code>new &lt;String&gt;Boite("x")</code>.</p>
+  <h3 id="s8-8-5"><span class="sec">§8.8.5</span>Clause throws d'un constructeur</h3>
+  <p>Comme pour les méthodes. Un constructeur doit déclarer les exceptions vérifiées que peuvent lever son corps, ses initialiseurs d'instance et de champs, et l'appel du constructeur de la superclasse.</p>
+  <h3 id="s8-8-6"><span class="sec">§8.8.6</span>Type d'un constructeur</h3>
+  <p>Le type d'un constructeur est sa signature, ses paramètres de type et sa clause throws ; la notion sert à l'inférence et à la résolution de surcharge des créations d'instances.</p>
+
+  <h3 id="s8-8-7"><span class="sec">§8.8.7</span>Corps de constructeur</h3>
+  <p>Le corps peut contenir un <b>appel explicite de constructeur</b> : <code>this(…)</code> (un autre constructeur de la même classe) ou <code>super(…)</code> (constructeur de la superclasse). S'il n'y en a pas, et que la classe n'est pas <code>Object</code>, le compilateur insère implicitement <code>super();</code> au début.</p>
+  <div class="modern"><span class="lbl">Java 25 · corps de constructeur flexibles (JEP 513)</span>
+    <p>Avant Java 25, l'appel explicite devait être la <b>première</b> instruction. Désormais, des instructions peuvent le précéder : elles forment le <b>prologue</b> ; celles qui suivent forment l'<b>épilogue</b>. Le prologue sert à valider ou calculer les arguments, et à initialiser les champs de la classe courante avant que la superclasse ne s'exécute.</p>
+  </div>
+  <div class="rule"><span class="lbl">Règles du prologue</span>
+    <p>Dans le prologue, l'objet est « en construction précoce » : il est interdit d'utiliser <code>this</code> explicitement ou implicitement (lire un champ, appeler une méthode d'instance, passer <code>this</code> en argument), d'utiliser <code>super.x</code>, et d'écrire <code>return</code>. Une seule exception : <b>affecter</b> un champ déclaré dans la classe courante <b>sans initialiseur</b>.</p>
+  </div>
+  <div class="code"><div class="bar"><span>Java 25+</span></div><pre><code class="java">class Positif extends Nombre {
+    private final int valeur;
+    Positif(int v) {
+        if (v &lt;= 0) throw new IllegalArgumentException("v doit être &gt; 0");   // prologue : validation
+        int carre = v * v;                        // prologue : calcul local
+        this.valeur = v;                          // prologue : champ sans initialiseur, permis
+        super(carre);                             // appel explicite
+        System.out.println("créé : " + valeur);   // épilogue : this est utilisable
+    }
+}
+class Interdit extends Nombre {
+    int x;
+    Interdit() {
+        System.out.println(x);   // ERREUR : lecture de this.x dans le prologue
+        afficher();              // ERREUR : méthode d'instance dans le prologue
+        super(0);
+    }
+}</code></pre></div>
+  <p>Le grand intérêt apparaît quand la superclasse appelle une méthode redéfinie pendant sa construction. Suivez la création d'un objet pas à pas :</p>
+</div>
+
+<div class="wide">
+  <figure>
+    <p class="fig-title">Figure 8.2 · L'ordre exact de construction de <code>new Derivee("x")</code></p>
+    <div data-w="stepper">
+<pre class="src">class Base {
+    int a = trace("Base.a = 1", 1);
+    { trace("bloc d'instance de Base"); }
+    Base() {
+        // super(); implicite : Object()
+        trace("corps de Base()");
+        affiche();
+    }
+    void affiche() { trace("Base.affiche"); }
+}
+class Derivee extends Base {
+    int b = trace("Derivee.b = 2", 2);
+    final String nom;
+    Derivee(String nom) {
+        Objects.requireNonNull(nom);
+        this.nom = nom;
+        super();
+        trace("corps de Derivee()");
+    }
+    @Override void affiche() {
+        trace("Derivee.affiche : b=" + b + ", nom=" + nom);
+    }
+}
+// new Derivee("x");</pre>
+<script type="application/json">[
+ {"t":"Allocation","d":"<p>La JVM alloue l'objet et met <b>tous</b> ses champs, de toutes les classes de la hiérarchie, à leur valeur par défaut (§4.12.5). Aucun code n'a encore tourné.</p>","hl":[24],"p":"<div class=\"state\"><span class=\"new\">a = 0</span><span class=\"new\">b = 0</span><span class=\"new\">nom = null</span></div>"},
+ {"t":"Appel de Derivee(\"x\")","d":"<p>Les arguments sont évalués et liés aux paramètres. Ce constructeur ne commence pas par <code>this(…)</code> : on exécute son prologue.</p>","hl":[14],"p":"<div class=\"state\"><span>a = 0</span><span>b = 0</span><span>nom = null</span></div>"},
+ {"t":"Prologue (Java 25)","d":"<p>Validation, puis affectation de <code>this.nom</code>, permise car <code>nom</code> est un champ de Derivee sans initialiseur. Avant Java 25, impossible : nom serait resté <code>null</code> pendant toute la construction de Base.</p>","hl":[15,16],"p":"<div class=\"state\"><span>a = 0</span><span>b = 0</span><span class=\"new\">nom = \"x\"</span></div>"},
+ {"t":"super() → Base()","d":"<p>Appel du constructeur de Base. Celui-ci commence par un <code>super()</code> implicite vers <code>Object()</code>, qui ne fait rien.</p>","hl":[17,4,5],"p":"<div class=\"state\"><span>a = 0</span><span>b = 0</span><span>nom = \"x\"</span></div>"},
+ {"t":"Initialiseurs de Base","d":"<p>Une fois Object() terminé, les initialiseurs de champs et d'instance de <b>Base</b> s'exécutent dans l'ordre du texte (§12.5).</p>","hl":[2,3],"p":"<div class=\"state\"><span class=\"new\">a = 1</span><span>b = 0</span><span>nom = \"x\"</span></div>"},
+ {"t":"Corps de Base()","d":"<p>Le corps de Base appelle <code>affiche()</code>. C'est un appel <b>virtuel</b> : la classe réelle de l'objet est Derivee, c'est donc <code>Derivee.affiche</code> qui s'exécute, alors que Derivee n'est pas encore initialisée.</p>","hl":[6,7],"p":"<div class=\"state\"><span>a = 1</span><span>b = 0</span><span>nom = \"x\"</span></div>"},
+ {"t":"Derivee.affiche voit un objet à moitié construit","d":"<p>Affiche <code>b=0</code> : l'initialiseur de b n'a pas encore tourné. Mais <code>nom=x</code>, grâce au prologue. C'est la raison d'être des corps de constructeur flexibles.</p><p class=\"nolink\"><b>Conseil :</b> n'appelez jamais de méthode redéfinissable depuis un constructeur.</p>","hl":[20,21],"p":"<div class=\"state\"><span>a = 1</span><span class=\"new\">b = 0 (!)</span><span>nom = \"x\"</span></div>"},
+ {"t":"Initialiseurs de Derivee","d":"<p>De retour dans Derivee, après le <code>super()</code>, les initialiseurs de champs de Derivee s'exécutent.</p>","hl":[12],"p":"<div class=\"state\"><span>a = 1</span><span class=\"new\">b = 2</span><span>nom = \"x\"</span></div>"},
+ {"t":"Épilogue de Derivee()","d":"<p>Le reste du corps s'exécute. Puis l'expression <code>new</code> renvoie la référence vers l'objet complètement construit.</p>","hl":[18],"p":"<div class=\"state\"><span>a = 1</span><span>b = 2</span><span>nom = \"x\"</span></div><p>Trace complète : Base.a = 1 · bloc d'instance de Base · corps de Base() · Derivee.affiche : b=0, nom=x · Derivee.b = 2 · corps de Derivee()</p>"}
+]</script></div>
+  </figure>
+</div>
+
+<div class="col">
+  <h4 id="s8-8-7-1"><span class="sec">§8.8.7.1</span>Appels explicites de constructeur</h4>
+  <div class="tbl"><table>
+    <thead><tr><th>Forme</th><th>Effet</th></tr></thead>
+    <tbody>
+      <tr><td><code>this(args)</code></td><td>autre constructeur de la même classe ; les initialiseurs de champs ne seront exécutés que par le constructeur final de la chaîne</td></tr>
+      <tr><td><code>super(args)</code></td><td>constructeur de la superclasse directe</td></tr>
+      <tr><td><code>expr.super(args)</code></td><td>superclasse interne : précise son instance englobante</td></tr>
+      <tr><td><code>&lt;T&gt;this(…)</code>, <code>&lt;T&gt;super(…)</code></td><td>avec arguments de type explicites pour un constructeur générique</td></tr>
+    </tbody>
+  </table></div>
+  <p>Un appel explicite ne peut apparaître qu'une fois, au niveau du corps du constructeur (pas dans un bloc imbriqué, ni dans un <code>if</code>). Un constructeur ne peut pas s'appeler lui-même, même indirectement par une chaîne de <code>this(…)</code>.</p>
+
+  <h3 id="s8-8-8"><span class="sec">§8.8.8</span>Surcharge de constructeurs</h3>
+  <p>Comme pour les méthodes ; la résolution suit les règles du §15.9.3 et §15.12.2.</p>
+
+  <h3 id="s8-8-9"><span class="sec">§8.8.9</span>Constructeur par défaut</h3>
+  <p>Si une classe ne déclare <b>aucun</b> constructeur, le compilateur fournit un constructeur par défaut sans paramètre, qui appelle <code>super()</code>. Il a le même accès que la classe (une classe <code>public</code> obtient un constructeur <code>public</code>). Dès qu'un constructeur est écrit, il n'y a plus de constructeur par défaut.</p>
+  <div class="code"><div class="bar"><span>Java</span></div><pre><code class="java">class Parent { Parent(int x) { } }
+class Enfant extends Parent { }    // ERREUR : le constructeur par défaut appelle super(), qui n'existe pas</code></pre></div>
+
+  <h3 id="s8-8-10"><span class="sec">§8.8.10</span>Empêcher l'instanciation</h3>
+  <p>Une classe utilitaire déclare un constructeur <code>private</code> (et souvent <code>final</code> sur la classe) pour empêcher toute instanciation hors de son corps : <code>public final class Maths { private Maths() {} … }</code>.</p>
+
+  <h2 id="s8-9"><span class="sec">§8.9</span>Enums</h2>
+  <p>Un enum est une classe dont les instances sont fixées à la compilation : ses <b>constantes</b>. Il étend implicitement <code>java.lang.Enum&lt;E&gt;</code> et ne peut pas être instancié par <code>new</code>, cloné, ni désérialisé en un doublon. Comparer des constantes d'enum avec <code>==</code> est donc correct.</p>
+  <h3 id="s8-9-1"><span class="sec">§8.9.1</span>Constantes d'enum</h3>
+  <p>Chaque constante peut avoir des arguments (passés au constructeur) et un <b>corps de classe</b> : elle devient alors une instance d'une classe anonyme qui étend l'enum.</p>
+  <h3 id="s8-9-2"><span class="sec">§8.9.2</span>Déclarations dans le corps d'un enum</h3>
+  <div class="rule"><span class="lbl">Règles</span>
+    <p>Les constructeurs d'un enum sont implicitement <code>private</code> et ne peuvent pas appeler <code>super(…)</code>. Un enum est implicitement <code>final</code>, sauf si une constante a un corps : il est alors implicitement <code>sealed</code>, avec pour sous-classes autorisées les classes anonymes de ses constantes. Il peut déclarer des méthodes abstraites, que chaque constante doit implémenter.</p>
+    <p>Un constructeur ou initialiseur d'instance d'enum ne peut pas lire un champ <code>static</code> de l'enum (sauf variable constante) : les constantes sont créées <b>avant</b> que les autres champs statiques soient initialisés.</p>
+  </div>
+  <h3 id="s8-9-3"><span class="sec">§8.9.3</span>Membres d'un enum</h3>
+  <p>En plus des membres hérités de <code>Enum</code> (<code>name()</code>, <code>ordinal()</code>, <code>compareTo</code>…), le compilateur déclare implicitement :</p>
+  <ul>
+    <li><code>public static E[] values()</code> : un nouveau tableau des constantes dans l'ordre de déclaration ;</li>
+    <li><code>public static E valueOf(String name)</code> : la constante de ce nom exact, sinon <code>IllegalArgumentException</code>.</li>
+  </ul>
+  <div class="code"><div class="bar"><span>Java</span></div><pre><code class="java">enum Operation {
+    PLUS("+")  { int appliquer(int a, int b) { return a + b; } },
+    FOIS("×")  { int appliquer(int a, int b) { return a * b; } };
+
+    private final String symbole;
+    Operation(String s) { symbole = s; }       // implicitement private
+    abstract int appliquer(int a, int b);      // chaque constante l'implémente
+    String symbole() { return symbole; }
+}
+
+for (Operation op : Operation.values())
+    System.out.println(op + " " + op.symbole() + " " + op.appliquer(3, 4));
+Operation.valueOf("FOIS");                     // FOIS
+Operation.PLUS.getClass();                     // classe anonyme Operation$1
+Operation.PLUS.getDeclaringClass();            // Operation : à utiliser à la place</code></pre></div>
+  <div class="trap"><span class="lbl">Piège</span>
+    <p>Ne persistez jamais <code>ordinal()</code> : il change si l'on insère une constante. Persistez <code>name()</code>, ou un code métier dédié. Pour des ensembles et des tables indexés par un enum, <code>EnumSet</code> et <code>EnumMap</code> sont bien plus rapides que leurs équivalents génériques.</p>
+  </div>
+
+  <h2 id="s8-10"><span class="sec">§8.10</span>Records</h2>
+  <p>Un record est une classe qui sert d'<b>agrégat transparent de valeurs</b>. Son en-tête déclare des <b>composants</b>, et le compilateur en déduit l'essentiel de la classe. Il étend implicitement <code>java.lang.Record</code>.</p>
+</div>
+
+<div class="wide">
+  <figure>
+    <p class="fig-title">Figure 8.3 · Ce que le compilateur déduit d'un record</p>
+    <div data-w="tabs">
+      <section data-tab="Ce que vous écrivez">
+        <div class="code"><div class="bar"><span>Java</span></div><pre><code class="java">public record Point(int x, int y) { }</code></pre></div>
+      </section>
+      <section data-tab="Ce que la classe contient">
+        <div class="code"><div class="bar"><span>Équivalent (illustratif)</span></div><pre><code class="java">public final class Point extends java.lang.Record {
+    private final int x;                         // un champ private final par composant
+    private final int y;
+
+    public Point(int x, int y) {                 // constructeur canonique
+        this.x = x;
+        this.y = y;
+    }
+    public int x() { return x; }                 // accesseurs : même nom que le composant
+    public int y() { return y; }
+
+    public boolean equals(Object o) { … }        // égaux si même classe et composants égaux
+    public int hashCode() { … }                  // combinaison des hashCode des composants
+    public String toString() { … }               // "Point[x=1, y=2]"
+}</code></pre></div>
+      </section>
+      <section data-tab="Constructeur compact">
+        <div class="code"><div class="bar"><span>Java</span></div><pre><code class="java">public record Intervalle(int debut, int fin) {
+    public Intervalle {                          // compact : pas de liste de paramètres
+        if (debut &gt; fin) throw new IllegalArgumentException(debut + " &gt; " + fin);
+        // les champs sont affectés automatiquement À LA FIN, avec les paramètres
+    }
+}
+
+public record Nom(String valeur) {
+    public Nom {
+        valeur = valeur.strip();                 // on peut réaffecter le PARAMÈTRE (normalisation)
+        this.valeur = valeur;                    // ERREUR : affecter le champ est interdit ici
+    }
+}</code></pre></div>
+      </section>
+      <section data-tab="Ce qui est permis">
+        <div class="code"><div class="bar"><span>Java</span></div><pre><code class="java">public record Montant(long centimes, Devise devise) implements Comparable&lt;Montant&gt; {
+    static final Montant ZERO = new Montant(0, Devise.EUR);   // champs static : OK
+    public static Montant euros(long e) { return new Montant(e * 100, Devise.EUR); }  // OK
+    public Montant plus(Montant m) { … }                       // méthodes d'instance : OK
+    public int compareTo(Montant o) { … }                       // interfaces : OK
+    @Override public String toString() { return centimes / 100.0 + " " + devise; }  // redéfinir : OK
+
+    private int cache;          // ERREUR : pas de champ d'instance en plus des composants
+    { }                         // ERREUR : pas d'initialiseur d'instance
+}
+record Paire&lt;A, B&gt;(A gauche, B droite) { }                       // générique : OK
+class X { record Interne(int v) { } }                            // imbriqué : implicitement static</code></pre></div>
+      </section>
+    </div>
+  </figure>
+</div>
+
+<div class="col">
+  <h3 id="s8-10-1"><span class="sec">§8.10.1</span>Composants de record</h3>
+  <p>Chaque composant a un type et un nom ; le dernier peut être variadique. Un composant ne peut pas s'appeler <code>clone</code>, <code>finalize</code>, <code>getClass</code>, <code>hashCode</code>, <code>notify</code>, <code>notifyAll</code>, <code>toString</code> ou <code>wait</code> (conflit avec les méthodes de <code>Object</code>). Les annotations d'un composant sont propagées au champ, à l'accesseur, au paramètre du constructeur et au composant lui-même, selon leurs cibles <code>@Target</code>.</p>
+  <h3 id="s8-10-2"><span class="sec">§8.10.2</span>Déclarations dans le corps d'un record</h3>
+  <p>Interdits : champs d'instance, initialiseurs d'instance, méthodes <code>native</code>. Permis : champs, méthodes et initialiseurs <code>static</code>, méthodes d'instance, classes membres, constructeurs (qui doivent finir par déléguer au canonique avec <code>this(…)</code>).</p>
+  <h3 id="s8-10-3"><span class="sec">§8.10.3</span>Membres d'un record</h3>
+  <p>Pour chaque composant : un champ <code>private final</code> implicite, et un <b>accesseur</b> <code>public</code> de même nom, sauf s'il est déclaré explicitement. Un accesseur explicite doit être <code>public</code>, sans paramètre, sans <code>throws</code>, non générique, non statique, et renvoyer exactement le type du composant. <code>equals</code>, <code>hashCode</code> et <code>toString</code> sont fournis s'ils ne sont pas déclarés.</p>
+  <div class="trap"><span class="lbl">Piège · transparence superficielle</span>
+    <p>Un record est immuable au sens où ses champs sont <code>final</code>, pas au sens profond. <code>record Panier(List&lt;String&gt; articles)</code> laisse modifier la liste : copiez-la dans le constructeur compact (<code>articles = List.copyOf(articles);</code>).</p>
+  </div>
+  <h3 id="s8-10-4"><span class="sec">§8.10.4</span>Constructeurs de record</h3>
+  <h4 id="s8-10-4-1"><span class="sec">§8.10.4.1</span>Constructeur canonique normal</h4>
+  <p>Ses paramètres doivent correspondre exactement aux composants (mêmes noms, mêmes types, même ordre). Il doit fournir un accès au moins aussi large que le record, ne pas avoir de clause <code>throws</code> ni être générique, et ne pas appeler <code>this(…)</code> ni <code>super(…)</code>. Il doit affecter chaque champ exactement une fois.</p>
+  <h4 id="s8-10-4-2"><span class="sec">§8.10.4.2</span>Constructeur canonique compact</h4>
+  <p>Il omet la liste de paramètres : ceux-ci sont implicites. Son corps ne peut ni affecter les champs ni contenir <code>return</code> ; à la fin, chaque champ reçoit la valeur (éventuellement modifiée) du paramètre correspondant. C'est l'endroit idéal pour valider et normaliser.</p>
+  <div class="modern"><span class="lbl">Avec les motifs</span>
+    <p>Les records s'accordent avec les motifs d'enregistrement (§14.30.1) : <code>if (o instanceof Point(int x, int y))</code> déconstruit l'objet via ses accesseurs. Combinés aux interfaces scellées, ils permettent des <code>switch</code> exhaustifs sur des types algébriques.</p>
+  </div>
+
+  <h2 id="s8-quiz">Vérifier ses acquis</h2>
+  <div data-w="quiz"><script type="application/json">[
+    {"q":"Un champ <code>private</code> de la superclasse est-il présent dans un objet de la sous-classe ?","o":["Non","Oui, mais il n'est pas un membre hérité de la sous-classe","Seulement s'il est final"],"a":1,"e":"L'emplacement existe et est initialisé par le constructeur parent ; seul le nom n'est pas hérité (§8.2)."},
+    {"q":"<code>A x = new B(); x.f();</code> où <code>f</code> est <code>static</code> dans A et dans B. Quelle méthode ?","o":["B.f","A.f","Erreur"],"a":1,"e":"Une méthode static est masquée, pas redéfinie : choix à la compilation selon le type statique (§8.4.8.2)."},
+    {"q":"Une redéfinition peut-elle déclarer <code>throws Exception</code> si l'originale déclare <code>throws IOException</code> ?","o":["Oui","Non","Seulement si elle est public"],"a":1,"e":"Une redéfinition ne peut pas élargir les exceptions vérifiées (§8.4.8.3)."},
+    {"q":"Depuis Java 25, que peut-on faire avant <code>super(...)</code> dans un constructeur ?","o":["Rien","Valider des arguments et affecter les champs de la classe courante sans initialiseur","Appeler des méthodes d'instance"],"a":1,"e":"Le prologue interdit tout usage de this, sauf l'affectation de champs sans initialiseur (§8.8.7)."},
+    {"q":"Dans la figure 8.2, que vaut <code>b</code> quand <code>Derivee.affiche</code> est appelée depuis <code>Base()</code> ?","o":["2","0","Exception"],"a":1,"e":"Les initialiseurs de Derivee ne tournent qu'après le retour de super() (§12.5)."},
+    {"q":"Une classe sans constructeur déclaré étend une classe dont le seul constructeur est <code>Parent(int)</code>. Résultat ?","o":["Compile","Erreur : le constructeur par défaut appelle super() qui n'existe pas","Erreur à l'exécution"],"a":1,"e":"Le constructeur par défaut appelle toujours super() sans argument (§8.8.9)."},
+    {"q":"Dans un constructeur compact de record, <code>this.x = x;</code> est…","o":["obligatoire","interdit : les champs sont affectés automatiquement à la fin","facultatif"],"a":1,"e":"Le constructeur compact ne peut pas affecter les champs ; il peut réaffecter les paramètres (§8.10.4.2)."},
+    {"q":"Un enum dont une constante a un corps est…","o":["final","implicitement sealed","abstract obligatoirement"],"a":1,"e":"Ses sous-classes autorisées sont les classes anonymes des constantes (§8.9.2)."}
+  ]</script></div>
+</div>

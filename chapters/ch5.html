@@ -1,0 +1,373 @@
+<style>
+.cv .row{display:flex; gap:8px; flex-wrap:wrap; align-items:center; margin:10px 0}
+.cv input[type=text]{flex:1 1 160px; min-width:0}
+.cv svg .nd{cursor:pointer}
+.cv svg .nd rect{fill:var(--sheet); stroke:var(--plate-edge); stroke-width:1.5}
+.cv svg .nd text{font-family:var(--f-mono); font-size:13px; fill:var(--ink); font-weight:600}
+.cv svg .nd.src rect{fill:var(--ink); stroke:var(--ink)} .cv svg .nd.src text{fill:var(--paper)}
+.cv svg .nd.wid rect{fill:var(--ok-soft); stroke:var(--ok)}
+.cv svg .nd.nar rect{fill:var(--ember-soft); stroke:var(--ember)}
+.cv svg .nd.wn rect{fill:var(--violet-soft); stroke:var(--violet)}
+.cv svg .nd.dst rect{stroke-width:3.5}
+.cv .leg{display:flex; gap:14px; flex-wrap:wrap; font-family:var(--f-display); font-size:.75rem; color:var(--muted)}
+.cv .leg i{display:inline-block; width:10px; height:10px; border-radius:2px; margin-right:4px; vertical-align:-1px; border:1.5px solid}
+.mx td, .mx th{text-align:center} .mx td:first-child, .mx th:first-child{text-align:left}
+</style>
+
+<div class="col">
+  <div class="eyebrow">Chapitre 5 · Java SE 27 Edition</div>
+  <h1>Conversions et contextes</h1>
+  <p class="lede">Chaque expression a un type, et chaque endroit où elle apparaît attend un type. Entre les deux, le compilateur applique des conversions, mais seulement celles que le contexte autorise. Ce chapitre fixe ces deux listes et leur croisement.</p>
+  <div class="meta">
+    <span>Source : <a href="https://docs.oracle.com/javase/specs/jls/se27/html/jls-5.html" target="_blank" rel="noopener">JLS SE 27, chapitre 5</a></span>
+    <span>Sections : <b>5.1 à 5.7</b></span>
+  </div>
+
+  <h2 id="s5-0"><span class="sec">§5</span>Le principe</h2>
+  <p>Une <b>conversion</b> change le type d'une expression, et parfois sa valeur. Certaines n'existent qu'à la compilation (on « voit » l'objet autrement), d'autres font un travail à l'exécution (calculer, vérifier, allouer). Un <b>contexte</b> est une position syntaxique qui autorise un ensemble précis de conversions.</p>
+  <div class="tbl"><table>
+    <thead><tr><th>Contexte</th><th>Exemple</th><th>Section</th></tr></thead>
+    <tbody>
+      <tr><td>Affectation</td><td><code>long x = 3;</code></td><td>§5.2</td></tr>
+      <tr><td>Invocation</td><td><code>f(3)</code> avec <code>void f(long x)</code></td><td>§5.3</td></tr>
+      <tr><td>Chaîne</td><td><code>"n = " + 3</code></td><td>§5.4</td></tr>
+      <tr><td>Cast</td><td><code>(byte) 300</code></td><td>§5.5</td></tr>
+      <tr><td>Numérique</td><td><code>3 + 2.5</code>, <code>-b</code>, <code>t[b]</code></td><td>§5.6</td></tr>
+      <tr><td>Test</td><td><code>o instanceof String s</code></td><td>§5.7</td></tr>
+    </tbody>
+  </table></div>
+  <div class="code"><div class="bar"><span>Java · une conversion, plusieurs moments</span></div><pre><code class="java">int i = 'a';            // élargissement char → int : à la compilation, valeur 97
+float f = 1_234_567_890; // élargissement int → float : calcul, perte de précision (1.23456794E9)
+Object o = "x";         // élargissement de référence : aucune action à l'exécution
+String s = (String) o;  // rétrécissement de référence : vérification à l'exécution
+Integer n = 5;          // boxing : allocation possible à l'exécution
+double d = n;           // unboxing puis élargissement : deux conversions enchaînées</code></pre></div>
+
+  <h2 id="s5-1"><span class="sec">§5.1</span>Les sortes de conversion</h2>
+  <p>La spec en définit treize. Voici leur carte, puis chacune en détail.</p>
+  <div class="tbl"><table>
+    <thead><tr><th>Conversion</th><th>Exemple</th><th>Travail à l'exécution</th><th>Peut échouer ?</th></tr></thead>
+    <tbody>
+      <tr><td>Identité §5.1.1</td><td><code>int → int</code></td><td>aucun</td><td>non</td></tr>
+      <tr><td>Élargissement primitif §5.1.2</td><td><code>int → long</code></td><td>calcul</td><td>non (perte de précision possible vers flottant)</td></tr>
+      <tr><td>Rétrécissement primitif §5.1.3</td><td><code>long → int</code></td><td>calcul</td><td>non, mais perte d'information</td></tr>
+      <tr><td>Élargissement + rétrécissement §5.1.4</td><td><code>byte → char</code></td><td>calcul</td><td>non</td></tr>
+      <tr><td>Élargissement de référence §5.1.5</td><td><code>String → Object</code></td><td>aucun</td><td>non</td></tr>
+      <tr><td>Rétrécissement de référence §5.1.6</td><td><code>Object → String</code></td><td>vérification</td><td><code>ClassCastException</code></td></tr>
+      <tr><td>Boxing §5.1.7</td><td><code>int → Integer</code></td><td>allocation possible</td><td><code>OutOfMemoryError</code></td></tr>
+      <tr><td>Unboxing §5.1.8</td><td><code>Integer → int</code></td><td>appel <code>intValue()</code></td><td><code>NullPointerException</code></td></tr>
+      <tr><td>Non vérifiée §5.1.9</td><td><code>List → List&lt;String&gt;</code></td><td>aucun</td><td>avertissement ; échec différé</td></tr>
+      <tr><td>Capture §5.1.10</td><td><code>List&lt;?&gt; → List&lt;CAP#1&gt;</code></td><td>aucun</td><td>non</td></tr>
+      <tr><td>Chaîne §5.1.11</td><td><code>int → String</code></td><td>création d'une chaîne</td><td>non</td></tr>
+      <tr><td>Interdites §5.1.12</td><td><code>boolean → int</code></td><td>—</td><td>erreur de compilation</td></tr>
+    </tbody>
+  </table></div>
+
+  <h3 id="s5-1-1"><span class="sec">§5.1.1</span>Conversion identité</h3>
+  <p>Toujours permise, de tout type vers lui-même. Elle paraît inutile, mais elle rend certains casts légaux (<code>(int) x</code> où x est déjà un int, pour la lisibilité) et elle simplifie l'écriture des règles : chaque contexte l'autorise.</p>
+
+  <h3 id="s5-1-2"><span class="sec">§5.1.2</span>Élargissement primitif</h3>
+  <p>Dix-neuf conversions, qui suivent le graphe du §4.10.1 : <code>byte</code> vers <code>short int long float double</code> ; <code>short</code> vers <code>int long float double</code> ; <code>char</code> vers <code>int long float double</code> ; <code>int</code> vers <code>long float double</code> ; <code>long</code> vers <code>float double</code> ; <code>float</code> vers <code>double</code>.</p>
+  <div class="rule"><span class="lbl">Règles</span>
+    <p>Un élargissement ne perd jamais l'ordre de grandeur. Entre entiers, ou de <code>float</code> vers <code>double</code>, il est exact. Mais <code>int → float</code>, <code>long → float</code> et <code>long → double</code> peuvent perdre de la <b>précision</b> : la valeur est arrondie au plus proche (IEEE 754). Un entier signé est étendu par le signe ; un <code>char</code> est étendu par des zéros.</p>
+    <p>Un élargissement primitif ne lève <b>jamais</b> d'exception à l'exécution.</p>
+  </div>
+
+  <h3 id="s5-1-3"><span class="sec">§5.1.3</span>Rétrécissement primitif</h3>
+  <p>Vingt-deux conversions : toutes celles qui vont « contre » le graphe, plus <code>short ↔ char</code>. Elles peuvent perdre l'ordre de grandeur, la précision et même le signe.</p>
+  <div class="tbl"><table>
+    <thead><tr><th>De → vers</th><th>Règle</th><th>Exemple</th></tr></thead>
+    <tbody>
+      <tr><td>entier → entier plus petit</td><td>on garde les <i>n</i> bits de poids faible</td><td><code>(byte) 200</code> = −56</td></tr>
+      <tr><td><code>double → float</code></td><td>arrondi au plus proche ; trop grand → infini ; trop petit → zéro</td><td><code>(float) 1e40</code> = Infinity</td></tr>
+      <tr><td>flottant → <code>int</code>/<code>long</code></td><td>NaN → 0 ; sinon arrondi <b>vers zéro</b> ; si hors plage, la valeur extrême (saturation)</td><td><code>(int) -3.9</code> = −3, <code>(int) 1e10</code> = 2147483647</td></tr>
+      <tr><td>flottant → <code>byte</code>/<code>short</code>/<code>char</code></td><td>d'abord vers <code>int</code> (ligne précédente), puis rétrécissement entier</td><td><code>(byte) 300.7</code> = 44</td></tr>
+    </tbody>
+  </table></div>
+  <div class="trap"><span class="lbl">Piège</span>
+    <p>La saturation ne vaut que pour <code>int</code> et <code>long</code>. <code>(byte) 1e10</code> ne donne pas 127 : on passe d'abord par <code>int</code> (2147483647, soit <code>0x7FFFFFFF</code>), puis on garde 8 bits, ce qui donne <b>−1</b>.</p>
+  </div>
+</div>
+
+<div class="wide">
+  <figure>
+    <p class="fig-title">Figure 5.1 · Graphe et calculateur des conversions primitives</p>
+    <p class="fig-hint">Cliquez un type pour le choisir comme source (premier clic) puis comme cible (second clic). Les couleurs montrent la sorte de conversion vers chaque type ; le calculateur applique les règles exactes des §5.1.2 à §5.1.4.</p>
+    <div data-w="convgraph"></div>
+  </figure>
+</div>
+
+<div class="col">
+  <h3 id="s5-1-4"><span class="sec">§5.1.4</span>Élargissement puis rétrécissement</h3>
+  <p>Une seule conversion : <code>byte → char</code>. Le <code>byte</code> est d'abord élargi en <code>int</code> (avec extension du signe), puis rétréci en <code>char</code>. Ainsi <code>(char) (byte) -1</code> donne <code>'￿'</code> (65535), pas <code>'ÿ'</code>.</p>
+
+  <h3 id="s5-1-5"><span class="sec">§5.1.5</span>Élargissement de référence</h3>
+  <p>De tout type référence S vers tout type référence T si <code>S &lt;: T</code> (§4.10). Aucune action à l'exécution, aucune exception possible : l'objet est simplement « vu » à travers un type plus général. C'est ce qui rend le polymorphisme gratuit.</p>
+  <p>Le type nul s'élargit vers tout type référence : c'est pourquoi <code>String s = null;</code> est permis.</p>
+
+  <h3 id="s5-1-6"><span class="sec">§5.1.6</span>Rétrécissement de référence</h3>
+  <p>De S vers T quand S n'est pas un sous-type de T. Il exige une vérification à l'exécution, et n'est pas permis pour toutes les paires.</p>
+  <h4 id="s5-1-6-1"><span class="sec">§5.1.6.1</span>Rétrécissements permis</h4>
+  <p>La règle de fond : un rétrécissement est permis s'il <b>pourrait réussir</b>, c'est-à-dire si un objet pourrait exister qui soit à la fois de type S et de type T. Le compilateur rejette les paires dont il peut prouver qu'elles sont <b>disjointes</b>.</p>
+  <div class="tbl"><table>
+    <thead><tr><th>S → T</th><th>Permis ?</th><th>Pourquoi</th></tr></thead>
+    <tbody>
+      <tr><td><code>Object → String</code></td><td class="y">oui</td><td>un Object peut être une String</td></tr>
+      <tr><td><code>Number → String</code></td><td class="n">non</td><td>deux classes sans lien : aucune classe n'étend les deux</td></tr>
+      <tr><td><code>Runnable → ArrayList</code></td><td class="y">oui</td><td>ArrayList n'est pas final : une sous-classe pourrait implémenter Runnable</td></tr>
+      <tr><td><code>Runnable → String</code></td><td class="n">non</td><td>String est <code>final</code> et n'implémente pas Runnable</td></tr>
+      <tr><td><code>Runnable → Comparable</code></td><td class="y">oui</td><td>deux interfaces sont toujours compatibles</td></tr>
+      <tr><td><code>Forme → Carre</code> (scellée)</td><td class="y">oui</td><td>Carre est un sous-type permis</td></tr>
+      <tr><td>interface scellée → classe hors de sa hiérarchie</td><td class="n">non</td><td>depuis Java 17, les hiérarchies scellées rendent des paires disjointes</td></tr>
+      <tr><td><code>Object[] → String[]</code></td><td class="y">oui</td><td>rétrécissement des composants</td></tr>
+      <tr><td><code>List&lt;String&gt; → List&lt;Integer&gt;</code></td><td class="n">non</td><td>arguments de type prouvablement distincts</td></tr>
+    </tbody>
+  </table></div>
+  <h4 id="s5-1-6-2"><span class="sec">§5.1.6.2</span>Rétrécissements vérifiés et non vérifiés</h4>
+  <p>Un rétrécissement est <b>non vérifié</b> quand l'exécution ne peut pas tout contrôler, parce que le type cible n'est pas réifiable (§4.7). Le compilateur émet alors un avertissement unchecked. Exception : si l'information générique se déduit sûrement du type source, la conversion reste vérifiée.</p>
+  <div class="code"><div class="bar"><span>Java</span></div><pre><code class="java">Object o = List.of(1, 2);
+List&lt;String&gt; l = (List&lt;String&gt;) o;     // avertissement unchecked : seul "List" est vérifié
+List&lt;?&gt; w = (List&lt;?&gt;) o;               // vérifié, aucun avertissement
+
+Collection&lt;String&gt; c = new ArrayList&lt;&gt;();
+List&lt;String&gt; v = (List&lt;String&gt;) c;     // vérifié : String est connu depuis le type source</code></pre></div>
+  <h4 id="s5-1-6-3"><span class="sec">§5.1.6.3</span>À l'exécution</h4>
+  <p>Une conversion vérifiée teste la classe réelle de l'objet. Si la référence est <code>null</code>, elle réussit toujours. Sinon, si l'objet n'est pas du type cible effacé, elle lève <code>ClassCastException</code>. Une conversion non vérifiée ne teste que l'effacement : l'erreur, s'il y en a une, apparaîtra plus tard (pollution du tas, §4.12.2).</p>
+
+  <h3 id="s5-1-7"><span class="sec">§5.1.7</span>Boxing</h3>
+  <p>Huit conversions, de chaque type primitif vers sa classe enveloppe : <code>boolean → Boolean</code>, <code>byte → Byte</code>, <code>short → Short</code>, <code>char → Character</code>, <code>int → Integer</code>, <code>long → Long</code>, <code>float → Float</code>, <code>double → Double</code>. Le type nul se « boxe » vers lui-même.</p>
+  <div class="rule"><span class="lbl">Règle · le cache garanti</span>
+    <p>Si la valeur boxée est <code>true</code>, <code>false</code>, un <code>byte</code>, un <code>char</code> entre <code>\u0000</code> et <code>\u007f</code>, ou un <code>int</code>/<code>short</code> entre <b>−128 et 127</b>, alors deux boxings de la même valeur donnent la <b>même référence</b>. Au-delà, ce n'est pas garanti (la JVM peut être configurée pour cacher plus, par exemple avec <code>-XX:AutoBoxCacheMax</code>).</p>
+  </div>
+  <div class="code"><div class="bar"><span>Java</span></div><pre><code class="java">Integer a = 100, b = 100;   a == b;   // true (garanti)
+Integer c = 1000, d = 1000; c == d;   // false en général : ne jamais comparer des enveloppes avec ==
+Long x = 127L, y = 127L;    x == y;   // true en pratique (Long.valueOf cache aussi -128..127)
+Double p = 1.0, q = 1.0;    p == q;   // false : aucun cache pour Double et Float</code></pre></div>
+
+  <h3 id="s5-1-8"><span class="sec">§5.1.8</span>Unboxing</h3>
+  <p>Les huit conversions inverses, réalisées par <code>booleanValue()</code>, <code>intValue()</code>, etc. Si la référence est <code>null</code>, l'unboxing lève <code>NullPointerException</code>. C'est souvent invisible dans le code :</p>
+  <div class="code"><div class="bar"><span>Java</span></div><pre><code class="java">Map&lt;String, Integer&gt; stock = new HashMap&lt;&gt;();
+int n = stock.get("pomme");          // NullPointerException : get renvoie null, puis unboxing
+
+Integer i = null;
+int r = flag ? i : 0;                // NullPointerException si flag : le ? : est numérique (§15.25)
+long total = 0;
+for (Long v : valeurs) total += v;   // NPE si la liste contient null</code></pre></div>
+
+  <h3 id="s5-1-9"><span class="sec">§5.1.9</span>Conversion non vérifiée</h3>
+  <p>D'un type brut <code>G</code> vers n'importe quel type paramétré <code>G&lt;T1,…,Tn&gt;</code>, ou d'un tableau brut <code>G[]</code> vers <code>G&lt;…&gt;[]</code>. Elle provoque un avertissement unchecked, <b>sauf</b> si tous les arguments cibles sont des jokers non bornés (<code>List&lt;?&gt; l = brute;</code> ne prévient pas) ou si l'avertissement est supprimé par <code>@SuppressWarnings("unchecked")</code>.</p>
+
+  <h3 id="s5-1-10"><span class="sec">§5.1.10</span>Conversion par capture</h3>
+  <p>La capture remplace chaque joker d'un type paramétré par une <b>variable de type fraîche</b>, dont les bornes combinent celles du joker et celles du paramètre déclaré. Pour <code>G&lt;A1,…,An&gt;</code> dont le paramètre <code>Pi</code> a la borne <code>Ui</code> :</p>
+  <div class="tbl"><table>
+    <thead><tr><th>Argument Ai</th><th>Nouvelle variable Si</th></tr></thead>
+    <tbody>
+      <tr><td><code>?</code></td><td>borne supérieure <code>Ui[P1:=S1,…]</code>, borne inférieure le type nul</td></tr>
+      <tr><td><code>? extends Bi</code></td><td>borne supérieure <code>glb(Bi, Ui[…])</code> (intersection), borne inférieure le type nul</td></tr>
+      <tr><td><code>? super Bi</code></td><td>borne supérieure <code>Ui[…]</code>, borne inférieure <code>Bi</code></td></tr>
+      <tr><td>un type <code>T</code></td><td><code>T</code> lui-même</td></tr>
+    </tbody>
+  </table></div>
+  <p>La capture n'est <b>pas récursive</b> : elle ne s'applique qu'au niveau le plus extérieur. Chaque évaluation d'une expression produit une capture <b>différente</b>, ce qui explique pourquoi on ne peut pas échanger deux éléments d'une <code>List&lt;?&gt;</code> sans méthode auxiliaire :</p>
+  <div class="code"><div class="bar"><span>Java · la méthode auxiliaire de capture</span></div><pre><code class="java">static void echange(List&lt;?&gt; l, int i, int j) {
+    l.set(i, l.get(j));          // ERREUR : set attend CAP#1, get renvoie un CAP#2 différent
+}
+
+static void echange2(List&lt;?&gt; l, int i, int j) { aide(l, i, j); }
+private static &lt;T&gt; void aide(List&lt;T&gt; l, int i, int j) {
+    l.set(i, l.get(j));          // OK : l'inférence lie T à la capture, une seule fois
+}
+
+class Boite&lt;T extends Number&gt; { T v; }
+Boite&lt;?&gt; b = ...;
+Number n = b.v;                  // OK : la capture de ? a pour borne Number (borne du paramètre)</code></pre></div>
+
+  <h3 id="s5-1-11"><span class="sec">§5.1.11</span>Conversion en chaîne</h3>
+  <p>Tout type se convertit en <code>String</code>, mais seulement dans un contexte chaîne (§5.4). Une valeur primitive passe d'abord par le boxing puis <code>toString()</code> (en pratique, le compilateur appelle directement <code>String.valueOf</code>). Une référence <code>null</code> donne <code>"null"</code> ; sinon on appelle <code>toString()</code>, et si celle-ci renvoie <code>null</code>, on obtient aussi <code>"null"</code>.</p>
+
+  <h3 id="s5-1-12"><span class="sec">§5.1.12</span>Conversions interdites</h3>
+  <p>Toute conversion qui n'est pas explicitement permise est interdite. Les cas fréquents :</p>
+  <ul>
+    <li><code>boolean</code> vers ou depuis un type numérique, dans n'importe quel contexte ;</li>
+    <li>un type référence vers un type primitif autrement que par unboxing (<code>(int) "3"</code>) ;</li>
+    <li>une chaîne vers un autre type en dehors de l'API (<code>Integer.parseInt</code>).</li>
+  </ul>
+
+  <h2 id="s5-2"><span class="sec">§5.2</span>Contextes d'affectation</h2>
+  <p>Ils convertissent la valeur d'une expression vers le type d'une variable : affectation simple, initialiseur de variable, <code>return</code> (vers le type de retour), argument d'annotation, etc. Conversions permises :</p>
+  <ul>
+    <li>identité ; élargissement primitif ; élargissement de référence ;</li>
+    <li>élargissement de référence suivi d'unboxing (puis éventuellement élargissement primitif) ;</li>
+    <li>boxing suivi éventuellement d'un élargissement de référence ;</li>
+    <li>unboxing suivi éventuellement d'un élargissement primitif ;</li>
+    <li>conversion non vérifiée, éventuellement après les précédentes.</li>
+  </ul>
+  <div class="rule"><span class="lbl">Règle · le rétrécissement des constantes</span>
+    <p>Si l'expression est une <b>expression constante</b> (§15.29) de type <code>byte</code>, <code>short</code>, <code>char</code> ou <code>int</code>, et que la variable est de type <code>byte</code>, <code>short</code> ou <code>char</code>, un rétrécissement est permis <b>si la valeur est représentable</b>. Même chose vers <code>Byte</code>, <code>Short</code>, <code>Character</code> (rétrécissement puis boxing).</p>
+  </div>
+  <p>Ces règles sont précises et parfois surprenantes. Testez votre intuition :</p>
+</div>
+
+<div class="wide">
+  <figure>
+    <p class="fig-title">Figure 5.2 · Compile ou pas ?</p>
+    <p class="fig-hint">Pour chaque ligne, décidez avant d'ouvrir l'explication.</p>
+    <div data-w="explorer"><script type="application/json">{"items":[
+      {"k":"byte b = 42;","sub":"constante int vers byte","d":"<p><span class=\"pill o\">compile</span> 42 est une constante de type int, représentable en byte : rétrécissement de constante permis (§5.2).</p>"},
+      {"k":"byte b = 200;","sub":"hors de -128..127","d":"<p><span class=\"pill r\">erreur</span> 200 n'est pas représentable en byte. Il faut un cast explicite : <code>(byte) 200</code> vaut −56.</p>"},
+      {"k":"int x = 5; byte b = x;","sub":"variable, pas constante","d":"<p><span class=\"pill r\">erreur</span> x n'est pas une expression constante. Avec <code>final int x = 5;</code>, ça compile : x devient une variable constante (§4.12.4).</p>"},
+      {"k":"char c = 65;","sub":"int vers char","d":"<p><span class=\"pill o\">compile</span> Constante représentable dans char : c vaut 'A'. Mais <code>char c = -1;</code> est une erreur.</p>"},
+      {"k":"long l = 2147483648;","sub":"littéral trop grand","d":"<p><span class=\"pill r\">erreur</span> L'erreur est <b>lexicale</b> (§3.10.1) : 2147483648 n'est pas un littéral int valide, même si la variable est long. Il faut <code>2147483648L</code>.</p>"},
+      {"k":"long l = 42; int i = l;","sub":"rétrécissement de constante long ?","d":"<p><span class=\"pill r\">erreur</span> La règle des constantes ne couvre que byte, short, char, int vers byte, short, char. Même <code>final long l = 42;</code> ne suffit pas.</p>"},
+      {"k":"float f = 1.5;","sub":"double vers float","d":"<p><span class=\"pill r\">erreur</span> 1.5 est un double ; aucun rétrécissement automatique entre flottants, même pour une constante exactement représentable. Écrire <code>1.5f</code>.</p>"},
+      {"k":"Long l = 1;","sub":"int vers Long","d":"<p><span class=\"pill r\">erreur</span> Il faudrait élargir int → long puis boxer vers Long : cette combinaison n'existe pas en contexte d'affectation. Écrire <code>1L</code>.</p>"},
+      {"k":"Byte b = 1;","sub":"constante vers Byte","d":"<p><span class=\"pill o\">compile</span> Rétrécissement de constante puis boxing : explicitement permis vers Byte, Short et Character.</p>"},
+      {"k":"Integer i = 'a';","sub":"char vers Integer","d":"<p><span class=\"pill r\">erreur</span> Il faudrait élargir char → int puis boxer : non permis. <code>int i = 'a';</code> compile, et <code>Character c = 'a';</code> aussi.</p>"},
+      {"k":"Object o = 1;","sub":"int vers Object","d":"<p><span class=\"pill o\">compile</span> Boxing vers Integer puis élargissement de référence vers Object : permis.</p>"},
+      {"k":"double d = Integer.valueOf(3);","sub":"Integer vers double","d":"<p><span class=\"pill o\">compile</span> Unboxing vers int puis élargissement primitif vers double : permis.</p>"},
+      {"k":"Number n = 3; int i = n;","sub":"Number vers int","d":"<p><span class=\"pill r\">erreur</span> Number n'est pas une classe enveloppe : pas d'unboxing. Il faut <code>n.intValue()</code>.</p>"},
+      {"k":"short s = 1; s = s + s;","sub":"promotion","d":"<p><span class=\"pill r\">erreur</span> s + s est un int (promotion numérique binaire, §5.6) et n'est pas constant. <code>s += s;</code> compile grâce au cast implicite de l'affectation composée.</p>"}
+    ]}</script></div>
+  </figure>
+</div>
+
+<div class="col">
+  <p>Une affectation peut aussi produire une <b>erreur à l'exécution</b> sans aucun cast : lors de l'écriture dans un tableau dont le type d'exécution est plus précis (<code>ArrayStoreException</code>, §10.5), ou à cause d'une pollution du tas (<code>ClassCastException</code>).</p>
+
+  <h2 id="s5-3"><span class="sec">§5.3</span>Contextes d'invocation</h2>
+  <p>Ils convertissent un argument vers le type du paramètre formel, dans un appel de méthode ou de constructeur. La spec distingue deux niveaux, qui structurent la résolution de surcharge (§15.12.2) :</p>
+  <div class="two">
+    <div class="card"><b class="h">Invocation stricte</b>identité, élargissement primitif, élargissement de référence (et conversion non vérifiée après celui-ci). <b>Ni boxing ni unboxing.</b></div>
+    <div class="card"><b class="h">Invocation souple</b>tout ce qui précède, plus boxing (suivi d'élargissement de référence) et unboxing (suivi d'élargissement primitif).</div>
+  </div>
+  <div class="rule"><span class="lbl">Règle</span>
+    <p>Contrairement à l'affectation, l'invocation <b>n'autorise pas</b> le rétrécissement des constantes. Sinon, la résolution de surcharge dépendrait de valeurs, et <code>f(1)</code> pourrait choisir <code>f(byte)</code>.</p>
+  </div>
+  <div class="code"><div class="bar"><span>Java</span></div><pre><code class="java">static void f(byte b)    { }
+f(10);                   // ERREUR : pas de rétrécissement de constante en invocation
+f((byte) 10);            // OK
+
+static void g(long x)    { System.out.println("long"); }
+static void g(Integer x) { System.out.println("Integer"); }
+g(5);                    // "long" : la phase stricte (élargissement) passe avant le boxing</code></pre></div>
+
+  <h2 id="s5-4"><span class="sec">§5.4</span>Contextes chaîne</h2>
+  <p>Un seul : l'opérande non chaîne d'un <code>+</code> dont l'autre opérande est de type <code>String</code>. Seule la conversion en chaîne (§5.1.11) y est permise. L'évaluation se fait de gauche à droite, ce qui donne des résultats piégeux :</p>
+  <div class="code"><div class="bar"><span>Java</span></div><pre><code class="java">1 + 2 + "3";      // "33" : 1 + 2 = 3 (numérique), puis 3 + "3"
+"1" + 2 + 3;      // "123" : chaque + a déjà un opérande String
+'a' + 'b' + "c";  // "195c" : 'a' + 'b' est une addition d'entiers (97 + 98)
+"" + 'a' + 'b';   // "ab"</code></pre></div>
+
+  <h2 id="s5-5"><span class="sec">§5.5</span>Contextes de cast</h2>
+  <p>L'opérande d'un cast <code>(T) e</code> peut subir presque toutes les conversions : identité, élargissement et rétrécissement primitifs (et leur combinaison), élargissement et rétrécissement de référence (vérifiés ou non), boxing puis élargissement de référence, unboxing puis élargissement primitif, et élargissement de référence suivi d'unboxing.</p>
+  <div class="tbl mx"><table>
+    <thead><tr><th>Cast vers →<br>depuis ↓</th><th>byte</th><th>short</th><th>char</th><th>int</th><th>long</th><th>float</th><th>double</th><th>boolean</th><th>Integer</th><th>Object</th></tr></thead>
+    <tbody>
+      <tr><td><code>byte</code></td><td>≈</td><td>ω</td><td>ωη</td><td>ω</td><td>ω</td><td>ω</td><td>ω</td><td class="n">–</td><td class="n">–</td><td>⊡,ω</td></tr>
+      <tr><td><code>char</code></td><td>η</td><td>η</td><td>≈</td><td>ω</td><td>ω</td><td>ω</td><td>ω</td><td class="n">–</td><td class="n">–</td><td>⊡,ω</td></tr>
+      <tr><td><code>int</code></td><td>η</td><td>η</td><td>η</td><td>≈</td><td>ω</td><td>ω</td><td>ω</td><td class="n">–</td><td>⊡</td><td>⊡,ω</td></tr>
+      <tr><td><code>double</code></td><td>η</td><td>η</td><td>η</td><td>η</td><td>η</td><td>η</td><td>≈</td><td class="n">–</td><td class="n">–</td><td>⊡,ω</td></tr>
+      <tr><td><code>boolean</code></td><td class="n">–</td><td class="n">–</td><td class="n">–</td><td class="n">–</td><td class="n">–</td><td class="n">–</td><td class="n">–</td><td>≈</td><td class="n">–</td><td>⊡,ω</td></tr>
+      <tr><td><code>Integer</code></td><td class="n">–</td><td class="n">–</td><td class="n">–</td><td>⊔</td><td>⊔,ω</td><td>⊔,ω</td><td>⊔,ω</td><td class="n">–</td><td>≈</td><td>ω</td></tr>
+      <tr><td><code>Object</code></td><td>⇓,⊔</td><td>⇓,⊔</td><td>⇓,⊔</td><td>⇓,⊔</td><td>⇓,⊔</td><td>⇓,⊔</td><td>⇓,⊔</td><td>⇓,⊔</td><td>⇓</td><td>≈</td></tr>
+    </tbody>
+  </table></div>
+  <p class="nolink" style="font-family:var(--f-display); font-size:var(--s-1); color:var(--muted)">≈ identité · ω élargissement · η rétrécissement · ωη élargissement puis rétrécissement · ⊡ boxing · ⊔ unboxing · ⇓ rétrécissement de référence vérifié · – interdit. Notation inspirée des tables 5.5-A à 5.5-C de la spec.</p>
+  <div class="code"><div class="bar"><span>Java</span></div><pre><code class="java">(Integer) 'a';               // ERREUR : char ne se boxe qu'en Character
+(Object) 'a';                // OK : boxing en Character, puis élargissement
+(int) (Object) 3.0;          // ClassCastException : l'objet est un Double, pas un Integer
+(double) (Integer) 3;        // OK : unboxing puis élargissement
+(Runnable &amp; Serializable) () -&gt; {};   // cast vers une intersection : cible de la lambda</code></pre></div>
+  <p>Un cast d'une lambda ou d'une référence de méthode n'est pas une conversion : il fournit un <b>type cible</b> (§15.27.3).</p>
+
+  <h2 id="s5-6"><span class="sec">§5.6</span>Contextes numériques</h2>
+  <p>Les opérandes des opérateurs arithmétiques sont convertis vers un type commun par <b>promotion numérique</b>. Elle comprend l'unboxing puis l'élargissement.</p>
+  <div class="rule"><span class="lbl">Règles · promotion</span>
+    <p><b>Unaire</b> (opérande de <code>+</code>/<code>-</code>/<code>~</code> unaires, index de tableau, dimension de création de tableau, chaque opérande d'un décalage) : un <code>byte</code>, <code>short</code> ou <code>char</code> devient <code>int</code>.</p>
+    <p><b>Binaire / générale</b> (<code>* / % + - &lt; &lt;= &gt; &gt;= == != &amp; ^ |</code>, branches numériques de <code>? :</code> et d'une <code>switch</code> expression) : si un opérande est <code>double</code>, tout passe en <code>double</code> ; sinon <code>float</code> s'il y en a un ; sinon <code>long</code> ; sinon <b><code>int</code></b>.</p>
+  </div>
+  <div class="code"><div class="bar"><span>Java</span></div><pre><code class="java">byte a = 1, b = 2;
+var c = a + b;            // int
+char x = 'x';
+var y = x + 1;            // int (121), pas 'y'
+var z = (char) (x + 1);   // 'y'
+long l = 1L &lt;&lt; 40;        // décalage : chaque opérande promu séparément ; résultat long
+int bad = 1 &lt;&lt; 40;        // 256 ! la distance est masquée à 5 bits pour un int (40 &amp; 31 = 8)
+var r = 5 / 2 * 2.0;      // 4.0 : 5 / 2 = 2 (int) avant la promotion en double</code></pre></div>
+
+  <h2 id="s5-7"><span class="sec">§5.7</span>Contextes de test</h2>
+  <p>Ils servent à <code>instanceof</code> et aux motifs (§14.30), y compris les <code>case</code> d'un <code>switch</code>. Ils autorisent : identité, élargissement de référence, rétrécissement de référence <b>vérifié</b>, et unboxing dans certains cas. Un rétrécissement non vérifié est interdit : <code>o instanceof List&lt;String&gt;</code> est rejeté si la vérification ne peut pas être complète (§4.7).</p>
+  <div class="modern"><span class="lbl">Preview Java 27</span>
+    <p>Avec <code>--enable-preview</code>, la preview des types primitifs dans les motifs (§1.5.2) étend ce contexte à toutes les conversions primitives, chacune accompagnée d'un <b>test d'exactitude</b> : <code>i instanceof byte b</code> réussit seulement si la valeur tient sans perte. Une conversion est dite <b>inconditionnellement exacte</b> quand elle ne peut jamais perdre d'information (<code>byte → int</code>), ce qui rend le motif inconditionnel pour l'exhaustivité.</p>
+  </div>
+
+  <h2 id="s5-quiz">Vérifier ses acquis</h2>
+  <div data-w="quiz"><script type="application/json">[
+    {"q":"Que vaut <code>(byte) 1e10</code> ?","o":["127","-1","0"],"a":1,"e":"double → int sature à 2147483647 (0x7FFFFFFF), puis on garde 8 bits : 0xFF = -1."},
+    {"q":"<code>void f(byte b)</code> ; l'appel <code>f(10)</code> compile-t-il ?","o":["Oui, 10 est représentable","Non, pas de rétrécissement de constante en invocation","Oui avec un avertissement"],"a":1,"e":"Le rétrécissement des constantes n'existe qu'en contexte d'affectation (§5.2, §5.3)."},
+    {"q":"<code>1 + 2 + \"3\"</code> donne…","o":["\"123\"","\"33\"","Erreur"],"a":1,"e":"Évaluation de gauche à droite : 1 + 2 est une addition d'entiers."},
+    {"q":"Avec <code>g(long)</code> et <code>g(Integer)</code>, quel est l'effet de <code>g(5)</code> ?","o":["Appelle g(Integer)","Appelle g(long)","Ambiguïté"],"a":1,"e":"La phase stricte (sans boxing) trouve g(long) par élargissement ; la phase avec boxing n'est jamais atteinte."},
+    {"q":"Le cast <code>(String) someNumber</code> où someNumber est de type Number…","o":["compile, ClassCastException possible","ne compile pas","compile sans risque"],"a":1,"e":"Number et String sont deux classes sans lien : aucun objet ne peut être les deux (§5.1.6.1)."},
+    {"q":"Pourquoi <code>l.set(i, l.get(j))</code> échoue-t-il pour une <code>List&lt;?&gt;</code> ?","o":["List&lt;?&gt; est en lecture seule à l'exécution","Chaque usage de l est capturé séparément : CAP#1 ≠ CAP#2","set n'existe pas sur List&lt;?&gt;"],"a":1,"e":"La capture produit une variable fraîche à chaque évaluation (§5.1.10) ; une méthode auxiliaire générique résout le problème."},
+    {"q":"<code>Integer x = null; int y = x;</code>","o":["y vaut 0","NullPointerException","Erreur de compilation"],"a":1,"e":"L'unboxing appelle x.intValue() (§5.1.8)."}
+  ]</script></div>
+</div>
+
+<script>
+ATLAS.w.convgraph = function(el){
+  el.classList.add('cv');
+  const P = {byte:[30,90], short:[150,40], char:[150,140], int:[270,90], long:[390,90], float:[510,90], double:[630,90]};
+  const BITS={byte:8,short:16,char:16,int:32,long:64};
+  const RANK={byte:0,short:1,char:1,int:2,long:3,float:4,double:5};
+  const WIDE={byte:['short','int','long','float','double'],short:['int','long','float','double'],char:['int','long','float','double'],int:['long','float','double'],long:['float','double'],float:['double'],double:[]};
+  function kind(s,t){ if(s===t) return 'id'; if(WIDE[s].includes(t)) return 'wid'; if(s==='byte'&&t==='char') return 'wn'; return 'nar'; }
+  const names={id:'identité',wid:'élargissement primitif (§5.1.2)',nar:'rétrécissement primitif (§5.1.3)',wn:'élargissement puis rétrécissement (§5.1.4)'};
+  let src='int', dst='byte', clicks=0;
+  el.innerHTML='<div class="svgwrap"><svg viewBox="0 0 690 180" width="690" role="group" aria-label="Types primitifs numériques"></svg></div>'+
+    '<div class="leg"><span><i style="background:var(--ink);border-color:var(--ink)"></i>source</span><span><i style="background:var(--ok-soft);border-color:var(--ok)"></i>élargissement</span><span><i style="background:var(--ember-soft);border-color:var(--ember)"></i>rétrécissement</span><span><i style="background:var(--violet-soft);border-color:var(--violet)"></i>élargissement + rétrécissement</span><span>cadre épais : cible</span></div>'+
+    '<div class="row"><label>Valeur source <input type="text" class="val" value="300.7"></label><select class="ss" aria-label="Source"></select>→<select class="ts" aria-label="Cible"></select></div>'+
+    '<div class="btnrow">'+[['double','300.7','byte'],['double','1e10','byte'],['double','NaN','int'],['int','16777217','float'],['long','9007199254740993','double'],['byte','-1','char'],['int','200','byte'],['char','65535','short'],['float','-3.9','long']].map(e=>'<button type="button" class="btn ex" data-e="'+e.join('|')+'">('+e[2]+') '+e[1]+(e[0]==='float'?'f':e[0]==='long'?'L':'')+' : '+e[0]+'</button>').join('')+'</div>'+
+    '<div class="verdict out" aria-live="polite"></div>';
+  const svg=el.querySelector('svg'), ss=el.querySelector('.ss'), ts=el.querySelector('.ts'), val=el.querySelector('.val'), out=el.querySelector('.out');
+  const types=Object.keys(P);
+  ss.innerHTML=types.map(t=>'<option>'+t+'</option>').join(''); ts.innerHTML=ss.innerHTML;
+  const edges=[['byte','short'],['short','int'],['char','int'],['int','long'],['long','float'],['float','double']];
+  function draw(){
+    let h=edges.map(([a,b])=>'<path class="d-line" d="M'+(P[a][0]+48)+','+(P[a][1])+' L'+(P[b][0]-6)+','+(P[b][1])+'" marker-end="url(#arr)"/>').join('');
+    h+=types.map(t=>{ const k=kind(src,t); const c = t===src?'src':k==='id'?'':k; return '<g class="nd '+c+(t===dst?' dst':'')+'" data-t="'+t+'" tabindex="0" role="button" aria-label="'+t+'"><rect x="'+(P[t][0]-6)+'" y="'+(P[t][1]-17)+'" width="54" height="34" rx="6"/><text x="'+(P[t][0]+21)+'" y="'+(P[t][1]+5)+'" text-anchor="middle">'+t+'</text></g>'; }).join('');
+    svg.innerHTML=h;
+    svg.querySelectorAll('.nd').forEach(g=>{ const f=()=>{ const t=g.dataset.t; if(clicks%2===0) src=t; else dst=t; clicks++; ss.value=src; ts.value=dst; draw(); calc(); }; g.onclick=f; g.onkeydown=e=>{ if(e.key==='Enter'||e.key===' '){ e.preventDefault(); f(); } }; });
+  }
+  function roundBits(v,p){ const neg=v<0n; let a=neg?-v:v; const len=a.toString(2).length; if(len<=p) return Number(v); const k=BigInt(len-p); let q=a>>k; const rem=a&((1n<<k)-1n), half=1n<<(k-1n); if(rem>half||(rem===half&&(q&1n))) q++; const r=Number(q)*Math.pow(2,Number(k)); return neg?-r:r; }
+  function toIntegral(x,t){ // x Number (flottant) → int ou long
+    if(Number.isNaN(x)) return 0n;
+    const B=BigInt(BITS[t]), max=(1n<<(B-1n))-1n, min=-(1n<<(B-1n));
+    if(x===Infinity) return max; if(x===-Infinity) return min;
+    const tr=BigInt(Math.trunc(x)); return tr>max?max:tr<min?min:tr;
+  }
+  function wrap(v,t){ const B=BigInt(BITS[t]), M=1n<<B; let u=((v%M)+M)%M; if(t!=='char' && u>=(M>>1n)) u-=M; return u; }
+  function show(v,t){ if(t==='float'||t==='double'){ return Object.is(v,-0)?'-0.0':String(v)+(t==='float'?'f':''); } return (t==='char'? v.toString()+' (\''+(v>=32n&&v<0xD800n?String.fromCharCode(Number(v)):'?')+'\')' : v.toString()); }
+  function calc(){
+    const s=ss.value, t=ts.value, raw=val.value.trim().replace(/_/g,'').replace(/[fFdDlL]$/,'');
+    let v, note=[];
+    try{
+      if(s==='float'||s==='double'){ v=/^[-+]?nan$/i.test(raw)?NaN:/inf/i.test(raw)?(raw[0]==='-'?-Infinity:Infinity):Number(raw); if(Number.isNaN(v)&&!/nan/i.test(raw)) throw 0; if(s==='float'){ const f=Math.fround(v); if(f!==v && !Number.isNaN(v)) note.push('La valeur saisie n\'est pas un float exact : elle devient '+f+'f.'); v=f; } }
+      else { let b=BigInt(raw.includes('.')?Math.trunc(Number(raw)):raw); const w=wrap(b,s); if(w!==b) note.push('La valeur saisie ne tient pas dans '+s+' : elle devient '+w+'.'); v=w; }
+    }catch(e){ out.className='verdict err'; out.innerHTML='<div class="v">Valeur illisible</div>'; return; }
+    const k=kind(s,t); let r, steps=[];
+    const isF=x=>x==='float'||x==='double';
+    if(!isF(s)&&!isF(t)){ r=wrap(v,t); if(k==='wn') steps.push(s+' → int (extension du signe) : '+v+', puis on garde 16 bits'); else if(k==='nar') steps.push('On garde les '+BITS[t]+' bits de poids faible'); }
+    else if(!isF(s)&&isF(t)){ r = t==='double'? roundBits(v,53) : Math.fround(roundBits(v,24)); if(BigInt(Math.trunc(r))!==v || !Number.isFinite(r)) steps.push('Arrondi au plus proche : la précision de '+t+' ('+(t==='float'?24:53)+' bits) ne suffit pas, '+v+' devient '+r); else steps.push('Valeur exactement représentable'); }
+    else if(isF(s)&&isF(t)){ r = t==='float'?Math.fround(v):v; if(r!==v&&!Number.isNaN(v)) steps.push('Arrondi IEEE 754 vers float'+(Math.abs(r)===Infinity?' : dépassement, infini':'')); }
+    else { const mid = (t==='long')?'long':'int'; const iv=toIntegral(v,mid);
+      steps.push(Number.isNaN(v)?'NaN → 0':(Math.abs(v)===Infinity||BigInt(Math.trunc(v))!==iv)?'Hors plage de '+mid+' : saturation à '+iv:'Arrondi vers zéro : '+v+' → '+iv);
+      if(t!=='int'&&t!=='long'){ r=wrap(iv,t); steps.push('Puis int → '+t+' : on garde les '+BITS[t]+' bits de poids faible → '+r); } else r=iv; }
+    out.className='verdict '+(k==='nar'||k==='wn'?'warn':'ok');
+    out.innerHTML='<div class="v">('+t+') '+ATLAS.esc(show(v,s))+' = '+ATLAS.esc(show(r,t))+'</div><p><b>'+names[k]+'</b>'+(k==='wid'||k==='id'?' : permise implicitement en affectation et invocation.':' : exige un cast explicite (sauf constantes représentables en affectation).')+'</p>'+
+      (note.length?'<p>'+note.join(' ')+'</p>':'')+(steps.length?'<ol>'+steps.map(s=>'<li>'+ATLAS.esc(s)+'</li>').join('')+'</ol>':'');
+  }
+  ss.onchange=()=>{ src=ss.value; draw(); calc(); }; ts.onchange=()=>{ dst=ts.value; draw(); calc(); }; val.oninput=calc;
+  el.querySelectorAll('.ex').forEach(b=>b.onclick=()=>{ const [s,v,t]=b.dataset.e.split('|'); src=s; dst=t; ss.value=s; ts.value=t; val.value=v; draw(); calc(); });
+  ss.value='double'; ts.value='byte'; src='double'; dst='byte'; draw(); calc();
+};
+</script>

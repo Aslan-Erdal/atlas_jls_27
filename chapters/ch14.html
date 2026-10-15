@@ -1,0 +1,456 @@
+<style>
+.sw .row{display:flex; gap:8px; flex-wrap:wrap; align-items:center; margin-bottom:10px}
+.sw .panes{display:grid; grid-template-columns:minmax(0,1fr) minmax(0,1fr); gap:14px}
+.sw .lines{border-radius:8px; overflow-x:auto; background:var(--code-bg); padding:8px 0; font-family:var(--f-mono); font-size:.8rem; line-height:1.65; color:var(--code-fg)}
+.sw .ln{display:block; padding-right:12px; white-space:pre; border-left:3px solid transparent}
+.sw .ln i{display:inline-block; width:2.2em; text-align:right; padding-right:10px; color:var(--com); font-style:normal}
+.sw .ln.run{background:#5cc98d26; border-left-color:#5cc98d}
+.sw .ln.entry{background:#f08a5d30; border-left-color:#f08a5d}
+.sw .o{font-family:var(--f-mono); font-size:.8rem; margin-top:6px; color:var(--muted); white-space:pre-wrap}
+.ex14 .grid{display:grid; grid-template-columns:minmax(0,1fr) minmax(0,1.2fr); gap:16px}
+.ex14 pre{font-size:.8rem; border-radius:8px}
+@media (max-width:700px){ .sw .panes, .ex14 .grid{grid-template-columns:minmax(0,1fr)} }
+</style>
+
+<div class="col">
+  <div class="eyebrow">Chapitre 14 · Java SE 27 Edition</div>
+  <h1>Blocs, instructions et motifs</h1>
+  <p class="lede">La séquence d'exécution d'un programme est contrôlée par des instructions. Ce chapitre les décrit toutes, des blocs aux boucles, du <code>switch</code> moderne au try-with-resources, avant de définir les motifs, qui déclarent et initialisent des variables de façon conditionnelle.</p>
+  <div class="meta">
+    <span>Source : <a href="https://docs.oracle.com/javase/specs/jls/se27/html/jls-14.html" target="_blank" rel="noopener">JLS SE 27, chapitre 14</a></span>
+    <span>Sections : <b>14.1 à 14.22, 14.30</b></span>
+  </div>
+
+  <h2 id="s14-1"><span class="sec">§14.1</span>Terminaison normale et abrupte</h2>
+  <p>Chaque instruction a une exécution normale. Mais certaines instructions transfèrent le contrôle ailleurs : on dit qu'elles se terminent <b>abruptement</b>, avec une <b>raison</b>. Toute la sémantique du chapitre repose sur cette notion.</p>
+  <div class="tbl"><table>
+    <thead><tr><th>Raison de terminaison abrupte</th><th>Produite par</th></tr></thead>
+    <tbody>
+      <tr><td><code>break</code> sans étiquette</td><td><code>break;</code></td></tr>
+      <tr><td><code>break</code> avec étiquette L</td><td><code>break L;</code></td></tr>
+      <tr><td><code>yield</code> avec une valeur</td><td><code>yield v;</code> dans une switch expression</td></tr>
+      <tr><td><code>continue</code> sans / avec étiquette</td><td><code>continue;</code>, <code>continue L;</code></td></tr>
+      <tr><td><code>return</code> sans / avec valeur</td><td><code>return;</code>, <code>return v;</code></td></tr>
+      <tr><td><code>throw</code> avec une valeur</td><td><code>throw e;</code>, ou une exception levée par une expression ou la JVM</td></tr>
+    </tbody>
+  </table></div>
+  <p>Si une instruction contient une sous-instruction qui se termine abruptement, elle se termine en général abruptement pour la même raison, sauf mention contraire (une boucle « absorbe » le <code>break</code> qui la vise, un <code>try</code> peut attraper un <code>throw</code>).</p>
+
+  <h2 id="s14-2"><span class="sec">§14.2</span>Blocs</h2>
+  <p>Un bloc est une suite d'instructions, de déclarations de classes locales et de variables locales entre accolades. Il s'exécute en exécutant ses éléments dans l'ordre ; si l'un se termine abruptement, le bloc aussi, pour la même raison.</p>
+
+  <h2 id="s14-3"><span class="sec">§14.3</span>Déclarations locales de classes et interfaces</h2>
+  <p>Une classe locale est déclarée dans un bloc ; sa portée est le reste du bloc. Depuis Java 16, on peut aussi déclarer des <b>interfaces, enums et records locaux</b>. Ceux-ci sont implicitement <code>static</code> : ils ne peuvent pas capturer les variables locales de la méthode ni l'instance englobante.</p>
+  <div class="code"><div class="bar"><span>Java</span></div><pre><code class="java">List&lt;String&gt; meilleurs(List&lt;Vente&gt; ventes, int seuil) {
+    record Total(String vendeur, double montant) { }        // record local : idéal pour un résultat intermédiaire
+    return ventes.stream()
+        .collect(groupingBy(Vente::vendeur, summingDouble(Vente::montant)))
+        .entrySet().stream()
+        .map(e -&gt; new Total(e.getKey(), e.getValue()))
+        .filter(t -&gt; t.montant() &gt; seuil)                    // seuil capturé par la lambda, pas par le record
+        .map(Total::vendeur).toList();
+}</code></pre></div>
+  <p>Une classe locale ne peut pas être déclarée <code>public</code>, <code>protected</code>, <code>private</code> ni <code>static</code> (explicitement).</p>
+
+  <h2 id="s14-4"><span class="sec">§14.4</span>Déclarations de variables locales</h2>
+  <p>Une déclaration de variable locale introduit une ou plusieurs variables, avec un type explicite ou <code>var</code>.</p>
+  <h3 id="s14-4-1"><span class="sec">§14.4.1</span>Déclarateurs et types</h3>
+  <div class="rule"><span class="lbl">Règles de var</span>
+    <p><code>var</code> déclare une variable dont le type est inféré de son initialiseur. Il faut : un initialiseur ; un seul déclarateur ; pas de crochets ; un initialiseur qui n'est ni <code>null</code> seul, ni un initialiseur de tableau <code>{…}</code>, ni une lambda ou une référence de méthode (qui n'ont pas de type propre). Le type inféré est la <b>projection supérieure</b> du type de l'initialiseur (§4.10.5).</p>
+  </div>
+  <div class="code"><div class="bar"><span>Java</span></div><pre><code class="java">var liste = new ArrayList&lt;String&gt;();  // ArrayList&lt;String&gt;, pas List&lt;String&gt;
+var x;                                 // ERREUR : pas d'initialiseur
+var n = null;                          // ERREUR : le type nul n'est pas dénotable
+var t = {1, 2};                        // ERREUR
+var f = () -&gt; 1;                       // ERREUR : une lambda a besoin d'un type cible
+var a = 1, b = 2;                      // ERREUR : un seul déclarateur
+var obj = new Object() { int compteur; };   // OK : type d'une classe anonyme, non dénotable
+obj.compteur++;                        // OK : var permet d'accéder aux membres de la classe anonyme
+for (var e : map.entrySet()) { }       // OK
+try (var in = Files.newInputStream(p)) { }  // OK
+(var s1, var s2) -&gt; s1 + s2            // OK : var dans les paramètres de lambda (pour les annoter)</code></pre></div>
+  <h3 id="s14-4-2"><span class="sec">§14.4.2</span>Instructions de déclaration</h3>
+  <p>Chaque déclarateur est exécuté dans l'ordre, de gauche à droite. Un déclarateur avec initialiseur affecte la valeur ; sans initialiseur, la variable reste non assignée (ch. 16).</p>
+
+  <h2 id="s14-5"><span class="sec">§14.5</span>Instructions</h2>
+  <p>La grammaire distingue <i>Statement</i> et <i>StatementNoShortIf</i> pour résoudre le « else pendant » : un <code>else</code> se rattache toujours au <code>if</code> le plus proche qui n'a pas encore de <code>else</code>.</p>
+  <div class="code"><div class="bar"><span>Java</span></div><pre><code class="java">if (a)
+    if (b) f();
+else            // trompeur : ce else appartient à if (b), pas à if (a)
+    g();</code></pre></div>
+
+  <h2 id="s14-6"><span class="sec">§14.6</span>L'instruction vide</h2>
+  <p><code>;</code> ne fait rien. Attention à <code>if (x); f();</code> ou <code>while (cond);</code> : le <code>;</code> est le corps, et <code>f()</code> s'exécute toujours.</p>
+
+  <h2 id="s14-7"><span class="sec">§14.7</span>Instructions étiquetées</h2>
+  <p>Toute instruction peut être précédée d'une étiquette <code>L:</code>. Les étiquettes ont leur propre espace de noms : une étiquette peut porter le nom d'une variable. On ne peut pas réutiliser une étiquette déjà en vigueur dans une instruction englobante.</p>
+
+  <h2 id="s14-8"><span class="sec">§14.8</span>Instructions-expressions</h2>
+  <p>Seules certaines expressions peuvent servir d'instruction : affectation, <code>++</code>/<code>--</code> (préfixe ou suffixe), appel de méthode, création d'instance. <code>a + b;</code> ou <code>x == 1;</code> sont des erreurs, ce qui attrape des fautes de frappe.</p>
+
+  <h2 id="s14-9"><span class="sec">§14.9</span>L'instruction if</h2>
+  <p>La condition doit être de type <code>boolean</code> ou <code>Boolean</code>. <code>if-then</code> (§14.9.1) exécute son instruction si la condition est vraie ; <code>if-then-else</code> (§14.9.2) choisit l'une des deux. Une condition <code>Boolean</code> nulle lève <code>NullPointerException</code>.</p>
+
+  <h2 id="s14-10"><span class="sec">§14.10</span>L'instruction assert</h2>
+  <p><code>assert condition;</code> ou <code>assert condition : message;</code>. Les assertions sont <b>désactivées par défaut</b> ; on les active avec <code>java -ea</code> (ou par classe, paquetage). Si activées et la condition fausse, une <code>AssertionError</code> est levée avec le message.</p>
+  <div class="trap"><span class="lbl">Piège</span>
+    <p>Ne mettez jamais d'effet de bord dans une assertion (<code>assert liste.remove(x);</code>) : en production, sans <code>-ea</code>, il disparaît. N'utilisez pas <code>assert</code> pour valider les arguments d'une méthode publique : utilisez <code>Objects.requireNonNull</code> ou une exception explicite.</p>
+  </div>
+
+  <h2 id="s14-11"><span class="sec">§14.11</span>L'instruction switch</h2>
+  <p>Le <code>switch</code> transfère le contrôle selon la valeur d'une expression, le <b>sélecteur</b>. Depuis Java 14 et 21, il a considérablement évolué : flèches, motifs, gardes, <code>null</code>, exhaustivité.</p>
+  <h3 id="s14-11-1"><span class="sec">§14.11.1</span>Blocs switch</h3>
+  <p>Un bloc switch contient soit des <b>règles</b> (<code>case … -&gt;</code>), soit des <b>groupes d'instructions</b> étiquetés (<code>case …:</code>), jamais un mélange. Une étiquette <code>case</code> contient des constantes, des noms d'enum (qualifiés ou non), un ou plusieurs motifs avec garde <code>when</code> facultative, <code>null</code>, ou <code>default</code>.</p>
+  <div class="tbl"><table>
+    <thead><tr><th></th><th>Groupes <code>case X:</code></th><th>Règles <code>case X -&gt;</code></th></tr></thead>
+    <tbody>
+      <tr><td>Chute (fall-through)</td><td class="w">oui, jusqu'au prochain <code>break</code></td><td class="y">non : seule la règle choisie s'exécute</td></tr>
+      <tr><td>Corps</td><td>suite d'instructions</td><td>une expression, un bloc ou un <code>throw</code></td></tr>
+      <tr><td>Plusieurs valeurs</td><td><code>case 1, 2:</code> ou étiquettes empilées</td><td><code>case 1, 2 -&gt;</code></td></tr>
+      <tr><td>Portée des variables</td><td>tout le bloc switch (piège)</td><td>la règle seulement</td></tr>
+    </tbody>
+  </table></div>
+  <p>Comparez l'exécution des deux formes pour chaque valeur :</p>
+</div>
+
+<div class="wide">
+  <figure>
+    <p class="fig-title">Figure 14.1 · Chute (fall-through) contre règles</p>
+    <div data-w="switchsim"></div>
+  </figure>
+</div>
+
+<div class="col">
+  <h4 id="s14-11-1-1"><span class="sec">§14.11.1.1</span>Blocs switch exhaustifs</h4>
+  <p>Un bloc switch est <b>exhaustif</b> si ses étiquettes couvrent toutes les valeurs possibles du sélecteur : un <code>default</code>, un motif inconditionnel, toutes les constantes d'un enum, tous les sous-types autorisés d'un type scellé (récursivement), ou toutes les combinaisons des composants d'un record.</p>
+  <div class="rule"><span class="lbl">Règle · quand l'exhaustivité est exigée</span>
+    <p>Toujours pour une <b>switch expression</b> (§15.28). Pour une switch <b>instruction</b>, seulement si elle est « améliorée » : elle utilise un motif ou <code>case null</code>, ou son sélecteur n'est pas d'un type historique (<code>char</code>, <code>byte</code>, <code>short</code>, <code>int</code>, leurs enveloppes, <code>String</code>, enum). Un switch historique sur un <code>int</code> peut rester partiel.</p>
+  </div>
+  <p>Construisez un switch sur une hiérarchie scellée et observez ce que le compilateur en dit :</p>
+</div>
+
+<div class="wide">
+  <figure>
+    <p class="fig-title">Figure 14.2 · Exhaustivité et dominance sur un type scellé</p>
+    <p class="fig-hint"><code>sealed interface Forme permits Cercle, Rectangle, Triangle</code> · <code>record Cercle(double r)</code> · <code>sealed class Rectangle permits Carre</code> (non abstraite) · <code>final class Carre extends Rectangle</code> · <code>final class Triangle</code></p>
+    <div data-w="exhaust"></div>
+  </figure>
+</div>
+
+<div class="col">
+  <h4 id="s14-11-1-2"><span class="sec">§14.11.1.2</span>Quelle étiquette s'applique à l'exécution ?</h4>
+  <ol>
+    <li>Si le sélecteur vaut <code>null</code> : la règle <code>case null</code> s'applique si elle existe ; sinon <code>NullPointerException</code>. <code>default</code> n'attrape <b>pas</b> <code>null</code>, sauf écrit <code>case null, default</code>.</li>
+    <li>Sinon, les étiquettes sont essayées <b>dans l'ordre</b> : une constante égale, ou un motif qui correspond et dont la garde <code>when</code> est vraie.</li>
+    <li>Sinon, <code>default</code> s'il existe.</li>
+    <li>Sinon, pour un switch exhaustif (possible seulement après une compilation séparée, comme une nouvelle sous-classe), une <code>MatchException</code> est levée. Pour un enum, c'est aussi une <code>MatchException</code> depuis Java 21.</li>
+  </ol>
+  <div class="rule"><span class="lbl">Règle · dominance</span>
+    <p>Une étiquette est <b>dominée</b> si une étiquette précédente correspond à toutes les valeurs qu'elle accepterait. C'est une erreur de compilation : <code>case Rectangle r</code> avant <code>case Carre c</code> rend la seconde inaccessible. Un motif gardé ne domine rien ; un motif non gardé domine les motifs gardés du même type placés après.</p>
+  </div>
+
+  <h3 id="s14-11-2"><span class="sec">§14.11.2</span>Le bloc d'une instruction switch</h3>
+  <p>Dans une instruction switch, chaque règle doit avoir pour corps une instruction-expression, un bloc ou un <code>throw</code> (pas une simple valeur, contrairement à la switch expression). Le type du sélecteur doit être <code>char</code>, <code>byte</code>, <code>short</code>, <code>int</code>, une enveloppe, <code>String</code>, un enum, ou n'importe quel type référence (avec motifs). Avec la preview de Java 27, aussi <code>long</code>, <code>float</code>, <code>double</code> et <code>boolean</code>. Les constantes de <code>case</code> doivent être distinctes et compatibles avec le type du sélecteur.</p>
+  <h3 id="s14-11-3"><span class="sec">§14.11.3</span>Exécution d'une instruction switch</h3>
+  <p>Le sélecteur est évalué une fois. Avec des règles, seule la règle choisie s'exécute. Avec des groupes, on exécute à partir de l'étiquette choisie toutes les instructions suivantes du bloc, jusqu'à la fin ou un <code>break</code>. Un <code>break</code> sans étiquette termine le switch. Il est interdit de « tomber » dans un groupe qui déclare des variables de motif.</p>
+
+  <h2 id="s14-12"><span class="sec">§14.12</span>L'instruction while</h2>
+  <p><code>while (cond) S</code> évalue la condition, exécute S si elle est vraie, et recommence. Une terminaison abrupte de S (§14.12.1) : <code>break</code> sans étiquette sort de la boucle (normalement) ; <code>continue</code> sans étiquette passe à l'évaluation suivante de la condition ; une étiquette qui vise ce while a le même effet ; toute autre raison termine le while abruptement.</p>
+  <h2 id="s14-13"><span class="sec">§14.13</span>L'instruction do</h2>
+  <p><code>do S while (cond);</code> exécute S <b>au moins une fois</b>, puis teste la condition. Mêmes règles de terminaison abrupte (§14.13.1).</p>
+
+  <h2 id="s14-14"><span class="sec">§14.14</span>L'instruction for</h2>
+  <h3 id="s14-14-1"><span class="sec">§14.14.1</span>Le for basique</h3>
+  <p><code>for (init; cond; maj) S</code> : l'initialisation (§14.14.1.1) déclare des variables locales d'un même type, ou exécute des instructions-expressions séparées par des virgules. Puis à chaque itération (§14.14.1.2) : condition (absente = vraie), corps, mise à jour. <code>continue</code> saute à la mise à jour, pas à la condition (§14.14.1.3).</p>
+  <div class="code"><div class="bar"><span>Java</span></div><pre><code class="java">for (int i = 0, j = 10; i &lt; j; i++, j--) { }    // deux variables, deux mises à jour
+for (;;) { if (fini()) break; }                 // boucle infinie explicite
+for (int i = 0, long j = 0; ; ) { }             // ERREUR : un seul type dans l'initialisation</code></pre></div>
+  <h3 id="s14-14-2"><span class="sec">§14.14.2</span>Le for amélioré</h3>
+  <p>L'expression doit être un tableau ou un <code>Iterable</code>. La spec définit le sens par une traduction :</p>
+  <div data-w="tabs">
+    <section data-tab="Sur un Iterable">
+      <div class="code"><div class="bar"><span>Java</span></div><pre><code class="java">for (String s : liste) traiter(s);
+// signifie :
+for (Iterator&lt;String&gt; it = liste.iterator(); it.hasNext(); ) {
+    String s = it.next();
+    traiter(s);
+}</code></pre></div>
+    </section>
+    <section data-tab="Sur un tableau">
+      <div class="code"><div class="bar"><span>Java</span></div><pre><code class="java">for (int x : tableau) somme += x;
+// signifie :
+int[] a = tableau;                        // évalué une seule fois
+for (int i = 0; i &lt; a.length; i++) {
+    int x = a[i];
+    somme += x;
+}</code></pre></div>
+    </section>
+    <section data-tab="Pièges">
+      <div class="code"><div class="bar"><span>Java</span></div><pre><code class="java">for (String s : liste) if (s.isEmpty()) liste.remove(s);   // ConcurrentModificationException
+liste.removeIf(String::isEmpty);                            // la bonne façon
+
+for (int x : tableau) x = 0;                               // ne modifie PAS le tableau : x est une copie
+
+List&lt;Integer&gt; nombres = Arrays.asList(1, null, 3);
+for (int n : nombres) { }                                   // NullPointerException : unboxing de null</code></pre></div>
+    </section>
+  </div>
+
+  <h2 id="s14-15"><span class="sec">§14.15</span>L'instruction break</h2>
+  <p><code>break;</code> sort du <code>switch</code>, <code>while</code>, <code>do</code> ou <code>for</code> le plus proche. <code>break L;</code> sort de l'instruction étiquetée L, qui peut être n'importe quelle instruction (même un simple bloc). Un <code>break</code> ne peut pas sortir d'une lambda, d'une méthode, d'un initialiseur ou d'une switch expression. Les blocs <code>finally</code> traversés s'exécutent, et peuvent annuler le <code>break</code>.</p>
+  <h2 id="s14-16"><span class="sec">§14.16</span>L'instruction continue</h2>
+  <p><code>continue;</code> termine l'itération en cours de la boucle la plus proche ; <code>continue L;</code> celle de la boucle étiquetée L, qui doit être une boucle.</p>
+  <div class="code"><div class="bar"><span>Java</span></div><pre><code class="java">lignes:
+for (String ligne : texte) {
+    for (char c : ligne.toCharArray()) {
+        if (c == '#') continue lignes;     // ligne de commentaire : passer à la ligne suivante
+        if (c == '!') break lignes;        // fin du traitement
+    }
+    traiter(ligne);
+}</code></pre></div>
+  <h2 id="s14-17"><span class="sec">§14.17</span>L'instruction return</h2>
+  <p><code>return;</code> termine une méthode <code>void</code>, un constructeur (dans l'épilogue seulement), ou une lambda à corps bloc sans valeur. <code>return e;</code> renvoie une valeur, qui doit être affectable au type de retour (contexte d'affectation, §5.2). <code>return</code> est interdit dans un initialiseur, et ne peut pas sortir d'une switch expression.</p>
+  <h2 id="s14-18"><span class="sec">§14.18</span>L'instruction throw</h2>
+  <p><code>throw e;</code> évalue e, qui doit être de type <code>Throwable</code> (ou sous-type) ; si la valeur est <code>null</code>, une <code>NullPointerException</code> est levée à sa place. Les exceptions vérifiées levées doivent être gérées (§11.2).</p>
+  <h2 id="s14-19"><span class="sec">§14.19</span>L'instruction synchronized</h2>
+  <p><code>synchronized (expr) { … }</code> acquiert le moniteur de l'objet désigné (<code>null</code> lève <code>NullPointerException</code>), exécute le bloc, puis le libère, <b>même en cas de terminaison abrupte</b>. Les moniteurs sont réentrants : un thread peut reprendre un verrou qu'il détient déjà (§17.1).</p>
+  <div class="code"><div class="bar"><span>Java</span></div><pre><code class="java">private final Object verrou = new Object();   // verrou privé : personne d'autre ne peut le prendre
+void ajouter(String s) {
+    synchronized (verrou) { liste.add(s); }
+}
+synchronized ("constante") { }                 // à éviter : les chaînes internées sont partagées partout</code></pre></div>
+
+  <h2 id="s14-20"><span class="sec">§14.20</span>L'instruction try</h2>
+  <p>Une instruction <code>try</code> a un bloc, puis des clauses <code>catch</code> et/ou un <code>finally</code>, ou des ressources. Chaque <code>catch</code> déclare un paramètre d'exception, éventuellement de plusieurs types (<code>catch (A | B e)</code>, implicitement <code>final</code>).</p>
+  <h3 id="s14-20-1"><span class="sec">§14.20.1</span>Exécution de try-catch</h3>
+  <p>Si le bloc se termine normalement, rien d'autre ne se passe. S'il lève une exception V, la <b>première</b> clause <code>catch</code> dont le type peut recevoir V est choisie, V est affecté à son paramètre et son bloc s'exécute. Si aucune ne convient, le try se termine abruptement avec V.</p>
+  <h3 id="s14-20-2"><span class="sec">§14.20.2</span>Exécution de try-finally et try-catch-finally</h3>
+  <p>Le <code>finally</code> s'exécute <b>toujours</b>. Le résultat final dépend de la façon dont se terminent le try (ou le catch exécuté) et le finally :</p>
+  <div class="tbl"><table>
+    <thead><tr><th>Le try / catch se termine…</th><th>finally normal</th><th>finally abrupt (return, throw, break…)</th></tr></thead>
+    <tbody>
+      <tr><td>normalement</td><td>normal</td><td>abrupt, raison du finally</td></tr>
+      <tr><td>par <code>return v</code></td><td>renvoie v (calculée <b>avant</b> le finally)</td><td>raison du finally : le return v est <b>oublié</b></td></tr>
+      <tr><td>par une exception non attrapée E</td><td>E est propagée</td><td>raison du finally : <b>E est perdue</b></td></tr>
+    </tbody>
+  </table></div>
+  <div class="code"><div class="bar"><span>Java</span></div><pre><code class="java">int f() {
+    int x = 1;
+    try { return x; }       // la valeur 1 est déjà calculée et mise de côté
+    finally { x = 2; }      // modifie x, pas la valeur renvoyée
+}                           // f() == 1
+
+int g() {
+    try { throw new RuntimeException(); }
+    finally { return 2; }   // g() == 2, l'exception disparaît
+}</code></pre></div>
+
+  <h3 id="s14-20-3"><span class="sec">§14.20.3</span>try-with-resources</h3>
+  <p>Chaque ressource est une variable initialisée (ou, depuis Java 9, une variable existante <code>final</code> ou effectivement finale) dont le type implémente <code>AutoCloseable</code>. Les ressources sont fermées automatiquement, dans l'<b>ordre inverse</b> de leur initialisation, que le bloc se termine normalement ou non. Une ressource <code>null</code> n'est simplement pas fermée.</p>
+  <div data-w="tabs">
+    <section data-tab="Ce que vous écrivez">
+      <div class="code"><div class="bar"><span>Java</span></div><pre><code class="java">try (var in = Files.newBufferedReader(src);
+     var out = Files.newBufferedWriter(dst)) {
+    in.transferTo(out);
+}</code></pre></div>
+    </section>
+    <section data-tab="Traduction de base (§14.20.3.1)">
+      <div class="code"><div class="bar"><span>Java · pour une ressource</span></div><pre><code class="java">{
+    final var in = Files.newBufferedReader(src);
+    Throwable primaire = null;
+    try {
+        /* bloc, avec la ressource suivante imbriquée de la même façon */
+    } catch (Throwable t) {
+        primaire = t;
+        throw t;
+    } finally {
+        if (in != null) {
+            if (primaire != null) {
+                try { in.close(); }
+                catch (Throwable fermeture) { primaire.addSuppressed(fermeture); }   // exception supprimée
+            } else {
+                in.close();
+            }
+        }
+    }
+}</code></pre></div>
+    </section>
+    <section data-tab="Forme étendue (§14.20.3.2)">
+      <p>Un try-with-resources qui a aussi des <code>catch</code> ou un <code>finally</code> est traduit en un try-with-resources de base <b>imbriqué</b> dans un try ordinaire. Conséquence : les ressources sont déjà <b>fermées</b> quand les <code>catch</code> et le <code>finally</code> s'exécutent.</p>
+      <div class="code"><div class="bar"><span>Java</span></div><pre><code class="java">try (var c = ouvrir()) { … } catch (IOException e) { … } finally { … }
+// signifie :
+try {
+    try (var c = ouvrir()) { … }     // c est fermée ici
+} catch (IOException e) { … }         // attrape aussi les exceptions de ouvrir() et de close()
+finally { … }</code></pre></div>
+    </section>
+  </div>
+
+  <h2 id="s14-21"><span class="sec">§14.21</span>L'instruction yield</h2>
+  <p><code>yield v;</code> fournit la valeur d'une switch expression depuis un bloc ou un groupe d'instructions (§15.28). Il ne peut pas traverser une lambda, une méthode ou une autre switch expression. <code>yield</code> est un mot-clé contextuel : pour appeler une méthode nommée <code>yield</code>, il faut la qualifier (<code>this.yield()</code>).</p>
+  <div class="code"><div class="bar"><span>Java</span></div><pre><code class="java">int nbLettres = switch (jour) {
+    case LUNDI, VENDREDI, DIMANCHE -&gt; 6;
+    case MARDI -&gt; 5;
+    default -&gt; {
+        int n = jour.toString().length();
+        yield n;                      // valeur du bloc
+    }
+};</code></pre></div>
+
+  <h2 id="s14-22"><span class="sec">§14.22</span>Instructions inaccessibles</h2>
+  <p>C'est une erreur de compilation qu'une instruction ne puisse pas être exécutée parce qu'elle est <b>inaccessible</b>. La spec le définit par une analyse de flux conservatrice, fondée sur la notion « peut se terminer normalement ». Quelques règles :</p>
+  <ul>
+    <li>une instruction qui suit <code>return</code>, <code>throw</code>, <code>break</code>, <code>continue</code> ou <code>yield</code> dans le même bloc est inaccessible ;</li>
+    <li><code>while (true)</code> sans <code>break</code> qui le vise ne peut pas se terminer normalement : ce qui suit est inaccessible ;</li>
+    <li>le corps de <code>while (false)</code> est inaccessible (erreur) ;</li>
+    <li>un <code>catch</code> d'exception vérifiée que le try ne peut pas lever est inaccessible (§11.2.3).</li>
+  </ul>
+  <div class="rule"><span class="lbl">Règle · l'exception du if</span>
+    <p><code>if (false) { … }</code> n'est <b>pas</b> une erreur, même si le bloc est inaccessible. Ce traitement spécial permet la <b>compilation conditionnelle</b> avec une constante : <code>static final boolean DEBUG = false; if (DEBUG) log(…);</code>. Le compilateur peut même omettre le code.</p>
+  </div>
+  <div class="code"><div class="bar"><span>Java</span></div><pre><code class="java">while (true) { travailler(); }
+nettoyer();                  // ERREUR : inaccessible
+
+while (false) { f(); }       // ERREUR : corps inaccessible
+if (false) { f(); }          // OK : compilation conditionnelle
+
+int k = 0;
+while (k &lt; 1) { }            // OK : la condition n'est pas une expression constante
+return; System.out.println();  // ERREUR</code></pre></div>
+
+  <h2 id="s14-30"><span class="sec">§14.30</span>Motifs</h2>
+  <p>Un <b>motif</b> décrit un test à effectuer sur une valeur, et des variables à extraire si le test réussit. Les motifs apparaissent après <code>instanceof</code> (§15.20.2) et dans les étiquettes <code>case</code>.</p>
+  <h3 id="s14-30-1"><span class="sec">§14.30.1</span>Les sortes de motifs</h3>
+  <div class="tbl"><table>
+    <thead><tr><th>Motif</th><th>Forme</th><th>Exemple</th></tr></thead>
+    <tbody>
+      <tr><td><b>Motif de type</b></td><td>un type et un nom de variable (ou <code>var</code> en position imbriquée)</td><td><code>String s</code></td></tr>
+      <tr><td><b>Motif d'enregistrement</b></td><td>un type record et une liste de motifs pour ses composants</td><td><code>Point(int x, var y)</code></td></tr>
+      <tr><td><b>Motif sans nom</b></td><td><code>_</code>, correspond à tout, ne déclare rien (Java 22)</td><td><code>Point(int x, _)</code></td></tr>
+    </tbody>
+  </table></div>
+  <div class="code"><div class="bar"><span>Java</span></div><pre><code class="java">sealed interface Expr permits Nombre, Somme, Produit, Neg { }
+record Nombre(int v) implements Expr { }
+record Somme(Expr g, Expr d) implements Expr { }
+record Produit(Expr g, Expr d) implements Expr { }
+record Neg(Expr e) implements Expr { }
+
+static int eval(Expr e) {
+    return switch (e) {
+        case Nombre(int v)            -&gt; v;
+        case Somme(Expr g, Expr d)    -&gt; eval(g) + eval(d);
+        case Produit(Nombre(var v), _) when v == 0 -&gt; 0;          // motif imbriqué, gardé, avec _
+        case Produit(Expr g, Expr d)  -&gt; eval(g) * eval(d);
+        case Neg(Neg(var inner))      -&gt; eval(inner);              // --x == x
+        case Neg(Expr x)              -&gt; -eval(x);
+    };                                // exhaustif : pas de default nécessaire
+}
+
+if (obj instanceof Somme(Nombre(int a), Nombre(int b)) &amp;&amp; a == b) { }</code></pre></div>
+  <h3 id="s14-30-2"><span class="sec">§14.30.2</span>Correspondance de motif</h3>
+  <ul>
+    <li>Un <b>motif de type</b> <code>T t</code> correspond à une valeur non nulle qui peut être convertie en T par une conversion de test (§5.7). Si le motif est <b>inconditionnel</b> (le type statique de la valeur est déjà un sous-type de T), il correspond à tout, <code>null</code> compris, mais seulement en position imbriquée.</li>
+    <li>Un <b>motif d'enregistrement</b> <code>R(p1, …, pn)</code> correspond à une valeur non nulle de type R dont chaque composant, obtenu en appelant son <b>accesseur</b>, correspond au motif imbriqué. Si un accesseur lève une exception, la correspondance lève <code>MatchException</code>.</li>
+    <li>Au niveau supérieur, <code>null</code> ne correspond à <b>aucun</b> motif : <code>null instanceof String s</code> est faux.</li>
+  </ul>
+  <div class="code"><div class="bar"><span>Java</span></div><pre><code class="java">record Boite(Object contenu) { }
+Object o = new Boite(null);
+o instanceof Boite(Object x);    // true : Object x est inconditionnel pour le composant, null correspond
+o instanceof Boite(String s);    // false : String s n'est pas inconditionnel, null ne correspond pas</code></pre></div>
+  <h3 id="s14-30-3"><span class="sec">§14.30.3</span>Propriétés des motifs</h3>
+  <div class="tbl"><table>
+    <thead><tr><th>Propriété</th><th>Définition</th><th>Conséquence</th></tr></thead>
+    <tbody>
+      <tr><td><b>Applicable</b></td><td>le motif est compatible avec le type de la valeur testée</td><td><code>Integer i</code> sur une <code>String</code> : erreur</td></tr>
+      <tr><td><b>Inconditionnel</b></td><td>il correspond à toute valeur (non nulle) du type testé</td><td>il rend le switch exhaustif ; depuis Java 21 il est aussi permis après <code>instanceof</code>, où le test se réduit à <code>!= null</code></td></tr>
+      <tr><td><b>Dominance</b></td><td>un motif p domine q si p correspond à tout ce que q accepte</td><td>q placé après p est une erreur</td></tr>
+      <tr><td><b>Couverture</b></td><td>un ensemble de motifs couvre un type s'il correspond à toutes ses valeurs</td><td>calcul de l'exhaustivité, y compris pour les records imbriqués</td></tr>
+    </tbody>
+  </table></div>
+
+  <h2 id="s14-quiz">Vérifier ses acquis</h2>
+  <div data-w="quiz"><script type="application/json">[
+    {"q":"<code>var x = null;</code> compile-t-il ?","o":["Oui, x est de type Object","Non : le type nul n'est pas dénotable","Oui avec un avertissement"],"a":1,"e":"§14.4.1 : l'initialiseur de var ne peut pas être null seul."},
+    {"q":"Un switch sur un <code>Object</code> avec motifs, sans <code>case null</code>, reçoit <code>null</code>…","o":["va dans default","NullPointerException","ne fait rien"],"a":1,"e":"default n'attrape pas null, sauf case null, default (§14.11.1.2)."},
+    {"q":"<code>case Rectangle r</code> puis <code>case Carre c</code> (Carre extends Rectangle)…","o":["compile","erreur : Carre est dominé","avertissement"],"a":1,"e":"Une étiquette dominée par une précédente est une erreur (§14.11.1)."},
+    {"q":"Que renvoie <code>int x = 1; try { return x; } finally { x = 2; }</code> ?","o":["1","2","Erreur"],"a":0,"e":"La valeur de retour est calculée avant le finally ; le finally ne fait que modifier x (§14.20.2)."},
+    {"q":"Dans un try-with-resources avec un catch, la ressource est-elle encore ouverte dans le catch ?","o":["Oui","Non, elle est fermée avant","Ça dépend"],"a":1,"e":"La forme étendue imbrique le try-with-resources de base dans le try ordinaire (§14.20.3.2)."},
+    {"q":"<code>while (true) {} f();</code>","o":["compile","erreur : f() est inaccessible","boucle puis f()"],"a":1,"e":"while (true) sans break ne peut pas se terminer normalement (§14.22)."},
+    {"q":"<code>if (false) { f(); }</code>","o":["erreur : code inaccessible","compile : exception volontaire pour la compilation conditionnelle"],"a":1,"e":"Le if fait l'objet d'un traitement spécial au §14.22."},
+    {"q":"<code>new Boite(null) instanceof Boite(String s)</code> vaut…","o":["true","false","NullPointerException"],"a":1,"e":"String s n'est pas inconditionnel pour un composant Object : null ne correspond pas (§14.30.2)."}
+  ]</script></div>
+</div>
+
+<script>
+ATLAS.w.switchsim = function(el){
+  el.classList.add('sw');
+  const A = [
+    ['switch (jour) {',null],
+    ['    case 1:', 'L1'],
+    ['    case 7:', 'L7'],
+    ['        IO.println("week-end");','o:week-end'],
+    ['    case 2:', 'L2'],
+    ['        IO.println("lundi");','o:lundi'],
+    ['        break;','brk'],
+    ['    case 3, 4, 5:','L3,4,5'],
+    ['        IO.println("milieu");','o:milieu'],
+    ['    default:','Ld'],
+    ['        IO.println("autre");','o:autre'],
+    ['}',null]
+  ];
+  const B = [
+    ['switch (jour) {',null],
+    ['    case 1, 7 -> IO.println("week-end");','R1,7|week-end'],
+    ['    case 2    -> IO.println("lundi");','R2|lundi'],
+    ['    case 3, 4, 5 -> IO.println("milieu");','R3,4,5|milieu'],
+    ['    default   -> IO.println("autre");','Rd|autre'],
+    ['}',null]
+  ];
+  el.innerHTML='<div class="row"><span style="font-family:var(--f-display);font-weight:600">jour =</span>'+[1,2,3,6,7].map(v=>'<button type="button" class="btn v" data-v="'+v+'">'+v+'</button>').join('')+'</div><div class="panes"><div><span class="lbl" style="color:var(--ember)">Groupes « case : » — avec chute</span><div class="lines la"></div><div class="o oa"></div></div><div><span class="lbl" style="color:var(--ok)">Règles « case -&gt; » — sans chute</span><div class="lines lb"></div><div class="o ob"></div></div></div>';
+  const render=(box,L)=>box.innerHTML=L.map((l,i)=>'<span class="ln" data-i="'+i+'"><i>'+(i+1)+'</i>'+ATLAS.hlJava(l[0])+'</span>').join('');
+  render(el.querySelector('.la'),A); render(el.querySelector('.lb'),B);
+  function run(v){
+    el.querySelectorAll('.btn.v').forEach(b=>b.classList.toggle('on',+b.dataset.v===v));
+    // A : trouver l'étiquette
+    let start=A.findIndex(l=>l[1]&&l[1][0]==='L'&&l[1].slice(1).split(',').map(Number).includes(v));
+    if(start<0) start=A.findIndex(l=>l[1]==='Ld');
+    const outA=[]; const lnA=el.querySelectorAll('.la .ln'); lnA.forEach(x=>x.className='ln');
+    lnA[start].classList.add('entry');
+    for(let i=start+1;i<A.length-1;i++){ const t=A[i][1]; lnA[i].classList.add('run'); if(t&&t.startsWith('o:')) outA.push(t.slice(2)); if(t==='brk') break; }
+    el.querySelector('.oa').textContent='Sortie : '+outA.join(' · ');
+    const lnB=el.querySelectorAll('.lb .ln'); lnB.forEach(x=>x.className='ln');
+    let r=B.findIndex(l=>l[1]&&l[1][1]!=='d'&&l[1].slice(1).split('|')[0].split(',').map(Number).includes(v));
+    if(r<0) r=B.findIndex(l=>l[1]&&l[1].startsWith('Rd'));
+    lnB[r].classList.add('run');
+    el.querySelector('.ob').textContent='Sortie : '+B[r][1].split('|')[1];
+  }
+  el.querySelectorAll('.btn.v').forEach(b=>b.onclick=()=>run(+b.dataset.v));
+  run(1);
+};
+
+ATLAS.w.exhaust = function(el){
+  el.classList.add('ex14');
+  const OPTS=[['g','case Cercle c when c.r() &gt; 10 -&gt; …'],['c','case Cercle c -&gt; …'],['k1','case Carre k -&gt; …  (avant Rectangle)'],['r','case Rectangle r -&gt; …'],['k2','case Carre k -&gt; …  (après Rectangle)'],['t','case Triangle t -&gt; …'],['n','case null -&gt; …'],['d','default -&gt; …']];
+  el.innerHTML='<div class="grid"><fieldset><legend>Étiquettes du switch expression (dans cet ordre)</legend>'+OPTS.map(([k,l])=>'<label class="opt"><input type="checkbox" data-k="'+k+'"'+(['c','r','t'].includes(k)?' checked':'')+'><span><code>'+l+'</code></span></label>').join('')+'</fieldset><div><div class="verdict" aria-live="polite"></div><div class="code"><pre><code class="gen"></code></pre></div></div></div>';
+  const out=el.querySelector('.verdict'), gen=el.querySelector('.gen');
+  function run(){
+    const on={}; el.querySelectorAll('input').forEach(i=>on[i.dataset.k]=i.checked);
+    const errs=[], notes=[];
+    if(on.k1&&on.k2){ errs.push('case Carre apparaît deux fois.'); }
+    if(on.r&&on.k2) errs.push('<code>case Carre</code> est <b>dominé</b> par <code>case Rectangle</code> placé avant : il ne pourrait jamais s\'appliquer.');
+    const cercle=on.c, rect=on.r, tri=on.t, def=on.d;
+    if(on.g && !on.c) notes.push('Un motif gardé ne compte pas pour l\'exhaustivité : <code>Cercle</code> reste non couvert.');
+    if((on.k1||on.k2) && !on.r) notes.push('<code>Carre</code> ne couvre pas <code>Rectangle</code> : Rectangle n\'est pas abstraite, une instance de Rectangle « simple » peut exister.');
+    const exh = def || (cercle && rect && tri);
+    if(!exh && !errs.length) errs.push('Le switch expression n\'est pas exhaustif : il manque '+[!cercle&&'Cercle',!rect&&'Rectangle',!tri&&'Triangle'].filter(Boolean).join(', ')+'.');
+    if(exh && !def) notes.push('Exhaustif sans <code>default</code> : si une nouvelle sous-classe apparaît plus tard (compilation séparée), l\'exécution lèvera <code>MatchException</code>. Et le compilateur signalera le switch dès la recompilation : c\'est l\'intérêt de ne pas mettre de default.');
+    if(!on.n) notes.push('Sans <code>case null</code>, un sélecteur <code>null</code> lève <code>NullPointerException</code>.');
+    else if(def) notes.push('<code>case null</code> et <code>default</code> peuvent aussi s\'écrire <code>case null, default -&gt;</code>.');
+    out.className='verdict '+(errs.length?'err':'ok');
+    out.innerHTML='<div class="v">'+(errs.length?'Erreur de compilation':'Compile')+'</div>'+errs.map(e=>'<p>'+e+'</p>').join('')+notes.map(n=>'<p>'+n+'</p>').join('');
+    const lines=['double aire = switch (forme) {'].concat(OPTS.filter(([k])=>on[k]).map(([k,l])=>'    '+l.replace(/&gt;/g,'>').replace(/\s+\(.*\)$/,'')),['};']);
+    gen.innerHTML=ATLAS.hlJava(lines.join('\n'));
+  }
+  el.querySelectorAll('input').forEach(i=>i.onchange=run); run();
+};
+</script>

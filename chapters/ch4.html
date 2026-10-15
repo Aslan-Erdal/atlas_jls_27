@@ -1,0 +1,710 @@
+<style>
+.nb .row{display:flex; gap:8px; flex-wrap:wrap; align-items:center; margin-bottom:10px}
+.nb input[type=text]{flex:1 1 180px; min-width:0}
+.bitrow{display:flex; flex-wrap:wrap; gap:2px; font-family:var(--f-mono); font-size:.78rem; margin:10px 0}
+.bitrow span{width:1.35em; text-align:center; padding:3px 0; border-radius:3px; background:var(--paper); border:1px solid var(--rule)}
+.bitrow span.s{background:var(--ember-soft); border-color:var(--ember); color:var(--ember); font-weight:700}
+.bitrow span.e{background:var(--violet-soft); border-color:var(--violet); color:var(--violet)}
+.bitrow span.f{background:var(--accent-soft); border-color:var(--accent); color:var(--accent)}
+.bitrow span.one{font-weight:700}
+.bitrow span.gap{width:.4em; background:none; border:none}
+.nbleg{display:flex; gap:14px; flex-wrap:wrap; font-family:var(--f-display); font-size:.75rem; color:var(--muted)}
+.nbleg i{display:inline-block; width:10px; height:10px; border-radius:2px; margin-right:4px; vertical-align:-1px}
+.nbout{display:grid; grid-template-columns:auto minmax(0,1fr); gap:4px 14px; font-size:.9rem; margin-top:10px}
+.nbout dt{font-family:var(--f-display); font-weight:600; color:var(--muted); font-size:.82rem}
+.nbout dd{margin:0; font-family:var(--f-mono); font-size:.82rem; word-break:break-all}
+.st .row{display:grid; grid-template-columns:minmax(0,1fr) auto minmax(0,1fr); gap:10px; align-items:center; margin-bottom:12px}
+.st select{width:100%}
+.st .rel{font-family:var(--f-mono); font-weight:700; font-size:1.1rem; color:var(--accent)}
+.st ol{margin:.4em 0 0; font-size:.9rem}
+@media (max-width:560px){ .st .row{grid-template-columns:minmax(0,1fr)} .st .rel{text-align:center} }
+</style>
+
+<div class="col">
+  <div class="eyebrow">Chapitre 4 · Java SE 27 Edition</div>
+  <h1>Types, valeurs et variables</h1>
+  <p class="lede">Le cœur du système de types : les huit types primitifs et leur arithmétique exacte, les types référence, les génériques avec jokers, l'effacement, le sous-typage, et les différentes sortes de variables.</p>
+  <div class="meta">
+    <span>Source : <a href="https://docs.oracle.com/javase/specs/jls/se27/html/jls-4.html" target="_blank" rel="noopener">JLS SE 27, chapitre 4</a></span>
+    <span>Sections : <b>4.1 à 4.12</b></span>
+  </div>
+
+  <h2 id="s4-1"><span class="sec">§4.1</span>Les sortes de types et de valeurs</h2>
+  <p>Java est <b>statiquement typé</b> : chaque variable et chaque expression a un type connu à la compilation. Il est aussi <b>fortement typé</b> : le type limite les valeurs qu'une variable peut contenir et les opérations permises. Les types se répartissent en deux familles, et les valeurs aussi :</p>
+  <div class="tbl"><table>
+    <thead><tr><th></th><th>Types primitifs</th><th>Types référence</th></tr></thead>
+    <tbody>
+      <tr><td><b>Membres</b></td><td><code>boolean</code> et les types numériques : <code>byte short int long char</code> (intégraux), <code>float double</code> (flottants)</td><td>types classe, types interface, variables de type, types tableau</td></tr>
+      <tr><td><b>Valeurs</b></td><td>valeurs primitives, copiées à chaque affectation</td><td>références vers des objets, ou <code>null</code></td></tr>
+      <tr><td><b>Partage</b></td><td>jamais : deux variables n'ont jamais la même valeur « en commun »</td><td>plusieurs références peuvent désigner le même objet</td></tr>
+      <tr><td><b>Défini dans</b></td><td>§4.2</td><td>§4.3</td></tr>
+    </tbody>
+  </table></div>
+  <p>Il existe un troisième type à part : le <b>type nul</b>, le type de l'expression <code>null</code>. Il n'a pas de nom, on ne peut donc ni déclarer une variable de ce type ni faire un cast vers lui. La valeur <code>null</code> se convertit en n'importe quel type référence ; en pratique, on peut faire comme si <code>null</code> était un littéral spécial de tous les types référence.</p>
+
+  <h2 id="s4-2"><span class="sec">§4.2</span>Types primitifs et valeurs</h2>
+  <p>Un type primitif est prédéfini et nommé par son mot-clé réservé. Les valeurs primitives ne partagent pas d'état entre elles : <code>int b = a;</code> copie la valeur, et modifier <code>b</code> ne touche jamais <code>a</code>.</p>
+
+  <h3 id="s4-2-1"><span class="sec">§4.2.1</span>Types intégraux et leurs valeurs</h3>
+  <div class="tbl"><table>
+    <thead><tr><th>Type</th><th>Bits</th><th>Minimum</th><th>Maximum</th><th>Classe enveloppe</th></tr></thead>
+    <tbody>
+      <tr><td><code>byte</code></td><td class="num">8</td><td class="num">−128</td><td class="num">127</td><td><code>Byte</code></td></tr>
+      <tr><td><code>short</code></td><td class="num">16</td><td class="num">−32 768</td><td class="num">32 767</td><td><code>Short</code></td></tr>
+      <tr><td><code>int</code></td><td class="num">32</td><td class="num">−2 147 483 648</td><td class="num">2 147 483 647</td><td><code>Integer</code></td></tr>
+      <tr><td><code>long</code></td><td class="num">64</td><td class="num">−9 223 372 036 854 775 808</td><td class="num">9 223 372 036 854 775 807</td><td><code>Long</code></td></tr>
+      <tr><td><code>char</code></td><td class="num">16</td><td class="num">0 ('\u0000')</td><td class="num">65 535 ('￿')</td><td><code>Character</code></td></tr>
+    </tbody>
+  </table></div>
+  <p>Les quatre premiers sont signés en <b>complément à deux</b> ; <code>char</code> est le seul type intégral non signé. Le complément à deux explique l'asymétrie des bornes : il y a un négatif de plus que de positifs, car zéro occupe une place côté positif.</p>
+
+  <h3 id="s4-2-2"><span class="sec">§4.2.2</span>Opérations sur les entiers</h3>
+  <div class="grid2">
+    <div class="card"><b class="h">Résultat boolean</b>comparaisons <code>&lt; &lt;= &gt; &gt;=</code> (§15.20.1) et égalités <code>== !=</code> (§15.21.1)</div>
+    <div class="card"><b class="h">Résultat int ou long</b>unaires <code>+ -</code>, multiplicatifs <code>* / %</code>, additifs <code>+ -</code>, <code>++ --</code>, décalages <code>&lt;&lt; &gt;&gt; &gt;&gt;&gt;</code>, complément <code>~</code>, bit à bit <code>&amp; ^ |</code></div>
+    <div class="card"><b class="h">Autres</b>conditionnel <code>? :</code>, cast, concaténation avec un <code>String</code></div>
+  </div>
+  <div class="rule"><span class="lbl">Règles</span>
+    <p>Si l'un des opérandes (hors décalages) est <code>long</code>, l'opération se fait sur 64 bits ; sinon elle se fait sur <b>32 bits</b>, même pour des <code>byte</code> ou des <code>short</code> : ils sont promus en <code>int</code> (§5.6).</p>
+    <p>Les débordements sont <b>silencieux</b> : le résultat garde les bits de poids faible. Les seules exceptions levées sont <code>ArithmeticException</code> pour <code>/</code> et <code>%</code> par zéro, <code>NullPointerException</code> lors d'un unboxing de <code>null</code>, et <code>OutOfMemoryError</code> si un boxing n'a plus de mémoire.</p>
+  </div>
+  <div class="code"><div class="bar"><span>Java</span></div><pre><code class="java">int max = Integer.MAX_VALUE;
+max + 1;                      // -2147483648 : débordement silencieux
+Math.addExact(max, 1);        // ArithmeticException : version vérifiée
+Math.abs(Integer.MIN_VALUE);  // -2147483648 ! l'opposé de MIN_VALUE n'existe pas en int
+
+byte b = 10;
+b = b + 1;                    // ERREUR : b + 1 est un int (promotion), perte possible
+b += 1;                       // OK : l'affectation composée contient un cast implicite (§15.26.2)
+b++;                          // OK : idem
+
+7 / 2;     // 3   (division entière tronquée vers zéro)
+-7 / 2;    // -3  (pas -4 : troncature, pas arrondi inférieur)
+-7 % 2;    // -1  (le reste a le signe du dividende)
+Math.floorMod(-7, 2);  // 1
+1 / 0;     // ArithmeticException
+1.0 / 0;   // Infinity : en flottant, pas d'exception</code></pre></div>
+
+  <h3 id="s4-2-3"><span class="sec">§4.2.3</span>Types flottants et leurs valeurs</h3>
+  <p><code>float</code> et <code>double</code> sont les formats binaires 32 et 64 bits de la norme IEEE 754. Une valeur finie non nulle s'écrit <i>s</i> × <i>m</i> × 2<sup><i>e</i>−<i>N</i>+1</sup>, avec un signe, une mantisse entière et un exposant borné :</p>
+  <div class="tbl"><table>
+    <thead><tr><th>Paramètre</th><th><code>float</code></th><th><code>double</code></th></tr></thead>
+    <tbody>
+      <tr><td>Précision <i>N</i> (bits de mantisse, implicite compris)</td><td class="num">24</td><td class="num">53</td></tr>
+      <tr><td>Bits d'exposant / biais</td><td class="num">8 / 127</td><td class="num">11 / 1023</td></tr>
+      <tr><td><i>E</i><sub>min</sub> / <i>E</i><sub>max</sub></td><td class="num">−126 / 127</td><td class="num">−1022 / 1023</td></tr>
+      <tr><td>Chiffres décimaux fiables</td><td class="num">6–9</td><td class="num">15–17</td></tr>
+    </tbody>
+  </table></div>
+  <p>En plus des nombres finis, chaque format contient <b>deux zéros</b> (+0.0 et −0.0), <b>deux infinis</b> et des valeurs <b>NaN</b> (« not a number »). Les nombres trop petits pour l'exposant minimal deviennent <b>sous-normaux</b> : la précision diminue graduellement au lieu de tomber d'un coup à zéro.</p>
+  <div class="rule"><span class="lbl">Règles · NaN et zéros</span>
+    <p>NaN est <b>non ordonné</b> : <code>&lt;</code>, <code>&lt;=</code>, <code>&gt;</code>, <code>&gt;=</code> et <code>==</code> renvoient <code>false</code> si un opérande est NaN, et <code>!=</code> renvoie <code>true</code>. Donc <code>x != x</code> est vrai si et seulement si <code>x</code> est NaN.</p>
+    <p>+0.0 et −0.0 sont égaux pour <code>==</code>, mais se distinguent par d'autres opérations : <code>1.0 / -0.0</code> vaut <code>-Infinity</code>.</p>
+  </div>
+  <div class="code"><div class="bar"><span>Java</span></div><pre><code class="java">double nan = 0.0 / 0;
+nan == nan;                  // false
+Double.isNaN(nan);           // true : la bonne façon de tester
+Double.valueOf(nan).equals(nan);  // true : equals compare les bits, pas ==
+0.0 == -0.0;                 // true
+Double.valueOf(0.0).equals(-0.0); // false
+Double.compare(0.0, -0.0);   // 1 : compare et equals ordonnent -0.0 &lt; 0.0 &lt; ... &lt; NaN</code></pre></div>
+  <p>Le visualiseur ci-dessous montre la représentation exacte de n'importe quelle valeur, y compris la valeur décimale réellement stockée.</p>
+</div>
+
+<div class="wide">
+  <figure>
+    <p class="fig-title">Figure 4.1 · Les bits d'une valeur primitive</p>
+    <p class="fig-hint">Choisissez un type, saisissez une valeur (entiers en décimal ou <code>0x…</code> ; flottants en décimal, <code>NaN</code>, <code>Infinity</code>, <code>-0</code>). Pour les entiers, une valeur hors plage est réduite comme le ferait un cast.</p>
+    <div data-w="numbits"></div>
+  </figure>
+</div>
+
+<div class="col">
+  <h3 id="s4-2-4"><span class="sec">§4.2.4</span>Opérations sur les flottants</h3>
+  <p>Les opérateurs sont les mêmes que pour les entiers, sauf les décalages et le complément <code>~</code>. Si un opérande est <code>double</code>, le calcul se fait en <code>double</code>, sinon en <code>float</code> s'il y a un <code>float</code>.</p>
+  <div class="rule"><span class="lbl">Règles · l'arithmétique IEEE 754</span>
+    <p>Chaque résultat est arrondi <b>au plus proche</b>, avec égalité vers le pair (« round to nearest, ties to even »). Le débordement donne l'infini ; le sous-dépassement donne un sous-normal ou zéro. <b>Aucune opération flottante ne lève d'exception</b> : 0.0/0 donne NaN.</p>
+    <p>Depuis Java 17 (JEP 306), toutes les opérations flottantes sont <b>strictes</b> : mêmes résultats au bit près sur toutes les plateformes. Le modificateur <code>strictfp</code> est devenu sans effet.</p>
+  </div>
+  <div class="code"><div class="bar"><span>Java</span></div><pre><code class="java">0.1 + 0.2;                  // 0.30000000000000004 : 0.1 et 0.2 ne sont pas représentables
+0.1 + 0.2 == 0.3;           // false
+Math.abs(a - b) &lt; 1e-9;     // comparer avec une tolérance adaptée au problème
+
+float f = 16_777_216f;
+f + 1 == f;                 // true : au-delà de 2^24, un float ne distingue plus les entiers consécutifs
+
+(int) 3.99;                 // 3     : troncature vers zéro
+(int) Double.NaN;           // 0
+(int) 1e20;                 // 2147483647 : saturation (§5.1.3)
+
+new BigDecimal("0.1").add(new BigDecimal("0.2"));   // 0.3 exactement : pour l'argent</code></pre></div>
+  <div class="trap"><span class="lbl">Piège</span>
+    <p><code>new BigDecimal(0.1)</code> donne <code>0.1000000000000000055511151231257827…</code> : le constructeur à partir d'un <code>double</code> conserve l'erreur de représentation. Utilisez <code>BigDecimal.valueOf(0.1)</code> ou le constructeur à partir d'un <code>String</code>.</p>
+  </div>
+
+  <h3 id="s4-2-5"><span class="sec">§4.2.5</span>Le type boolean</h3>
+  <p>Deux valeurs, <code>true</code> et <code>false</code>. Opérateurs : <code>== !=</code>, <code>!</code>, <code>&amp; ^ |</code> (évaluent toujours les deux opérandes), <code>&amp;&amp; ||</code> (court-circuit), <code>? :</code>, et la concaténation (<code>"x" + true</code>).</p>
+  <ul>
+    <li>Les instructions <code>if</code>, <code>while</code>, <code>do</code>, <code>for</code>, l'opérande de <code>!</code> et les conditions de <code>? :</code> exigent une expression <code>boolean</code> (ou <code>Boolean</code>, unboxé).</li>
+    <li>Aucune conversion entre <code>boolean</code> et les types numériques. Pour un entier : <code>x != 0</code>. Pour un booléen vers un entier : <code>b ? 1 : 0</code>.</li>
+  </ul>
+
+  <h2 id="s4-3"><span class="sec">§4.3</span>Types référence et valeurs</h2>
+  <p>Quatre sortes de types référence : les <b>types classe</b> (§8.1), les <b>types interface</b> (§9.1), les <b>variables de type</b> (§4.4) et les <b>types tableau</b> (§10.1). Un type classe ou interface peut être paramétré (<code>List&lt;String&gt;</code>) et qualifié par un type englobant (<code>Map.Entry&lt;K,V&gt;</code>, <code>Externe&lt;A&gt;.Interne&lt;B&gt;</code>). Des annotations de type peuvent s'y placer (<code>@NonNull String</code>).</p>
+
+  <h3 id="s4-3-1"><span class="sec">§4.3.1</span>Objets</h3>
+  <p>Un <b>objet</b> est soit une instance de classe, soit un tableau. Les valeurs référence sont des pointeurs vers ces objets, ou <code>null</code>. Façons de créer un objet dans le langage :</p>
+  <div class="grid2">
+    <div class="card"><b class="h">Explicites</b><code>new Classe(...)</code> (§15.9) ; création de tableau <code>new int[3]</code> ou initialiseur <code>{1, 2}</code> (§15.10, §10.6)</div>
+    <div class="card"><b class="h">Implicites</b>concaténation de chaînes (§15.18.1) ; boxing (§5.1.7) ; évaluation d'une lambda ou référence de méthode (§15.27.4, §15.13.3) ; littéraux chaîne et text blocks</div>
+  </div>
+  <p>Les opérations sur les références sont : accès aux champs, appel de méthode, cast, concaténation, <code>instanceof</code>, égalité <code>==</code> / <code>!=</code> (identité), et l'opérateur conditionnel.</p>
+  <div class="code"><div class="bar"><span>Java · identité et état partagé</span></div><pre><code class="java">class Point { int x, y; }
+
+Point p = new Point();
+Point q = p;          // q et p désignent LE MÊME objet
+q.x = 5;
+System.out.println(p.x);   // 5 : la modification est visible par les deux références
+
+Point r = new Point(); r.x = 5;
+p == r;               // false : même contenu, objets distincts
+int a = 5, b = a; b++;
+System.out.println(a);     // 5 : les primitifs ne partagent rien</code></pre></div>
+  <div class="modern"><span class="lbl">Évolution à surveiller</span>
+    <p>Le projet Valhalla prépare des <b>classes valeur</b> sans identité (JEP 401). Elles ne font pas partie de Java SE 27, même en preview (§1.5.2 ne liste qu'une preview de langage). Dans la JLS 27, tout objet a une identité.</p>
+  </div>
+
+  <h3 id="s4-3-2"><span class="sec">§4.3.2</span>La classe Object</h3>
+  <p>Superclasse de toutes les classes ; tous les types référence, tableaux et interfaces compris, ont ses méthodes.</p>
+  <div class="tbl"><table>
+    <thead><tr><th>Méthode</th><th>Rôle</th><th>À retenir</th></tr></thead>
+    <tbody>
+      <tr><td><code>getClass()</code></td><td>classe d'exécution de l'objet</td><td>Type de retour spécial : <code>Class&lt;? extends |T|&gt;</code>, où |T| est l'effacement du type statique de l'expression.</td></tr>
+      <tr><td><code>toString()</code></td><td>représentation textuelle</td><td>Utilisée par la concaténation de chaînes.</td></tr>
+      <tr><td><code>equals(Object)</code>, <code>hashCode()</code></td><td>égalité logique et hachage</td><td>Contrat : objets égaux ⇒ même hashCode. À redéfinir ensemble.</td></tr>
+      <tr><td><code>clone()</code></td><td>copie</td><td><code>protected</code> ; exige <code>Cloneable</code> sinon <code>CloneNotSupportedException</code>. Public pour les tableaux.</td></tr>
+      <tr><td><code>wait</code>, <code>notify</code>, <code>notifyAll</code></td><td>coordination entre threads</td><td>§17.2 ; exigent le verrou de l'objet.</td></tr>
+      <tr><td><code>finalize()</code></td><td>nettoyage avant récupération</td><td>Déprécié pour suppression (JEP 421).</td></tr>
+    </tbody>
+  </table></div>
+  <div class="code"><div class="bar"><span>Java</span></div><pre><code class="java">Number n = 42;                       // boxing : Integer
+Class&lt;? extends Number&gt; c = n.getClass();   // statiquement Number, à l'exécution Integer.class
+List&lt;String&gt; l = new ArrayList&lt;&gt;();
+Class&lt;? extends List&gt; k = l.getClass();     // effacement : List, pas List&lt;String&gt;</code></pre></div>
+
+  <h3 id="s4-3-3"><span class="sec">§4.3.3</span>La classe String</h3>
+  <p>Les instances de <code>String</code> représentent des suites d'unités de code Unicode. Une <code>String</code> est <b>immuable</b> : sa valeur ne change jamais. Le langage lui donne trois privilèges : les littéraux (§3.10.5), les text blocks (§3.10.6) et l'opérateur <code>+</code> de concaténation (§15.18.1).</p>
+
+  <h3 id="s4-3-4"><span class="sec">§4.3.4</span>Quand deux types référence sont-ils identiques ?</h3>
+  <p>Deux types classe ou interface sont identiques s'ils ont le <b>même nom binaire</b> (§13.1) et, s'ils sont paramétrés, des arguments de type identiques (récursivement). Deux variables de type sont identiques si elles sont issues de la même déclaration. Deux types tableau, si leurs types de composants le sont.</p>
+  <div class="nn"><span class="lbl">Note non normative</span>
+    <p>À l'exécution, l'identité d'une classe inclut aussi son <b>chargeur</b> : deux classes de même nom chargées par deux chargeurs différents sont distinctes, et un cast de l'une vers l'autre échoue (§12.2). C'est la source des célèbres « <code>ClassCastException: Foo cannot be cast to Foo</code> » des serveurs d'applications.</p>
+  </div>
+
+  <h2 id="s4-4"><span class="sec">§4.4</span>Variables de type</h2>
+  <p>Une variable de type est un identifiant non qualifié utilisé comme type dans le corps d'une classe, interface, méthode ou constructeur générique. Elle est introduite par une déclaration de paramètre de type, avec une <b>borne</b> facultative :</p>
+  <div class="code"><div class="bar"><span>Grammaire (§4.4)</span></div><pre><code class="gram">TypeParameter:
+    {TypeParameterModifier} TypeIdentifier [TypeBound]
+
+TypeBound:
+    extends TypeVariable
+    extends ClassOrInterfaceType {AdditionalBound}
+
+AdditionalBound:
+    &amp; InterfaceType</code></pre></div>
+  <div class="rule"><span class="lbl">Règles</span>
+    <p>Sans borne, la borne est <code>Object</code>. Avec plusieurs bornes <code>T extends A &amp; B &amp; C</code>, seule la première peut être une classe ou une variable de type ; les suivantes sont des interfaces. Si la première est une variable de type, aucune autre borne n'est permise.</p>
+    <p>Les membres d'une variable de type sont ceux de l'<b>intersection</b> de ses bornes (§4.9) : on peut appeler sur un <code>T</code> toute méthode de <code>A</code>, <code>B</code> ou <code>C</code>.</p>
+  </div>
+  <div class="code"><div class="bar"><span>Java</span></div><pre><code class="java">static &lt;T extends Number &amp; Comparable&lt;T&gt;&gt; T max(List&lt;T&gt; xs) {
+    T best = xs.get(0);
+    for (T x : xs)
+        if (x.compareTo(best) &gt; 0) best = x;    // méthode de Comparable&lt;T&gt;
+    System.out.println(best.doubleValue());      // méthode de Number
+    return best;
+}
+
+&lt;T extends Comparable &amp; Number&gt; void f() {}   // ERREUR : la classe doit venir en premier
+&lt;T, U extends T &amp; Runnable&gt; void g() {}        // ERREUR : après une variable de type, aucune autre borne</code></pre></div>
+  <div class="trap"><span class="lbl">Piège</span>
+    <p>Les membres <code>private</code> d'une borne de classe ne sont pas accessibles via la variable de type, même depuis l'intérieur de cette classe : une variable de type n'hérite que des membres accessibles comme le ferait une sous-classe fictive.</p>
+  </div>
+
+  <h2 id="s4-5"><span class="sec">§4.5</span>Types paramétrés</h2>
+  <p>Une déclaration générique <code>C&lt;F1,…,Fn&gt;</code> définit un ensemble de <b>types paramétrés</b> <code>C&lt;T1,…,Tn&gt;</code>. Chaque argument est un type référence ou un joker. Il faut exactement <i>n</i> arguments ; chaque argument (après capture) doit respecter la borne du paramètre correspondant.</p>
+  <div class="code"><div class="bar"><span>Java</span></div><pre><code class="java">Map&lt;String, Integer&gt; m;   // bien formé
+List&lt;int&gt; l;               // ERREUR : les arguments de type sont des types référence
+Map&lt;String&gt; x;             // ERREUR : mauvais nombre d'arguments
+class Boite&lt;T extends Number&gt; {}
+Boite&lt;String&gt; b;           // ERREUR : String n'est pas un sous-type de Number</code></pre></div>
+
+  <h3 id="s4-5-1"><span class="sec">§4.5.1</span>Arguments de type et jokers</h3>
+  <p>Un <b>joker</b> (wildcard) <code>?</code> représente un type inconnu, éventuellement borné :</p>
+  <div class="tbl"><table>
+    <thead><tr><th>Forme</th><th>Lit-on ?</th><th>Écrit-on ?</th><th>Usage typique</th></tr></thead>
+    <tbody>
+      <tr><td><code>List&lt;? extends Number&gt;</code></td><td class="y">oui, des <code>Number</code></td><td class="n">non (sauf <code>null</code>)</td><td>producteur : on en <b>extrait</b> des valeurs</td></tr>
+      <tr><td><code>List&lt;? super Integer&gt;</code></td><td class="w">seulement des <code>Object</code></td><td class="y">oui, des <code>Integer</code></td><td>consommateur : on y <b>dépose</b> des valeurs</td></tr>
+      <tr><td><code>List&lt;?&gt;</code></td><td class="w">des <code>Object</code></td><td class="n">non (sauf <code>null</code>)</td><td>code indépendant du type d'élément</td></tr>
+    </tbody>
+  </table></div>
+  <p>Mnémotechnique de Joshua Bloch : <b>PECS</b>, « Producer Extends, Consumer Super ». La signature de <code>Collections.copy</code> en est l'exemple type : <code>&lt;T&gt; void copy(List&lt;? super T&gt; dest, List&lt;? extends T&gt; src)</code>.</p>
+  <div class="rule"><span class="lbl">Règle · la relation de contenance</span>
+    <p>La spec définit quand un argument de type <b>contient</b> un autre (noté <code>T &lt;= S</code>). C'est la base du sous-typage entre types paramétrés :</p>
+    <ul>
+      <li><code>? extends T &lt;= ? extends S</code> si <code>T &lt;: S</code></li>
+      <li><code>? extends T &lt;= ?</code></li>
+      <li><code>? super T &lt;= ? super S</code> si <code>S &lt;: T</code></li>
+      <li><code>? super T &lt;= ?</code> et <code>? super T &lt;= ? extends Object</code></li>
+      <li><code>T &lt;= T</code>, <code>T &lt;= ? extends T</code>, <code>T &lt;= ? super T</code></li>
+    </ul>
+  </div>
+  <p>Le point fondamental : sans joker, les types paramétrés sont <b>invariants</b>. <code>List&lt;Integer&gt;</code> n'est pas un sous-type de <code>List&lt;Number&gt;</code>, sinon on pourrait y ajouter un <code>Double</code>. Vérifiez n'importe quelle paire :</p>
+</div>
+
+<div class="wide">
+  <figure>
+    <p class="fig-title">Figure 4.2 · Testeur de sous-typage</p>
+    <p class="fig-hint">Choisissez S et T : l'outil applique les règles du §4.10 et de contenance du §4.5.1, étape par étape.</p>
+    <div data-w="subtype"></div>
+  </figure>
+</div>
+
+<div class="col">
+  <h3 id="s4-5-2"><span class="sec">§4.5.2</span>Membres et constructeurs des types paramétrés</h3>
+  <p>Les membres de <code>C&lt;T1,…,Tn&gt;</code> s'obtiennent en appliquant la substitution <code>[F1:=T1,…,Fn:=Tn]</code> aux membres de la déclaration générique. Si certains arguments sont des jokers, on applique d'abord la <b>conversion par capture</b> (§5.1.10), qui remplace chaque joker par une nouvelle variable de type fraîche :</p>
+  <div class="code"><div class="bar"><span>Java</span></div><pre><code class="java">List&lt;? extends Number&gt; nums = List.of(1, 2.5);
+Number n = nums.get(0);   // get renvoie CAP#1, dont la borne supérieure est Number
+nums.add(3);              // ERREUR : add attend un CAP#1, et 3 n'est pas un CAP#1
+
+List&lt;? super Integer&gt; sink = new ArrayList&lt;Number&gt;();
+sink.add(3);              // OK : Integer est un sous-type de CAP#2 (borne inférieure Integer)
+Object o = sink.get(0);   // on ne sait rien de plus que Object</code></pre></div>
+  <p>Les messages de <code>javac</code> nomment ces types capturés <code>CAP#1</code>, <code>capture of ?</code> : c'est ce mécanisme qui est à l'œuvre.</p>
+
+  <h2 id="s4-6"><span class="sec">§4.6</span>Effacement de type</h2>
+  <p>L'<b>effacement</b> (type erasure), noté |T|, associe à chaque type un type sans paramètres. Les génériques Java sont vérifiés à la compilation puis effacés : la JVM ne voit que les types effacés.</p>
+  <div class="tbl"><table>
+    <thead><tr><th>Type T</th><th>Effacement |T|</th><th>Exemple</th></tr></thead>
+    <tbody>
+      <tr><td>Type paramétré <code>G&lt;T1,…,Tn&gt;</code></td><td><code>|G|</code></td><td><code>Map&lt;K,List&lt;V&gt;&gt;</code> → <code>Map</code></td></tr>
+      <tr><td>Type imbriqué <code>T.C</code></td><td><code>|T|.C</code></td><td><code>Externe&lt;A&gt;.Interne</code> → <code>Externe.Interne</code></td></tr>
+      <tr><td>Tableau <code>T[]</code></td><td><code>|T|[]</code></td><td><code>List&lt;String&gt;[]</code> → <code>List[]</code></td></tr>
+      <tr><td>Variable de type</td><td>effacement de sa <b>borne la plus à gauche</b></td><td><code>T extends Number &amp; Comparable</code> → <code>Number</code></td></tr>
+      <tr><td>Intersection <code>A &amp; B</code></td><td><code>|A|</code></td><td></td></tr>
+      <tr><td>Tout autre type</td><td>lui-même</td><td><code>int</code>, <code>String</code></td></tr>
+    </tbody>
+  </table></div>
+  <p>L'effacement d'une <b>signature de méthode</b> efface ses types de paramètres. Deux méthodes de même nom dont les signatures s'effacent pareil ne peuvent pas coexister :</p>
+  <div class="code"><div class="bar"><span>Java</span></div><pre><code class="java">class C {
+    void f(List&lt;String&gt; l) {}
+    void f(List&lt;Integer&gt; l) {}   // ERREUR : même effacement f(List)
+}
+
+static &lt;T extends Comparable&lt;? super T&gt;&gt; T max(Collection&lt;? extends T&gt; c)  // signature réelle
+// dans le bytecode : Comparable max(Collection)
+// Collections.max utilise &lt;T extends Object &amp; Comparable&lt;? super T&gt;&gt; pour que
+// l'effacement reste Object, compatible avec l'ancienne API d'avant Java 5</code></pre></div>
+  <p>Quand une classe redéfinit une méthode générique et que les effacements diffèrent, le compilateur génère une <b>méthode pont</b> (bridge method) synthétique pour que le polymorphisme fonctionne dans le bytecode.</p>
+
+  <h2 id="s4-7"><span class="sec">§4.7</span>Types réifiables</h2>
+  <p>Un type est <b>réifiable</b> si l'information de type est entièrement disponible à l'exécution, c'est-à-dire si l'effacement ne perd rien. Sont réifiables :</p>
+  <ul>
+    <li>les types primitifs ;</li>
+    <li>les types classe ou interface non génériques (<code>String</code>) ;</li>
+    <li>les types bruts (<code>List</code>) ;</li>
+    <li>les types paramétrés dont tous les arguments sont des jokers non bornés (<code>Map&lt;?,?&gt;</code>) ;</li>
+    <li>les types tableau dont le type d'élément est réifiable ;</li>
+    <li>les types imbriqués <code>T.C</code> dont chaque composant est réifiable.</li>
+  </ul>
+  <p>Seuls les types réifiables peuvent servir là où une vérification d'exécution est nécessaire :</p>
+  <div class="code"><div class="bar"><span>Java</span></div><pre><code class="java">o instanceof List&lt;?&gt;          // OK
+o instanceof List&lt;String&gt;     // ERREUR (sauf si le type statique de o garantit déjà List&lt;String&gt;)
+new List&lt;?&gt;[10]               // OK
+new List&lt;String&gt;[10]          // ERREUR : création de tableau générique
+new T[10]                     // ERREUR : T n'est pas réifiable
+catch (MonExc&lt;String&gt; e)      // impossible : une classe générique ne peut pas étendre Throwable</code></pre></div>
+  <div class="nn"><span class="lbl">Note non normative</span>
+    <p>Depuis Java 16, <code>instanceof</code> accepte un type non réifiable si le test est sûr : <code>List&lt;String&gt; l; if (l instanceof ArrayList&lt;String&gt; a)</code> est permis car l'information générique est déjà connue statiquement (§15.20.2).</p>
+  </div>
+
+  <h2 id="s4-8"><span class="sec">§4.8</span>Types bruts</h2>
+  <p>Un <b>type brut</b> est le nom d'une classe ou interface générique utilisé <b>sans</b> arguments de type (<code>List</code> au lieu de <code>List&lt;String&gt;</code>). Il existe uniquement pour la compatibilité avec le code antérieur à Java 5.</p>
+  <div class="rule"><span class="lbl">Règles</span>
+    <p>Les membres d'un type brut sont les <b>effacements</b> des membres de la déclaration générique : <code>List.get</code> renvoie <code>Object</code>. Utiliser un membre d'un type brut d'une manière qui pourrait être incorrecte produit un <b>avertissement non vérifié</b> (unchecked warning).</p>
+    <p>L'usage des types bruts dans du nouveau code est fortement déconseillé ; la spec prévient qu'une version future pourrait l'interdire.</p>
+  </div>
+  <div class="code"><div class="bar"><span>Java</span></div><pre><code class="java">List brute = new ArrayList();
+brute.add("texte");                 // avertissement unchecked
+List&lt;Integer&gt; ints = brute;          // avertissement unchecked : conversion non vérifiée (§5.1.9)
+int i = ints.get(0);                // ClassCastException, loin de la vraie cause
+
+class Exemple&lt;T&gt; { List&lt;String&gt; noms() { return List.of(); } }
+Exemple e = new Exemple();          // type brut
+List&lt;String&gt; n = e.noms();          // avertissement : les membres sont effacés, même ceux sans T !</code></pre></div>
+  <div class="trap"><span class="lbl">Piège</span>
+    <p>Le dernier cas surprend : sur un type brut, <b>tous</b> les membres sont effacés, y compris ceux qui ne dépendent pas des paramètres de type. Un seul type brut contamine ainsi toute l'API de l'objet.</p>
+  </div>
+
+  <h2 id="s4-9"><span class="sec">§4.9</span>Types intersection</h2>
+  <p>Un type intersection s'écrit <code>T1 &amp; … &amp; Tn</code>. Il n'apparaît que dans certaines positions : bornes de variables de type (§4.4), casts (§15.16), et comme résultat de l'inférence ou de la borne supérieure minimale (§4.10.4). Ses membres sont ceux d'une classe fictive qui hériterait de tous les <code>Ti</code>.</p>
+  <div class="code"><div class="bar"><span>Java</span></div><pre><code class="java">Runnable r = (Runnable &amp; Serializable) () -&gt; System.out.println("ok");
+// la lambda implémente les deux interfaces : elle peut être sérialisée
+
+var x = flag ? 1 : "a";    // type inféré : une intersection, voir §4.10.4</code></pre></div>
+
+  <h2 id="s4-10"><span class="sec">§4.10</span>Sous-typage</h2>
+  <p>Les relations de sous-typage et de supertypage sont binaires. La spec définit d'abord les <b>supertypes directs</b> (<code>S &gt;1 T</code>), puis <code>S :&gt; T</code> comme la fermeture réflexive et transitive. <code>T &lt;: S</code> se lit « T est un sous-type de S ». Un sous-type <b>propre</b> exclut l'égalité.</p>
+
+  <h3 id="s4-10-1"><span class="sec">§4.10.1</span>Sous-typage entre types primitifs</h3>
+  <div class="svgwrap"><svg viewBox="0 0 560 150" width="560" role="img" aria-label="double au-dessus de float, long, int, puis short et char, byte sous short">
+    <g class="d-txt d-b">
+      <rect class="d-acc" x="10" y="55" width="70" height="34" rx="6"/><text x="45" y="77" text-anchor="middle">double</text>
+      <rect class="d-box" x="110" y="55" width="70" height="34" rx="6"/><text x="145" y="77" text-anchor="middle">float</text>
+      <rect class="d-box" x="210" y="55" width="70" height="34" rx="6"/><text x="245" y="77" text-anchor="middle">long</text>
+      <rect class="d-box" x="310" y="55" width="70" height="34" rx="6"/><text x="345" y="77" text-anchor="middle">int</text>
+      <rect class="d-box" x="410" y="12" width="70" height="34" rx="6"/><text x="445" y="34" text-anchor="middle">short</text>
+      <rect class="d-box" x="410" y="100" width="70" height="34" rx="6"/><text x="445" y="122" text-anchor="middle">char</text>
+      <rect class="d-box" x="510" y="12" width="44" height="34" rx="6"/><text x="532" y="34" text-anchor="middle">byte</text>
+    </g>
+    <g class="d-line" marker-end="url(#arr)">
+      <path d="M110,72 H82" marker-end="url(#arr)"/><path d="M210,72 H182" marker-end="url(#arr)"/><path d="M310,72 H282" marker-end="url(#arr)"/>
+      <path d="M410,29 L382,64" marker-end="url(#arr)"/><path d="M410,117 L382,80" marker-end="url(#arr)"/><path d="M510,29 H482" marker-end="url(#arr)"/>
+    </g>
+  </svg></div>
+  <p class="nolink" style="text-align:center; font-family:var(--f-display); font-size:var(--s-1); color:var(--muted)">Une flèche va d'un type vers son supertype direct. <code>boolean</code> n'a aucune relation avec les autres.</p>
+  <p>Ce « sous-typage » primitif ne signifie pas qu'une valeur <code>int</code> <em>est</em> un <code>long</code> : il sert à l'inférence et à la résolution de surcharge. La conversion réelle est l'élargissement (§5.1.2). Notez que <code>char</code> et <code>short</code> ne sont sous-types l'un de l'autre dans aucun sens, et que <code>long</code> → <code>float</code> est permis malgré la perte de précision possible.</p>
+
+  <h3 id="s4-10-2"><span class="sec">§4.10.2</span>Sous-typage entre classes et interfaces</h3>
+  <p>Pour une classe ou interface <b>non générique</b> C, les supertypes directs sont : sa superclasse directe, ses superinterfaces directes, et <code>Object</code> si C est une interface sans superinterface.</p>
+  <p>Pour un type <b>générique</b> <code>C&lt;F1,…,Fn&gt;</code>, les supertypes directs de <code>C&lt;T1,…,Tn&gt;</code> sont :</p>
+  <ul>
+    <li>les supertypes directs de la déclaration, avec la substitution <code>[F1:=T1,…]</code> ;</li>
+    <li><code>C&lt;S1,…,Sn&gt;</code> où chaque <code>Si</code> <b>contient</b> <code>Ti</code> (§4.5.1) : c'est ce qui rend <code>List&lt;Integer&gt; &lt;: List&lt;? extends Number&gt;</code> ;</li>
+    <li>le type brut <code>C</code> ;</li>
+    <li><code>Object</code> si C est une interface sans superinterface.</li>
+  </ul>
+  <p>Avec des jokers dans <code>C&lt;R1,…&gt;</code>, on capture d'abord (§5.1.10), puis on applique la règle ci-dessus au type capturé.</p>
+
+  <h3 id="s4-10-3"><span class="sec">§4.10.3</span>Sous-typage entre tableaux</h3>
+  <ul>
+    <li>Si S et T sont des types référence et <code>S &gt;1 T</code>, alors <code>S[] &gt;1 T[]</code> : les tableaux sont <b>covariants</b>.</li>
+    <li><code>Object &gt;1 Object[]</code>, <code>Cloneable &gt;1 Object[]</code>, <code>java.io.Serializable &gt;1 Object[]</code>.</li>
+    <li>Pour un type primitif P : <code>Object</code>, <code>Cloneable</code> et <code>Serializable</code> sont supertypes directs de <code>P[]</code>. Mais <code>int[]</code> n'est jamais sous-type de <code>long[]</code> ni de <code>Object[]</code>.</li>
+  </ul>
+  <p>La covariance des tableaux est vérifiée à l'exécution : écrire un <code>Double</code> dans un <code>Integer[]</code> vu comme <code>Number[]</code> lève <code>ArrayStoreException</code> (§10.5). Les génériques, invariants, évitent ce problème à la compilation.</p>
+
+  <h3 id="s4-10-4"><span class="sec">§4.10.4</span>Borne supérieure minimale (lub)</h3>
+  <p>La <b>lub</b> (least upper bound) d'un ensemble de types est le supertype commun le plus précis. Elle sert à typer l'opérateur conditionnel (§15.25), à l'inférence (ch. 18) et aux <code>switch</code> expressions. L'algorithme :</p>
+  <ol>
+    <li>Pour chaque type, calculer l'ensemble de ses supertypes effacés (EST) ; intersecter ces ensembles (EC).</li>
+    <li>Garder les éléments <b>minimaux</b> de EC (MEC) : ceux dont aucun sous-type propre n'est dans EC.</li>
+    <li>Pour chaque élément générique de MEC, calculer le meilleur paramétrage commun, avec des jokers si besoin (fonction lcta, possiblement récursive).</li>
+    <li>La lub est l'intersection de ces candidats.</li>
+  </ol>
+  <div class="code"><div class="bar"><span>Java</span></div><pre><code class="java">var x = flag ? Integer.valueOf(1) : "a";
+// lub(Integer, String) =
+//   Object &amp; Serializable &amp; Comparable&lt;? extends Object &amp; Serializable &amp; Comparable&lt;?&gt; &amp; ...&gt;
+//          &amp; Constable &amp; ConstantDesc
+x.compareTo(null);   // compile : x a toutes les méthodes de l'intersection
+
+var l = flag ? new ArrayList&lt;String&gt;() : new LinkedList&lt;String&gt;();
+// lub = AbstractList&lt;String&gt; &amp; Serializable &amp; Cloneable (List&lt;String&gt; en découle)</code></pre></div>
+  <p>La lub peut être infinie en théorie (types récursifs comme <code>Comparable</code>) ; la spec autorise le compilateur à couper la récursion avec un joker non borné.</p>
+
+  <h3 id="s4-10-5"><span class="sec">§4.10.5</span>Projections de type</h3>
+  <p>Un type inféré peut mentionner des <b>variables de capture</b>, qui n'ont pas de nom dans le langage. Pour donner un type à une variable déclarée avec <code>var</code> (§14.4.1), la spec calcule une <b>projection supérieure</b> : le supertype le plus précis qui ne mentionne plus ces variables. Il existe aussi une projection inférieure, utilisée pour les bornes <code>? super</code>.</p>
+  <div class="code"><div class="bar"><span>Java</span></div><pre><code class="java">List&lt;? extends Number&gt; nums = ...;
+var e = nums.get(0);           // type de l'expression : CAP#1 ; type de e : Number (projection)
+var copie = nums;              // List&lt;? extends Number&gt; : le joker est rétabli
+
+List&lt;?&gt; inconnue = ...;
+var x = inconnue.get(0);       // Object</code></pre></div>
+
+  <h2 id="s4-11"><span class="sec">§4.11</span>Où les types sont utilisés</h2>
+  <p>La spec distingue <b>17 contextes de type</b> : des positions syntaxiques où un type apparaît. Ils comptent pour deux raisons : les annotations de type (§9.7.4) et l'exception lexicale <code>&gt;&gt;</code> (§3.2).</p>
+  <div class="two">
+    <div class="card"><b class="h">Dans les déclarations</b>
+      <ul style="margin:0">
+        <li><code>extends</code> / <code>implements</code> d'une classe, <code>extends</code> d'une interface</li>
+        <li>type de retour d'une méthode, y compris d'un élément d'annotation</li>
+        <li><code>throws</code> d'une méthode ou d'un constructeur</li>
+        <li><code>extends</code> d'un paramètre de type</li>
+        <li>type d'un champ, d'un paramètre formel, d'un paramètre récepteur</li>
+        <li>type d'une variable locale, d'un composant de record</li>
+        <li>type d'un paramètre d'exception</li>
+        <li>type dans un motif (§14.30)</li>
+      </ul>
+    </div>
+    <div class="card"><b class="h">Dans les expressions</b>
+      <ul style="margin:0">
+        <li>arguments de type explicites d'un appel</li>
+        <li>création d'instance de classe non qualifiée ou qualifiée</li>
+        <li>création de tableau</li>
+        <li>opérateur de cast</li>
+        <li><code>instanceof</code></li>
+        <li>référence de méthode (<code>Type::m</code>, <code>Type::new</code>)</li>
+      </ul>
+    </div>
+  </div>
+  <p>Les types n'apparaissent pas comme valeurs : <code>String.class</code> est une expression de type <code>Class&lt;String&gt;</code>, pas un type.</p>
+
+  <h2 id="s4-12"><span class="sec">§4.12</span>Variables</h2>
+  <p>Une variable est un emplacement de stockage, associé à un type (son <b>type à la compilation</b>). Sa valeur change par affectation ou par <code>++</code>/<code>--</code>. La compatibilité entre la valeur et le type est garantie par le langage, sauf en cas de <b>pollution du tas</b> (voir §4.12.2).</p>
+
+  <h3 id="s4-12-1"><span class="sec">§4.12.1</span>Variables de type primitif</h3>
+  <p>Elle contient toujours une valeur primitive de ce type exact.</p>
+
+  <h3 id="s4-12-2"><span class="sec">§4.12.2</span>Variables de type référence</h3>
+  <p>Une variable de type classe <code>T</code> contient <code>null</code> ou une référence vers une instance de <code>T</code> ou d'une sous-classe. Une variable de type interface, <code>null</code> ou une instance d'une classe qui implémente l'interface. Une variable de type tableau <code>T[]</code>, <code>null</code> ou un tableau de type <code>S[]</code> avec S affectable à T.</p>
+  <div class="rule"><span class="lbl">Règle · pollution du tas</span>
+    <p>Une variable de type paramétré peut désigner un objet qui n'est pas de ce type paramétré. C'est la <b>pollution du tas</b> (heap pollution). Elle ne peut arriver que si le programme a produit un avertissement non vérifié à la compilation ; sans avertissement, il n'y a jamais de pollution.</p>
+  </div>
+  <div class="code"><div class="bar"><span>Java</span></div><pre><code class="java">static void pollue(List&lt;String&gt;... listes) {   // avertissement : varargs générique
+    Object[] tab = listes;                     // un tableau List&lt;String&gt;[] vu comme Object[]
+    tab[0] = List.of(42);                      // aucune erreur : la vérification ne voit que List
+    String s = listes[0].get(0);               // ClassCastException ici
+}</code></pre></div>
+  <p>C'est pour ça que les méthodes à paramètres variadiques génériques produisent un avertissement, que <code>@SafeVarargs</code> (§9.6.4.7) permet de supprimer quand le code est réellement sûr.</p>
+
+  <h3 id="s4-12-3"><span class="sec">§4.12.3</span>Les sortes de variables</h3>
+</div>
+
+<div class="wide">
+  <figure>
+    <p class="fig-title">Figure 4.3 · Les huit sortes de variables</p>
+    <div data-w="explorer"><script type="application/json">{"items":[
+      {"k":"Variable de classe","sub":"champ static","d":"<p>Champ déclaré <code>static</code> dans une classe, ou tout champ d'une interface. Créée quand la classe est <b>préparée</b> (§12.3.2), initialisée à sa valeur par défaut, puis par son initialiseur lors de l'initialisation de la classe (§12.4). Disparaît quand la classe est déchargée.</p>","code":"class Compteur {\n    static int total;          // une seule copie, partagée\n}"},
+      {"k":"Variable d'instance","sub":"champ non static","d":"<p>Champ non <code>static</code>. Une nouvelle copie est créée pour chaque objet (§12.5) et initialisée à sa valeur par défaut avant tout constructeur. Elle vit tant que l'objet est atteignable.</p>","code":"class Point {\n    int x, y;                  // une copie par Point\n}"},
+      {"k":"Composant de tableau","sub":"variable sans nom","d":"<p>Les éléments d'un tableau sont des variables sans nom, créées avec le tableau et initialisées à la valeur par défaut (§10.6). On y accède par une expression d'accès <code>t[i]</code>.</p>","code":"int[] t = new int[3];      // trois variables, toutes à 0"},
+      {"k":"Paramètre de méthode","sub":"argument reçu","d":"<p>Créé à chaque appel, initialisé avec la valeur de l'argument (§15.12). Disparaît à la fin de l'exécution du corps. Java passe <b>toujours par valeur</b> : pour un objet, c'est la référence qui est copiée.</p>","code":"void f(int n, List<String> l) {\n    n = 0;            // ne change rien chez l'appelant\n    l.add(\"x\");       // modifie l'objet partagé\n    l = null;         // ne change rien chez l'appelant\n}"},
+      {"k":"Paramètre de constructeur","sub":"argument de new","d":"<p>Comme un paramètre de méthode, créé pour chaque création d'instance ou appel explicite de constructeur (<code>this(...)</code>, <code>super(...)</code>).</p>","code":"Point(int x, int y) { this.x = x; this.y = y; }"},
+      {"k":"Paramètre de lambda","sub":"argument de la fonction","d":"<p>Créé à chaque exécution du corps de la lambda (§15.27.1), initialisé avec l'argument passé à la méthode de l'interface fonctionnelle.</p>","code":"Function<String,Integer> len = s -> s.length();   // s : paramètre de lambda"},
+      {"k":"Paramètre d'exception","sub":"variable du catch","d":"<p>Créé quand une exception est attrapée par une clause <code>catch</code> (§14.20), initialisé avec l'objet exception. Dans un multi-catch <code>catch (A | B e)</code>, il est implicitement <code>final</code>.</p>","code":"try { ... } catch (IOException | SQLException e) {\n    e = null;   // ERREUR : implicitement final\n}"},
+      {"k":"Variable locale","sub":"bloc, for, motif","d":"<p>Déclarée par une instruction de déclaration locale (§14.4), dans un <code>for</code>, une ressource de try, ou par un <b>motif</b> (§14.30.1). Elle n'est <b>jamais initialisée automatiquement</b> : il faut lui affecter une valeur avant toute lecture (ch. 16).</p>","code":"int n;\nSystem.out.println(n);   // ERREUR : n n'est pas définitivement assignée\nif (o instanceof String s) { /* s : variable locale de motif */ }"}
+    ]}</script></div>
+  </figure>
+</div>
+
+<div class="col">
+  <h3 id="s4-12-4"><span class="sec">§4.12.4</span>Variables final</h3>
+  <p>Une variable <code>final</code> ne peut être affectée qu'une seule fois. Une variable <code>final</code> déclarée sans initialiseur est dite <b>blank final</b> ; elle doit être définitivement affectée exactement une fois (ch. 16).</p>
+  <div class="tbl"><table>
+    <thead><tr><th>Notion</th><th>Définition</th><th>Pourquoi elle compte</th></tr></thead>
+    <tbody>
+      <tr><td><b>final</b></td><td>déclarée <code>final</code> ; une seule affectation</td><td>immutabilité de la référence (l'objet reste modifiable)</td></tr>
+      <tr><td><b>Variable constante</b></td><td><code>final</code>, de type primitif ou <code>String</code>, initialisée par une expression constante (§15.29)</td><td>étiquettes <code>case</code>, analyse de flux, <b>recopie dans le bytecode des classes clientes</b> (§13.4.9), internement</td></tr>
+      <tr><td><b>Effectivement final</b></td><td>non déclarée <code>final</code> mais jamais réaffectée après initialisation (règles précises au §4.12.4)</td><td>seules les locales final ou effectivement final peuvent être capturées par une lambda ou une classe interne</td></tr>
+    </tbody>
+  </table></div>
+  <div class="code"><div class="bar"><span>Java</span></div><pre><code class="java">final int[] t = {1, 2};
+t[0] = 9;                    // OK : la référence est final, pas le contenu
+t = new int[0];              // ERREUR
+
+final int MAX = 10;          // variable constante
+final int n = lireEntier();  // final, mais pas constante
+
+int compteur = 0;
+Runnable r = () -&gt; System.out.println(compteur);   // OK tant que compteur est effectivement final
+compteur++;                  // rend la ligne précédente illégale : ERREUR à la capture
+
+final int x;
+if (cond) x = 1; else x = 2; // OK : blank final affectée exactement une fois sur chaque chemin</code></pre></div>
+
+  <h3 id="s4-12-5"><span class="sec">§4.12.5</span>Valeurs initiales des variables</h3>
+  <div class="tbl"><table>
+    <thead><tr><th>Type</th><th>Valeur par défaut</th></tr></thead>
+    <tbody>
+      <tr><td><code>byte</code>, <code>short</code>, <code>int</code>, <code>long</code></td><td class="num">0</td></tr>
+      <tr><td><code>float</code>, <code>double</code></td><td class="num">+0.0</td></tr>
+      <tr><td><code>char</code></td><td class="num">'\u0000'</td></tr>
+      <tr><td><code>boolean</code></td><td><code>false</code></td></tr>
+      <tr><td>types référence</td><td><code>null</code></td></tr>
+    </tbody>
+  </table></div>
+  <p>Valeurs par défaut pour : variables de classe, variables d'instance, composants de tableau. Les paramètres reçoivent l'argument. Les <b>variables locales n'ont pas de valeur par défaut</b> : c'est un choix délibéré pour détecter les oublis d'initialisation à la compilation.</p>
+
+  <h3 id="s4-12-6"><span class="sec">§4.12.6</span>Types, classes et interfaces</h3>
+  <p>Il faut distinguer le <b>type d'une variable ou expression</b>, connu à la compilation, de la <b>classe de l'objet</b> désigné, connue à l'exécution. Une variable a toujours un type ; un objet a toujours une classe. Une variable de type interface désigne un objet dont la classe implémente l'interface ; il n'existe pas d'objet « d'interface ».</p>
+  <div class="code"><div class="bar"><span>Java</span></div><pre><code class="java">CharSequence cs = new StringBuilder("abc");
+// type de cs : CharSequence (compilation) ; classe de l'objet : StringBuilder (exécution)
+cs.length();       // OK : méthode de CharSequence
+cs.append("d");    // ERREUR : append n'est pas un membre du type CharSequence
+((StringBuilder) cs).append("d");   // OK après un cast vérifié à l'exécution</code></pre></div>
+
+  <h2 id="s4-quiz">Vérifier ses acquis</h2>
+  <div data-w="quiz"><script type="application/json">[
+    {"q":"<code>byte b = 1; b = b + 1;</code> compile-t-il ?","o":["Oui","Non : b + 1 est un int","Non : 1 est un int"],"a":1,"e":"Les opérations entières se font au minimum sur 32 bits ; affecter un int à un byte exige un cast. <code>b += 1</code> compile car l'affectation composée contient un cast implicite."},
+    {"q":"Que vaut <code>Double.NaN == Double.NaN</code> ?","o":["true","false","Exception"],"a":1,"e":"NaN est non ordonné : == renvoie false. Utilisez Double.isNaN."},
+    {"q":"<code>List&lt;Integer&gt;</code> est-il un sous-type de <code>List&lt;Number&gt;</code> ?","o":["Oui","Non, les types paramétrés sont invariants","Oui, avec un avertissement"],"a":1,"e":"Il faudrait que Number contienne Integer, ce qui n'est vrai qu'avec un joker : List&lt;? extends Number&gt;."},
+    {"q":"Effacement de <code>T</code> dans <code>&lt;T extends Comparable&lt;T&gt; &amp; Serializable&gt;</code> ?","o":["Object","Comparable","Serializable"],"a":1,"e":"Une variable de type s'efface vers l'effacement de sa borne la plus à gauche (§4.6)."},
+    {"q":"Quel type est réifiable ?","o":["List&lt;String&gt;","Map&lt;?,?&gt;","T[]"],"a":1,"e":"Un type paramétré dont tous les arguments sont des jokers non bornés est réifiable (§4.7)."},
+    {"q":"Une variable locale <code>int n;</code> sans initialiseur vaut…","o":["0","Rien : la lire est une erreur de compilation","Une valeur indéterminée"],"a":1,"e":"Les locales n'ont pas de valeur par défaut ; l'analyse d'affectation définie (ch. 16) rejette la lecture."},
+    {"q":"<code>Math.abs(Integer.MIN_VALUE)</code> renvoie…","o":["2147483648","-2147483648","Une ArithmeticException"],"a":1,"e":"L'opposé de MIN_VALUE déborde silencieusement et redonne MIN_VALUE. Math.absExact lèverait une exception."},
+    {"q":"Que se passe-t-il avec <code>Object[] t = new Integer[1]; t[0] = 1.5;</code> ?","o":["Rien","Erreur de compilation","ArrayStoreException à l'exécution"],"a":2,"e":"Les tableaux sont covariants (§4.10.3) mais chaque écriture est vérifiée à l'exécution (§10.5)."}
+  ]</script></div>
+</div>
+
+<script>
+ATLAS.w.numbits = function(el){
+  el.classList.add('nb');
+  const T = {byte:8, short:16, char:16, int:32, long:64, float:32, double:64};
+  const EX = [['double','0.1'],['double','0.30000000000000004'],['double','-0'],['double','NaN'],['double','Infinity'],['double','4.9e-324'],['float','16777217'],['float','0.1'],['int','2147483648'],['byte','200'],['char','65'],['long','-1']];
+  el.innerHTML = '<div class="row"><select aria-label="Type">'+Object.keys(T).map(t=>'<option'+(t==='double'?' selected':'')+'>'+t+'</option>').join('')+'</select><input type="text" value="0.1" aria-label="Valeur"><button type="button" class="btn dn">− 1 ulp</button><button type="button" class="btn up">+ 1 ulp</button></div>'+
+    '<div class="btnrow">'+EX.map(([t,v])=>'<button type="button" class="btn ex" data-t="'+t+'" data-v="'+v+'">'+t+' '+v+'</button>').join('')+'</div>'+
+    '<div class="bitrow" aria-label="bits"></div><div class="nbleg"></div><dl class="nbout"></dl>';
+  const sel=el.querySelector('select'), inp=el.querySelector('input'), row=el.querySelector('.bitrow'), leg=el.querySelector('.nbleg'), out=el.querySelector('.nbout');
+  el.querySelectorAll('.ex').forEach(b=>b.onclick=()=>{ sel.value=b.dataset.t; inp.value=b.dataset.v; run(); });
+  const fmt = s => s.replace(/\B(?=(\d{3})+(?!\d))/g,' ');
+  function exact(m,e2){ // m*2^e2, m BigInt
+    if(e2>=0) return (m<<BigInt(e2)).toString();
+    const k=-e2, num=m*(5n**BigInt(k)); let s=num.toString().padStart(k+1,'0');
+    let ip=s.slice(0,s.length-k), fp=s.slice(s.length-k).replace(/0+$/,'');
+    if(fp.length>70) fp=fp.slice(0,70)+'… ('+fp.length+' décimales au total)';
+    return ip+(fp?'.'+fp:'');
+  }
+  let bitsCur=null;
+  function showFloat(t, bits){
+    const p = t==='float'?24:53, eb = t==='float'?8:11, nb=BigInt(T[t]), bias=(1<<(eb-1))-1;
+    const s=Number(bits>>(nb-1n)), e=Number((bits>>BigInt(p-1))&((1n<<BigInt(eb))-1n)), f=bits&((1n<<BigInt(p-1))-1n);
+    const str=bits.toString(2).padStart(T[t],'0');
+    row.innerHTML=[...str].map((c,i)=>(i===1||i===1+eb?'<span class="gap"></span>':'')+'<span class="'+(i===0?'s':i<=eb?'e':'f')+(c==='1'?' one':'')+'">'+c+'</span>').join('');
+    leg.innerHTML='<span><i style="background:var(--ember)"></i>signe (1 bit)</span><span><i style="background:var(--violet)"></i>exposant ('+eb+' bits, biais '+bias+')</span><span><i style="background:var(--accent)"></i>fraction ('+(p-1)+' bits)</span>';
+    let kind, val, formula;
+    const dv=new DataView(new ArrayBuffer(8));
+    if(t==='float'){ dv.setUint32(0, Number(bits)); val=dv.getFloat32(0); } else { dv.setBigUint64(0,bits); val=dv.getFloat64(0); }
+    if(e===(1<<eb)-1){ kind = f===0n ? (s?'−∞ (infini négatif)':'+∞ (infini positif)') : 'NaN (exposant plein, fraction non nulle)'; formula='—'; }
+    else if(e===0){ kind = f===0n ? (s?'−0.0 (zéro négatif)':'+0.0') : 'sous-normal (exposant 0, pas de 1 implicite)'; formula = f===0n?'0':'(−1)^'+s+' × 0.'+'f × 2^'+(1-bias); }
+    else { kind='normal'; formula='(−1)^'+s+' × 1.f × 2^('+e+' − '+bias+') = ±1.f × 2^'+(e-bias); }
+    let ex='—';
+    if(e!==(1<<eb)-1 && !(e===0&&f===0n)){
+      const m = e===0 ? f : f+(1n<<BigInt(p-1)); const e2 = (e===0?1-bias:e-bias)-(p-1);
+      ex=(s?'−':'')+exact(m,e2);
+    } else if(e===0) ex = s?'−0':'0';
+    out.innerHTML='<dt>Catégorie</dt><dd>'+kind+'</dd><dt>Formule</dt><dd>'+formula+'</dd><dt>Valeur Java</dt><dd>'+(Object.is(val,-0)?'-0.0':String(val))+(t==='float'?'f':'')+'</dd><dt>Valeur exacte stockée</dt><dd>'+ex+'</dd><dt>Bits (hex)</dt><dd>0x'+bits.toString(16).toUpperCase().padStart(T[t]/4,'0')+'</dd>';
+  }
+  function showInt(t, u){
+    const n=T[t], N=BigInt(n), str=u.toString(2).padStart(n,'0');
+    row.innerHTML=[...str].map((c,i)=>((i%8===0&&i)?'<span class="gap"></span>':'')+'<span class="'+(i===0&&t!=='char'?'s':'f')+(c==='1'?' one':'')+'">'+c+'</span>').join('');
+    leg.innerHTML=t==='char'?'<span><i style="background:var(--accent)"></i>16 bits non signés (unité de code UTF-16)</span>':'<span><i style="background:var(--ember)"></i>bit de signe (poids −2^'+(n-1)+')</span><span><i style="background:var(--accent)"></i>bits de valeur</span>';
+    const signed = (t!=='char' && (u>>(N-1n))) ? u-(1n<<N) : u;
+    out.innerHTML='<dt>Valeur</dt><dd>'+fmt(signed.toString())+'</dd><dt>Hex</dt><dd>0x'+u.toString(16).toUpperCase().padStart(n/4,'0')+'</dd>'+
+      (t==='char'?'<dt>Caractère</dt><dd>'+(u>=32n&&u<0xD800n?'\''+ATLAS.esc(String.fromCharCode(Number(u)))+'\'':'(non imprimable ou demi-paire)')+' U+'+u.toString(16).toUpperCase().padStart(4,'0')+'</dd>':'')+
+      '<dt>Plage du type</dt><dd>'+(t==='char'?'0 … 65 535':fmt((-(1n<<(N-1n))).toString())+' … '+fmt(((1n<<(N-1n))-1n).toString()))+'</dd>';
+  }
+  function run(){
+    const t=sel.value, v=inp.value.trim();
+    if(t==='float'||t==='double'){
+      let x = /^[-+]?nan$/i.test(v)?NaN : /^[-+]?inf(inity)?$/i.test(v)? (v[0]==='-'?-Infinity:Infinity) : Number(v.replace(/_/g,'').replace(/[fFdD]$/,''));
+      if(v===''||(Number.isNaN(x)&&!/nan/i.test(v))){ out.innerHTML='<dt>Erreur</dt><dd>valeur flottante illisible</dd>'; row.innerHTML=''; return; }
+      const dv=new DataView(new ArrayBuffer(8)); let bits;
+      if(t==='float'){ dv.setFloat32(0,x); bits=BigInt(dv.getUint32(0)); } else { dv.setFloat64(0,x); bits=dv.getBigUint64(0); }
+      bitsCur=bits; showFloat(t,bits);
+    } else {
+      let x; try{ const c=v.replace(/_/g,''); x = /^-/.test(c) ? -BigInt(c.slice(1)) : BigInt(c); }catch(e){ out.innerHTML='<dt>Erreur</dt><dd>entier illisible</dd>'; row.innerHTML=''; return; }
+      const N=BigInt(T[t]), M=1n<<N; let u=((x%M)+M)%M;
+      bitsCur=u; showInt(t,u);
+      if(x !== (t!=='char' && (u>>(N-1n)) ? u-M : u)) out.innerHTML='<dt>Réduction</dt><dd>'+fmt(x.toString())+' ne tient pas : seuls les '+T[t]+' bits de poids faible sont gardés (comme un cast, §5.1.3)</dd>'+out.innerHTML;
+    }
+  }
+  function step(d){
+    const t=sel.value; if(bitsCur===null) return;
+    if(t==='float'||t==='double'){
+      const n=BigInt(T[t]), sign=bitsCur>>(n-1n), mag=bitsCur&((1n<<(n-1n))-1n);
+      let nm, ns=sign;
+      const up = (d>0) !== (sign===1n);
+      if(mag===0n && !up){ ns=1n-sign; nm=1n; } else nm = up? mag+1n : mag-1n;
+      bitsCur=(ns<<(n-1n))|nm;
+      const dv=new DataView(new ArrayBuffer(8)); let val;
+      if(t==='float'){ dv.setUint32(0,Number(bitsCur)); val=dv.getFloat32(0); } else { dv.setBigUint64(0,bitsCur); val=dv.getFloat64(0); }
+      inp.value=Object.is(val,-0)?'-0':String(val); showFloat(t,bitsCur);
+    } else {
+      const N=BigInt(T[t]), M=1n<<N; bitsCur=((bitsCur+BigInt(d))%M+M)%M;
+      inp.value=(t!=='char'&&(bitsCur>>(N-1n))?bitsCur-M:bitsCur).toString(); showInt(t,bitsCur);
+    }
+  }
+  el.querySelector('.up').onclick=()=>step(1); el.querySelector('.dn').onclick=()=>step(-1);
+  sel.onchange=run; inp.oninput=run; run();
+};
+
+ATLAS.w.subtype = function(el){
+  el.classList.add('st');
+  const LIST = ['Object','Number','Integer','String','Serializable','Comparable<Integer>','Iterable<?>','Collection<? extends Number>','List','List<?>','List<Number>','List<Integer>','List<? extends Number>','List<? super Integer>','List<? extends Integer>','ArrayList<Integer>','ArrayList<? super Integer>','Object[]','Number[]','Integer[]','List<Integer>[]','int[]','long[]','Cloneable','byte','short','char','int','long','float','double','boolean'];
+  const GEN = {List:1, ArrayList:1, Collection:1, Iterable:1, Comparable:1};
+  const SUP = {
+    Integer:['Number','Comparable<Integer>'], Number:['Object','Serializable'], String:['Object','Serializable','Comparable<String>','CharSequence'],
+    CharSequence:['Object'], Serializable:['Object'], Cloneable:['Object'], 'Comparable':['Object'],
+    'ArrayList':['List<E>','Cloneable','Serializable'], 'List':['Collection<E>'], 'Collection':['Iterable<E>'], 'Iterable':['Object']
+  };
+  const PRIM = {byte:['short'], short:['int'], char:['int'], int:['long'], long:['float'], float:['double'], double:[], boolean:[]};
+  function parse(s){
+    s=s.trim(); let dims=0; while(s.endsWith('[]')){ dims++; s=s.slice(0,-2); }
+    const m=/^([A-Za-z]+)(?:<(.*)>)?$/.exec(s); const name=m[1]; let arg=null;
+    if(m[2]!==undefined){ const a=m[2].trim();
+      if(a==='?') arg={k:'any'}; else if(a.startsWith('? extends ')) arg={k:'ext', t:a.slice(10)}; else if(a.startsWith('? super ')) arg={k:'sup', t:a.slice(8)}; else arg={k:'ex', t:a}; }
+    return {name, arg, dims, raw: GEN[name] && !arg};
+  }
+  const str = p => p.name + (p.arg? '<'+argStr(p.arg)+'>':'') + '[]'.repeat(p.dims);
+  const argStr = a => a.k==='any'?'?':a.k==='ext'?'? extends '+a.t:a.k==='sup'?'? super '+a.t:a.t;
+  const isPrim = n => n in PRIM;
+  function primSub(a,b){ if(a===b) return true; return PRIM[a].some(x=>primSub(x,b)); }
+  function superOf(p, target){ // chemin vers le supertype de nom target
+    if(p.name===target) return {t:p, path:[str(p)]};
+    const sups = SUP[p.name] || [];
+    for(const sraw of sups){
+      let s = sraw.includes('<E>') ? (p.arg ? sraw.replace('<E>','<'+argStr(p.arg)+'>') : sraw.replace('<E>','')) : sraw;
+      const r = superOf(parse(s), target);
+      if(r) return {t:r.t, path:[str(p)].concat(r.path)};
+    }
+    return null;
+  }
+  function contains(T, S, why){ // T contient S ?
+    if(T.k==='any'){ why.push('? contient tout argument'); return true; }
+    if(T.k==='ex'){ const ok = S.k==='ex' && S.t===T.t; why.push(ok?T.t+' = '+S.t+' : arguments identiques (invariance)':argStr(T)+' ne contient que '+T.t+' lui-même, pas '+argStr(S)+' : les types paramétrés sont invariants'); return ok; }
+    if(T.k==='ext'){
+      if(S.k==='ex'||S.k==='ext'){ const r=sub(parse(S.t),parse(T.t),[]); why.push((r.ok?'':'non : ')+S.t+(r.ok?' <: ':' n\'est pas un sous-type de ')+T.t+', donc '+argStr(T)+(r.ok?' contient ':' ne contient pas ')+argStr(S)); return r.ok; }
+      if(S.k==='any'){ const ok=T.t==='Object'; why.push(ok?'? extends Object équivaut à ?':'? peut être n\'importe quoi, pas forcément un '+T.t); return ok; }
+      const ok=T.t==='Object'; why.push(ok?'? super X est contenu dans ? extends Object':'? super '+S.t+' peut être Object, qui n\'est pas un '+T.t); return ok;
+    }
+    if(T.k==='sup'){
+      if(S.k==='ex'||S.k==='sup'){ const r=sub(parse(T.t),parse(S.t),[]); why.push((r.ok?'':'non : ')+T.t+(r.ok?' <: ':' n\'est pas un sous-type de ')+S.t+', donc '+argStr(T)+(r.ok?' contient ':' ne contient pas ')+argStr(S)); return r.ok; }
+      why.push(argStr(S)+' ne garantit pas de pouvoir recevoir un '+T.t); return false;
+    }
+  }
+  function sub(S,T,why){
+    const s=str(S), t=str(T);
+    if(s===t){ why.push('Réflexivité : tout type est sous-type de lui-même'); return {ok:true}; }
+    if(isPrim(S.name)&&!S.dims || isPrim(T.name)&&!T.dims){
+      if(isPrim(S.name)&&!S.dims && isPrim(T.name)&&!T.dims){ const ok=primSub(S.name,T.name); why.push(ok?'Chaîne des supertypes directs primitifs (§4.10.1)':'Pas de chemin dans le graphe du §4.10.1'+(S.name==='boolean'||T.name==='boolean'?' : boolean n\'est relié à aucun type':'')); return {ok}; }
+      why.push('Un type primitif et un type référence ne sont jamais sous-types l\'un de l\'autre (le boxing est une conversion, §5.1.7)'); return {ok:false};
+    }
+    if(S.dims){
+      if(T.dims===0){ const ok=['Object','Cloneable','Serializable'].includes(T.name); why.push(ok?'Object, Cloneable et Serializable sont supertypes de tout tableau (§4.10.3)':'Les seuls supertypes non tableau d\'un tableau sont Object, Cloneable, Serializable'); return {ok}; }
+      const se={...S,dims:S.dims-1}, te={...T,dims:T.dims-1};
+      if(isPrim(se.name)&&!se.dims || isPrim(te.name)&&!te.dims){ const ok=str(se)===str(te); why.push(ok?'Mêmes composants primitifs':'Pas de covariance pour les tableaux de primitifs : '+s+' et '+t+' sont sans rapport'); return {ok}; }
+      why.push('Covariance des tableaux : '+s+' <: '+t+' ssi '+str(se)+' <: '+str(te));
+      return sub(se,te,why);
+    }
+    if(T.dims){ why.push('Un type non tableau n\'est jamais sous-type d\'un type tableau'); return {ok:false}; }
+    if(T.name==='Object'){ why.push('Object est supertype de tout type référence'); return {ok:true}; }
+    const r=superOf(S, T.name);
+    if(!r){ why.push(T.name+' ne figure pas parmi les supertypes de '+S.name); return {ok:false}; }
+    if(r.path.length>1) why.push('Chaîne des supertypes : '+r.path.join(' → '));
+    const Sp=r.t;
+    if(T.raw){ why.push('Le type brut '+T.name+' est supertype direct de toute paramétrisation de '+T.name+' (§4.10.2)'); return {ok:true}; }
+    if(Sp.raw){ why.push(str(Sp)+' est brut : il n\'est sous-type d\'aucune paramétrisation. L\'affectation passerait par une conversion non vérifiée (§5.1.9), '+(T.arg&&T.arg.k==='any'?'sans avertissement car l\'argument cible est un joker non borné':'avec avertissement')); return {ok:false, unchecked:true}; }
+    if(!Sp.arg || !T.arg){ return {ok:true}; }
+    why.push('Il faut que '+argStr(T.arg)+' contienne '+argStr(Sp.arg)+' (§4.5.1)');
+    return {ok:contains(T.arg, Sp.arg, why)};
+  }
+  el.innerHTML='<div class="row"><select class="s" aria-label="Type S">'+LIST.map(x=>'<option>'+ATLAS.esc(x)+'</option>').join('')+'</select><span class="rel">&lt;:</span><select class="t" aria-label="Type T">'+LIST.map(x=>'<option>'+ATLAS.esc(x)+'</option>').join('')+'</select></div><div class="verdict" aria-live="polite"></div>';
+  const sS=el.querySelector('.s'), sT=el.querySelector('.t'), out=el.querySelector('.verdict');
+  sS.value='List<Integer>'; sT.value='List<Number>';
+  function run(){
+    const why=[]; const r=sub(parse(sS.value),parse(sT.value),why);
+    out.className='verdict '+(r.ok?'ok':r.unchecked?'warn':'err');
+    out.innerHTML='<div class="v">'+ATLAS.esc(sS.value)+(r.ok?' est un sous-type de ':' n\'est pas un sous-type de ')+ATLAS.esc(sT.value)+'</div><ol>'+why.map(w=>'<li>'+ATLAS.esc(w)+'</li>').join('')+'</ol>';
+  }
+  sS.onchange=run; sT.onchange=run; run();
+};
+</script>

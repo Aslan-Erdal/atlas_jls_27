@@ -1,0 +1,336 @@
+<style>
+.ex21 .row{display:flex; gap:8px; flex-wrap:wrap; align-items:center; margin-bottom:10px}
+.ex21 .row input{flex:1 1 160px; min-width:0}
+.ex21 .mtx{overflow-x:auto}
+.ex21 table td, .ex21 table th{text-align:center; font-family:var(--f-mono); font-size:.78rem; padding:6px 8px}
+.ex21 table td:first-child, .ex21 table th:first-child{text-align:left}
+.ex21 td.u{background:var(--ok-soft); color:var(--ok); font-weight:700}
+.ex21 td.c{background:var(--ember-soft); color:var(--ember)}
+.ex21 td.x{color:var(--muted)}
+.ex21 td.sel{outline:2px solid var(--accent); outline-offset:-2px}
+.ex21 td button{all:unset; cursor:pointer; display:block; width:100%}
+.ex21 td button:focus-visible{outline:2px solid var(--accent)}
+.rounds{display:flex; flex-direction:column; gap:8px; margin:1em 0}
+.rounds .r{display:grid; grid-template-columns:11em minmax(0,1fr) 2.5em; gap:10px; align-items:center; font-size:.85rem}
+.rounds .r b{font-family:var(--f-display); font-size:.82rem; line-height:1.2}
+.rounds .bar{display:flex; gap:3px}
+.rounds .bar i{height:16px; flex:0 0 calc((100% - 33px)/12); border-radius:3px; background:var(--ember)}
+.rounds .bar i.inc{background:var(--violet)}
+.rounds .r span{font-family:var(--f-mono); font-size:.78rem; color:var(--muted)}
+@media (max-width:560px){ .rounds .r{grid-template-columns:7em minmax(0,1fr) 2em} }
+</style>
+
+<div class="col">
+  <div class="eyebrow">Section 27 · Annexe de l'atlas</div>
+  <h1>Les fonctionnalités preview de Java 27</h1>
+  <p class="lede">Java 27 contient une preview de langage, trois previews d'API et un module en incubation. Cette section les décrit une par une : ce qu'elles font, leur état exact en Java 27, ce qui a changé depuis Java 25 et 26, et comment les essayer.</p>
+  <div class="meta">
+    <span>Spec : <a href="https://docs.oracle.com/javase/specs/jls/se27/html/jls-1.html#jls-1.5" target="_blank" rel="noopener">JLS 27 §1.5</a></span>
+    <span>État au <b>15 octobre 2026</b></span>
+  </div>
+
+  <h2 id="s27-1"><span class="sec">27.1</span>Vue d'ensemble</h2>
+  <p>Rappel du §1.5 : une preview est entièrement spécifiée et implémentée, mais provisoire. Elle n'est disponible qu'avec <code>--enable-preview</code>, à la compilation et à l'exécution, et elle peut changer ou disparaître à la version suivante. Un module en <b>incubation</b> est autre chose : une API expérimentale livrée dans un module <code>jdk.incubator.*</code>, qu'on active avec <code>--add-modules</code>.</p>
+  <div class="tbl"><table>
+    <thead><tr><th>Fonctionnalité</th><th>Sorte</th><th>JEP en Java 27</th><th>Itération</th><th>Où</th></tr></thead>
+    <tbody>
+      <tr><td><b>Types primitifs dans les motifs, instanceof et switch</b></td><td><span class="pill e">preview de langage</span></td><td class="num">532</td><td>5ᵉ preview</td><td>JLS (document de modifications)</td></tr>
+      <tr><td><b>Lazy Constants</b></td><td><span class="pill e">preview d'API</span></td><td class="num">531</td><td>3ᵉ preview</td><td><code>java.lang.LazyConstant</code>, <code>List</code>/<code>Set</code>/<code>Map.ofLazy</code></td></tr>
+      <tr><td><b>Structured Concurrency</b></td><td><span class="pill e">preview d'API</span></td><td class="num">533</td><td>7ᵉ preview</td><td><code>java.util.concurrent.StructuredTaskScope</code></td></tr>
+      <tr><td><b>Encodages PEM des objets cryptographiques</b></td><td><span class="pill e">preview d'API</span></td><td class="num">538</td><td>3ᵉ preview</td><td><code>java.security</code> : <code>PEMEncoder</code>, <code>PEMDecoder</code>, <code>PEM</code></td></tr>
+      <tr><td><b>Vector API</b></td><td><span class="pill" style="background:var(--violet-soft);color:var(--violet)">incubateur</span></td><td class="num">537</td><td>12ᵉ incubation</td><td>module <code>jdk.incubator.vector</code></td></tr>
+      <tr><td>Previews de la JVM</td><td>—</td><td>—</td><td>aucune</td><td>—</td></tr>
+    </tbody>
+  </table></div>
+
+  <h3>Une histoire de patience</h3>
+  <p>Chaque barre est une version du JDK pendant laquelle la fonctionnalité est restée en preview (orange) ou en incubation (violet) :</p>
+  <div class="rounds" role="list">
+    <div class="r" role="listitem"><b>Vector API</b><div class="bar"><i class="inc"></i><i class="inc"></i><i class="inc"></i><i class="inc"></i><i class="inc"></i><i class="inc"></i><i class="inc"></i><i class="inc"></i><i class="inc"></i><i class="inc"></i><i class="inc"></i><i class="inc"></i></div><span>16–27</span></div>
+    <div class="r" role="listitem"><b>Structured Concurrency</b><div class="bar"><i></i><i></i><i></i><i></i><i></i><i></i><i></i></div><span>21–27</span></div>
+    <div class="r" role="listitem"><b>Types primitifs dans les motifs</b><div class="bar"><i></i><i></i><i></i><i></i><i></i></div><span>23–27</span></div>
+    <div class="r" role="listitem"><b>Lazy Constants</b><div class="bar"><i></i><i></i><i></i></div><span>25–27</span></div>
+    <div class="r" role="listitem"><b>Encodages PEM</b><div class="bar"><i></i><i></i><i></i></div><span>25–27</span></div>
+  </div>
+  <p class="nolink" style="font-family:var(--f-display); font-size:var(--s-1); color:var(--muted)">Structured Concurrency a aussi été en incubation en Java 19 et 20 ; Lazy Constants s'appelait Stable Values en Java 25. La Vector API attend le projet Valhalla pour sortir d'incubation.</p>
+
+  <h2 id="s27-2"><span class="sec">27.2</span>Types primitifs dans les motifs, instanceof et switch</h2>
+  <p>C'est la seule preview qui modifie la JLS. Avant elle, les motifs, <code>instanceof</code> et <code>switch</code> traitaient les types primitifs comme des citoyens de seconde zone : pas de <code>switch</code> sur un <code>long</code>, pas de motif <code>int i</code> au niveau supérieur, pas de <code>instanceof</code> vers un primitif. La preview unifie tout autour d'une seule question : <b>la conversion est-elle exacte ?</b></p>
+
+  <h3>Le principe : l'exactitude</h3>
+  <div class="rule"><span class="lbl">Règles (document de preview, §5.7, §14.30, §15.20.2)</span>
+    <p>Un test <code>v instanceof T</code> ou un motif de type primitif <code>T x</code> réussit si la valeur <code>v</code> se convertit en T <b>sans perte d'information</b> : la conversion inverse redonne exactement la valeur de départ. Sinon, il échoue, sans exception et sans troncature.</p>
+    <p>Une conversion est <b>inconditionnellement exacte</b> si elle ne perd jamais d'information, quelle que soit la valeur : identité, et élargissements exacts comme <code>byte → int</code>, <code>int → long</code>, <code>int → double</code>, <code>float → double</code>. Un motif dont la conversion est inconditionnellement exacte est <b>inconditionnel</b> : il correspond toujours et rend un <code>switch</code> exhaustif.</p>
+  </div>
+  <p>Explorez les conversions : la matrice indique, pour chaque paire, si elle est inconditionnellement exacte (vert), exacte selon la valeur (orange) ou impossible (gris). Cliquez une case puis testez des valeurs.</p>
+</div>
+
+<div class="wide">
+  <figure>
+    <p class="fig-title">Figure 27.1 · Exactitude des conversions primitives</p>
+    <div data-w="exactness"></div>
+  </figure>
+</div>
+
+<div class="col">
+  <h3>instanceof avec un type primitif</h3>
+  <div class="code"><div class="bar"><span>Java 27 · --enable-preview</span></div><pre><code class="java">int i = 1000;
+if (i instanceof byte b) { … }        // faux : 1000 ne tient pas dans un byte
+if (i instanceof short s) { … }       // vrai : s == 1000
+
+long horodatage = 1_700_000_000_000L;
+if (horodatage instanceof int n) { … } // faux : dépasse Integer.MAX_VALUE
+
+double d = 2.0;
+if (d instanceof int n) { … }         // vrai : n == 2
+if (-0.0 instanceof int n) { … }      // faux : le signe du zéro serait perdu
+if (Double.NaN instanceof float f) { } // vrai : NaN se représente exactement en float
+
+// Remplace la vérification manuelle de plage :
+if (i &gt;= Byte.MIN_VALUE &amp;&amp; i &lt;= Byte.MAX_VALUE) { byte b = (byte) i; … }   // avant
+if (i instanceof byte b) { … }                                              // avec la preview</code></pre></div>
+
+  <h3>switch sur tous les types primitifs</h3>
+  <p>Le sélecteur d'un <code>switch</code> peut être de n'importe quel type primitif, y compris <code>long</code>, <code>float</code>, <code>double</code> et <code>boolean</code>, avec des constantes et des motifs primitifs gardés :</p>
+  <div class="code"><div class="bar"><span>Java 27 · --enable-preview</span></div><pre><code class="java">static String tranche(double montant) {
+    return switch (montant) {
+        case 0.0 -&gt; "gratuit";
+        case double m when m &lt; 100   -&gt; "petit";
+        case double m when m &lt; 1_000 -&gt; "moyen";
+        case double m                -&gt; "grand";       // inconditionnel : rend le switch exhaustif
+    };
+}
+
+static String etat(boolean actif) {
+    return switch (actif) {
+        case true  -&gt; "actif";
+        case false -&gt; "inactif";                        // exhaustif sans default
+    };
+}
+
+static String code(int statut) {
+    return switch (statut) {
+        case 200 -&gt; "OK";
+        case 404 -&gt; "introuvable";
+        case int s when s &gt;= 500 -&gt; "erreur serveur " + s;   // motif primitif au niveau supérieur
+        case int s -&gt; "autre " + s;
+    };
+}</code></pre></div>
+
+  <h3>Motifs primitifs imbriqués dans des records</h3>
+  <p>Dans un motif d'enregistrement, un composant peut être testé contre un type primitif différent du sien, avec le même critère d'exactitude :</p>
+  <div class="code"><div class="bar"><span>Java 27 · --enable-preview</span></div><pre><code class="java">sealed interface Json permits JsonNombre, JsonTexte { }
+record JsonNombre(double valeur) implements Json { }
+record JsonTexte(String valeur) implements Json { }
+
+static String decrire(Json j) {
+    return switch (j) {
+        case JsonNombre(int n)    -&gt; "entier " + n;      // seulement si valeur est un entier exact
+        case JsonNombre(double d) -&gt; "décimal " + d;
+        case JsonTexte(String s)  -&gt; "texte " + s;
+    };
+}
+decrire(new JsonNombre(42.0));   // "entier 42"
+decrire(new JsonNombre(4.2));    // "décimal 4.2"</code></pre></div>
+
+  <h3>Dominance : les règles plus strictes (depuis Java 26)</h3>
+  <p>Une étiquette est interdite si une étiquette précédente accepte déjà toutes les valeurs qu'elle accepterait (§14.11.1). Avec les types primitifs, deux cas ont été ajoutés :</p>
+  <div class="tbl"><table>
+    <thead><tr><th>Règle</th><th>Exemple refusé</th><th>Correction</th></tr></thead>
+    <tbody>
+      <tr><td>Une constante placée après un motif qui l'accepte est dominée</td><td><code>case float f -&gt; …; case 16_777_216 -&gt; …;</code> (2²⁴ est un float exact)</td><td>mettre la constante avant le motif</td></tr>
+      <tr><td>Toute étiquette placée après un motif inconditionnel est dominée</td><td><code>case int _ -&gt; …; case float _ -&gt; …;</code></td><td>supprimer l'étiquette inaccessible</td></tr>
+    </tbody>
+  </table></div>
+  <div class="trap"><span class="lbl">Piège</span>
+    <p>Avec <code>--enable-preview</code>, ce second contrôle s'applique aussi aux types référence : pour un sélecteur de type A, <code>case A _</code> suivi de <code>case B _</code> (B interface sans lien) compilait en Java 25 et est refusé depuis Java 26. Sans preview, ce code compile encore.</p>
+  </div>
+
+  <h3>Exhaustivité</h3>
+  <p>Un <code>switch</code> sur un primitif est exhaustif s'il a un <code>default</code> ou un motif inconditionnel pour le type du sélecteur : <code>case long x</code> pour un <code>long</code>. Attention, <code>case double x</code> ne l'est pas pour un <code>long</code>, car <code>long → double</code> peut perdre de la précision. Pour <code>boolean</code>, les deux constantes suffisent. En Java 27, l'erreur « does not cover all possible input values » nomme le motif qui manque, par exemple <code>double _</code>.</p>
+  <div class="code"><div class="bar"><span>Java 27 · --enable-preview</span></div><pre><code class="java">long n = …;
+switch (n) {
+    case int i  -&gt; …;      // les long qui tiennent dans un int
+    case long l -&gt; …;      // inconditionnel pour long : exhaustif
+}
+switch (n) {
+    case int i    -&gt; …;
+    case double d -&gt; …;    // ERREUR : long → double perd de la précision au-delà de 2^53, pas inconditionnel
+}</code></pre></div>
+
+  <h3>Ce que la preview ne change pas</h3>
+  <ul>
+    <li>Les casts <code>(byte) x</code> gardent leur sémantique de troncature (§5.1.3) : seuls les tests et motifs vérifient l'exactitude.</li>
+    <li>Le boxing et l'unboxing restent ceux du ch. 5 ; un motif <code>Integer i</code> sur un sélecteur <code>int</code> utilise le boxing.</li>
+    <li>Le comportement des programmes qui n'utilisent pas la preview est inchangé.</li>
+  </ul>
+
+  <h2 id="s27-3"><span class="sec">27.3</span>Lazy Constants (JEP 531, 3ᵉ preview)</h2>
+  <p>Une <b>constante paresseuse</b> est une valeur calculée une seule fois, à la première demande, puis traitée par la JVM comme une vraie constante (elle peut être optimisée comme un champ <code>final</code>). Elle remplace les idiomes du détenteur (§12.4.1) et du double-checked locking (§17) pour les initialisations coûteuses.</p>
+  <div class="code"><div class="bar"><span>Java 27 · --enable-preview</span></div><pre><code class="java">class Service {
+    private final LazyConstant&lt;Connexion&gt; connexion =
+        LazyConstant.of(() -&gt; Connexion.ouvrir(config()));   // rien n'est calculé ici
+
+    void envoyer(Message m) {
+        connexion.get().envoyer(m);   // 1er appel : calcule et mémorise ; suivants : même instance
+    }
+}
+
+// collections paresseuses : chaque élément est calculé à la première lecture
+List&lt;Page&gt; pages = List.ofLazy(100, i -&gt; chargerPage(i));
+Map&lt;Langue, Bundle&gt; messages = Map.ofLazy(EnumSet.allOf(Langue.class), Bundle::charger);
+Set&lt;Pays&gt; actifs = Set.ofLazy(tousLesPays, p -&gt; p.estActif());   // nouveau en Java 27</code></pre></div>
+  <div class="tbl"><table>
+    <thead><tr><th>Version</th><th>Nom et API</th></tr></thead>
+    <tbody>
+      <tr><td>Java 25 (JEP 502)</td><td><code>StableValue</code>, <code>StableValue.list</code>, <code>StableValue.map</code></td></tr>
+      <tr><td>Java 26 (JEP 526)</td><td>renommé <code>LazyConstant</code> : <code>of(supplier)</code>, <code>get()</code>, <code>isInitialized()</code>, <code>orElse(…)</code> ; <code>List.ofLazy</code>, <code>Map.ofLazy</code></td></tr>
+      <tr><td>Java 27 (JEP 531)</td><td>ajout de <code>Set.ofLazy</code> ; <b>suppression</b> de <code>isInitialized()</code> et <code>orElse(…)</code> ; si le calcul échoue, <code>get()</code> lève <code>NoSuchElementException</code> à chaque appel, sans relancer le calcul</td></tr>
+    </tbody>
+  </table></div>
+  <div class="trap"><span class="lbl">Points d'attention</span>
+    <p>La constante garantit une référence fixée, pas un objet immuable. <code>LazyConstant</code> n'est pas sérialisable. Et la variable qui la contient doit elle-même être <code>final</code>, sinon on peut la remplacer.</p>
+  </div>
+
+  <h2 id="s27-4"><span class="sec">27.4</span>Structured Concurrency (JEP 533, 7ᵉ preview)</h2>
+  <p>La <b>concurrence structurée</b> traite un groupe de sous-tâches concurrentes comme une seule unité de travail : elles démarrent dans une portée, et la portée ne se termine qu'une fois toutes ses sous-tâches finies ou annulées. Une erreur dans l'une peut annuler les autres, et aucun thread ne survit à son bloc. Elle s'appuie sur les threads virtuels.</p>
+  <div class="code"><div class="bar"><span>Java 27 · --enable-preview</span></div><pre><code class="java">Reponse commande(String id) throws InterruptedException {
+    try (var scope = StructuredTaskScope.open(
+            cfg -&gt; cfg.withTimeout(Duration.ofSeconds(2)).withName("commande"))) {
+        Subtask&lt;Client&gt; client     = scope.fork(() -&gt; trouverClient(id));
+        Subtask&lt;List&lt;Ligne&gt;&gt; lignes = scope.fork(() -&gt; lignesCommande(id));
+        scope.join();                                  // attend les deux ; si l'une échoue, l'autre est annulée
+        return new Reponse(client.get(), lignes.get());
+    } catch (ExecutionException e) {                   // Java 27 : remplace FailedException
+        throw new IllegalStateException("échec de la commande", e.getCause());
+    }
+}</code></pre></div>
+  <div class="tbl"><table>
+    <thead><tr><th>Changement en Java 27</th><th>Effet</th></tr></thead>
+    <tbody>
+      <tr><td>Les joiners standard lèvent <code>ExecutionException</code> au lieu de <code>FailedException</code></td><td>les <code>catch (FailedException e)</code> doivent être réécrits</td></tr>
+      <tr><td>Troisième paramètre de type pour l'exception de <code>join()</code> : <code>Joiner&lt;T, R, R_X&gt;</code></td><td>sans effet pour <code>open()</code> ; les joiners personnalisés doivent le déclarer</td></tr>
+      <tr><td>Nouvelle surcharge <code>open(UnaryOperator&lt;Configuration&gt;)</code></td><td>politique par défaut avec délai, nom ou fabrique de threads, sans fournir de joiner</td></tr>
+    </tbody>
+  </table></div>
+  <p>Les règles de structure restent : la portée s'utilise dans un try-with-resources, seul le thread propriétaire peut appeler <code>fork</code> et <code>join</code> (sinon <code>StructureViolationException</code>), et les sous-tâches héritent des <code>ScopedValue</code> liées.</p>
+
+  <h2 id="s27-5"><span class="sec">27.5</span>Encodages PEM (JEP 538, 3ᵉ preview)</h2>
+  <p>Le format <b>PEM</b> (le texte entre <code>-----BEGIN …-----</code> et <code>-----END …-----</code>) est omniprésent pour les clés, certificats et listes de révocation. Jusqu'ici, Java n'avait pas d'API simple pour le lire ou l'écrire. La preview ajoute un encodeur et un décodeur dans <code>java.security</code>.</p>
+  <div class="code"><div class="bar"><span>Java 27 · --enable-preview</span></div><pre><code class="java">KeyPair paire = KeyPairGenerator.getInstance("EC").generateKeyPair();
+
+String pem = PEMEncoder.of().encodeToString(paire.getPublic());
+// -----BEGIN PUBLIC KEY-----
+// MFkwEwYHKoZIzj0CAQYIKoZIzj0DAQcDQgAE…
+// -----END PUBLIC KEY-----
+
+PublicKey cle = PEMDecoder.of().decode(pem, PublicKey.class);
+X509Certificate cert = PEMDecoder.of().decode(Files.readString(Path.of("cert.pem")), X509Certificate.class);</code></pre></div>
+  <div class="tbl"><table>
+    <thead><tr><th>Changement en Java 27</th><th>Effet</th></tr></thead>
+    <tbody>
+      <tr><td>L'interface <code>DEREncodable</code> est renommée <code>BinaryEncodable</code></td><td>renommer les usages</td></tr>
+      <tr><td>Le record <code>PEM</code> devient une classe ordinaire, avec des constructeurs acceptant un contenu Base64 en <code>byte[]</code></td><td>les déconstructions par motif d'enregistrement de <code>PEM</code> ne fonctionnent plus</td></tr>
+    </tbody>
+  </table></div>
+
+  <h2 id="s27-6"><span class="sec">27.6</span>Vector API (JEP 537, 12ᵉ incubateur)</h2>
+  <p>Ce n'est pas une preview mais une API en <b>incubation</b> : elle permet d'exprimer des calculs vectoriels (SIMD) que la JVM compile en instructions vectorielles du processeur. Elle reste en incubation en attendant les classes valeur du projet Valhalla.</p>
+  <div class="code"><div class="bar"><span>Java 27 · --add-modules jdk.incubator.vector</span></div><pre><code class="java">static final VectorSpecies&lt;Float&gt; ESP = FloatVector.SPECIES_PREFERRED;
+
+static void somme(float[] a, float[] b, float[] c) {
+    int i = 0;
+    for (; i &lt; ESP.loopBound(a.length); i += ESP.length()) {
+        var va = FloatVector.fromArray(ESP, a, i);
+        var vb = FloatVector.fromArray(ESP, b, i);
+        va.add(vb).intoArray(c, i);              // plusieurs additions en une instruction
+    }
+    for (; i &lt; a.length; i++) c[i] = a[i] + b[i];   // reste scalaire
+}</code></pre></div>
+
+  <h2 id="s27-7"><span class="sec">27.7</span>Essayer les previews de Java 27</h2>
+  <div class="code"><div class="bar"><span>Terminal</span></div><pre><code class="sh">javac --release 27 --enable-preview -Xlint:preview Main.java
+java --enable-preview Main
+
+# lanceur de fichier source
+java --enable-preview --source 27 Main.java
+
+# Vector API (incubateur, sans --enable-preview)
+javac --add-modules jdk.incubator.vector Calcul.java
+java  --add-modules jdk.incubator.vector Calcul
+
+jshell --enable-preview</code></pre></div>
+  <div class="rule"><span class="lbl">Bonnes pratiques</span>
+    <ul style="margin:0">
+      <li>Réservez les previews aux essais, aux prototypes et aux retours vers OpenJDK, pas au code de production ni aux bibliothèques publiées.</li>
+      <li>Isolez le code preview dans un module ou un répertoire séparé, compilé avec ses propres options.</li>
+      <li>Relisez la JEP à chaque nouvelle version du JDK : les API et règles changent (voir les tableaux ci-dessus).</li>
+      <li>Les retours sont attendus sur les listes de diffusion d'OpenJDK (amber-dev pour le langage, loom-dev pour la concurrence, core-libs-dev pour les bibliothèques, security-dev pour PEM).</li>
+    </ul>
+  </div>
+
+  <h2 id="s27-quiz">Vérifier ses acquis</h2>
+  <div data-w="quiz"><script type="application/json">[
+    {"q":"<code>1000 instanceof byte b</code> (preview Java 27) vaut…","o":["true, b vaut -24","false","Erreur de compilation"],"a":1,"e":"Le test vérifie l'exactitude : 1000 ne tient pas dans un byte, aucune troncature."},
+    {"q":"Quelle conversion est inconditionnellement exacte ?","o":["int → float","long → double","int → double"],"a":2,"e":"Un double représente exactement tous les int (53 bits de mantisse) ; int → float et long → double peuvent perdre de la précision."},
+    {"q":"<code>-0.0 instanceof int i</code> vaut…","o":["true, i vaut 0","false"],"a":1,"e":"Convertir -0.0 en int perdrait le signe : la conversion n'est pas exacte."},
+    {"q":"Quelle preview n'est PAS une preview de langage ?","o":["Types primitifs dans les motifs","Lazy Constants","Aucune"],"a":1,"e":"Lazy Constants est une preview d'API ; seule la première modifie la JLS."},
+    {"q":"En Java 27, que lèvent les joiners standard de StructuredTaskScope en cas d'échec ?","o":["FailedException","ExecutionException","RuntimeException"],"a":1,"e":"JEP 533 aligne join() sur Future.get()."},
+    {"q":"Que fait <code>LazyConstant.get()</code> après un premier calcul qui a échoué (Java 27) ?","o":["Relance le calcul","Lève NoSuchElementException sans relancer","Renvoie null"],"a":1,"e":"Comportement changé en Java 27 (JEP 531)."},
+    {"q":"Comment active-t-on la Vector API ?","o":["--enable-preview","--add-modules jdk.incubator.vector","Rien, elle est finale"],"a":1,"e":"C'est un module en incubation, pas une preview."}
+  ]</script></div>
+</div>
+
+<script>
+ATLAS.w.exactness = function(el){
+  el.classList.add('ex21');
+  const T=['byte','short','char','int','long','float','double','boolean'];
+  const U={byte:['byte','short','int','long','float','double'],short:['short','int','long','float','double'],char:['char','int','long','float','double'],int:['int','long','double'],long:['long'],float:['float','double'],double:['double'],boolean:['boolean']};
+  const num=t=>t!=='boolean';
+  const kind=(s,t)=> U[s].includes(t)?'u': (num(s)&&num(t))?'c':'x';
+  const R={byte:[-128n,127n],short:[-32768n,32767n],char:[0n,65535n],int:[-(2n**31n),2n**31n-1n],long:[-(2n**63n),2n**63n-1n]};
+  let src='int', dst='byte';
+  el.innerHTML='<div class="mtx"><table><thead><tr><th>de ↓ / vers →</th>'+T.map(t=>'<th>'+t+'</th>').join('')+'</tr></thead><tbody>'+T.map(s=>'<tr><td><b>'+s+'</b></td>'+T.map(t=>{ const k=kind(s,t); return '<td class="'+k+'" data-s="'+s+'" data-t="'+t+'"><button type="button" aria-label="'+s+' vers '+t+'">'+(k==='u'?'✓':k==='c'?'?':'–')+'</button></td>'; }).join('')+'</tr>').join('')+'</tbody></table></div>'+
+    '<p class="nolink" style="font-family:var(--f-display);font-size:var(--s-1);color:var(--muted)">✓ inconditionnellement exacte · ? exacte selon la valeur · – aucune conversion de test (boolean)</p>'+
+    '<div class="row"><span class="lbl" style="margin:0;color:var(--muted)">Tester</span><input type="text" value="300" aria-label="Valeur"><code class="expr"></code></div><div class="btnrow ex"></div><div class="verdict" aria-live="polite"></div>';
+  const inp=el.querySelector('input'), out=el.querySelector('.verdict'), expr=el.querySelector('.expr'), exb=el.querySelector('.btnrow.ex');
+  const EX={int:['300','42','-1'],long:['3000000000','16777217','9007199254740993'],double:['2.0','2.5','-0.0','NaN','1e10'],float:['16777216','0.1'],char:['65','40000'],byte:['-1','100'],short:['200','-30000'],boolean:['true']};
+  function parse(t,s){
+    s=s.trim().replace(/_/g,'');
+    if(t==='boolean'){ if(s==='true'||s==='false') return s==='true'; throw 0; }
+    if(t==='float'||t==='double'){ let x=/^[-+]?nan$/i.test(s)?NaN:/inf/i.test(s)?(s[0]==='-'?-Infinity:Infinity):Number(s.replace(/[fFdD]$/,'')); if(Number.isNaN(x)&&!/nan/i.test(s)) throw 0; return t==='float'?Math.fround(x):x; }
+    if(t==='char' && /^'.'$/.test(s)) return BigInt(s.charCodeAt(1));
+    const b=BigInt(s.replace(/[lL]$/,'')); if(b<R[t][0]||b>R[t][1]) throw 1; return b;
+  }
+  function roundP(v,p){ const neg=v<0n; let a=neg?-v:v; const len=a.toString(2).length; if(len<=p) return Number(v); const k=BigInt(len-p); let q=a>>k; const rem=a&((1n<<k)-1n), half=1n<<(k-1n); if(rem>half||(rem===half&&(q&1n))) q++; const r=Number(q)*Math.pow(2,Number(k)); return neg?-r:r; }
+  function test(s,t,v){
+    if(s===t) return [true,'identité'];
+    if(!num(s)||!num(t)) return [null,'pas de conversion entre boolean et un type numérique : erreur de compilation'];
+    const isF=x=>x==='float'||x==='double';
+    if(!isF(s)&&!isF(t)){ const ok=v>=R[t][0]&&v<=R[t][1]; return [ok, ok?v+' est dans la plage de '+t:v+' sort de la plage '+R[t][0]+' … '+R[t][1]]; }
+    if(!isF(s)&&isF(t)){ const r=t==='double'?roundP(v,53):Math.fround(roundP(v,24)); const ok=Number.isFinite(r)&&BigInt(r)===v; return [ok, ok?v+' se représente exactement en '+t:v+' deviendrait '+r+' en '+t+' : perte de précision']; }
+    if(isF(s)&&isF(t)){ if(Number.isNaN(v)) return [true,'NaN se convertit exactement']; const r=t==='float'?Math.fround(v):v; const ok=r===v; return [ok, ok?'représentable exactement en '+t:v+' deviendrait '+r+' en float']; }
+    // flottant vers entier
+    if(Number.isNaN(v)) return [false,'NaN n\'a pas d\'équivalent entier'];
+    if(!Number.isFinite(v)) return [false,'l\'infini n\'a pas d\'équivalent entier'];
+    if(Object.is(v,-0)) return [false,'-0.0 perdrait son signe en devenant 0'];
+    if(!Number.isInteger(v)) return [false,'la partie décimale serait perdue'];
+    const b=BigInt(v); const ok=b>=R[t][0]&&b<=R[t][1]; return [ok, ok?v+' est un entier dans la plage de '+t:v+' sort de la plage de '+t];
+  }
+  function run(){
+    el.querySelectorAll('td[data-s]').forEach(td=>td.classList.toggle('sel',td.dataset.s===src&&td.dataset.t===dst));
+    exb.innerHTML=(EX[src]||[]).map(v=>'<button type="button" class="btn">'+v+'</button>').join('');
+    exb.querySelectorAll('.btn').forEach(b=>b.onclick=()=>{ inp.value=b.textContent; run(); });
+    expr.textContent=src+' v = '+inp.value.trim()+'; v instanceof '+dst+' x';
+    const k=kind(src,dst);
+    let v; try{ v=parse(src,inp.value); }catch(e){ out.className='verdict err'; out.innerHTML='<div class="v">Valeur invalide pour '+src+'</div><p>'+(e===1?'La valeur sort de la plage du type source.':'Saisissez une valeur du type '+src+'.')+'</p>'; return; }
+    const [ok,why]=test(src,dst,v);
+    const head = k==='u' ? 'Conversion inconditionnellement exacte : le motif <code>'+dst+' x</code> est inconditionnel pour un '+src+'.' : k==='c' ? 'Conversion exacte seulement pour certaines valeurs : un test d\'exécution est nécessaire.' : '';
+    if(ok===null){ out.className='verdict err'; out.innerHTML='<div class="v">Erreur de compilation</div><p>'+why+'.</p>'; return; }
+    out.className='verdict '+(ok?'ok':'warn');
+    out.innerHTML='<div class="v">'+(ok?'true':'false')+'</div><p>'+head+'</p><p>Pour cette valeur : '+ATLAS.esc(why)+'.</p>'+(!ok?'<p>Un cast <code>('+dst+') v</code> aurait réussi en <b>modifiant</b> la valeur (§5.1.3) ; le motif, lui, échoue proprement.</p>':'');
+  }
+  el.querySelectorAll('td[data-s] button').forEach(b=>b.onclick=()=>{ const td=b.parentElement; src=td.dataset.s; dst=td.dataset.t; inp.value=(EX[src]||['0'])[0]; run(); });
+  inp.oninput=run; run();
+};
+</script>

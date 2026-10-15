@@ -1,0 +1,486 @@
+<style>
+.ov .grid{display:grid; grid-template-columns:minmax(0,1fr) minmax(0,1.2fr); gap:18px}
+.ov .phase{display:flex; gap:6px; margin:8px 0; flex-wrap:wrap}
+.ov .phase span{font-family:var(--f-display); font-size:.75rem; font-weight:700; padding:4px 10px; border-radius:999px; border:1px solid var(--rule); color:var(--muted)}
+.ov .phase span.hit{background:var(--accent); color:var(--accent-ink); border-color:var(--accent)}
+.ov .phase span.miss{text-decoration:line-through}
+.ov table td{font-family:var(--f-mono); font-size:.8rem}
+.prec td:first-child{font-variant-numeric:tabular-nums; color:var(--muted); font-family:var(--f-mono)}
+@media (max-width:700px){ .ov .grid{grid-template-columns:minmax(0,1fr)} }
+</style>
+
+<div class="col">
+  <div class="eyebrow">Chapitre 15 · Java SE 27 Edition</div>
+  <h1>Expressions</h1>
+  <p class="lede">L'essentiel du travail d'un programme se fait en évaluant des expressions. Ce chapitre fixe leur type, leur ordre d'évaluation, et la sémantique de chaque forme : littéraux, créations, accès, appels avec résolution de surcharge, références de méthodes, opérateurs, lambdas, switch expressions et expressions constantes.</p>
+  <div class="meta">
+    <span>Source : <a href="https://docs.oracle.com/javase/specs/jls/se27/html/jls-15.html" target="_blank" rel="noopener">JLS SE 27, chapitre 15</a></span>
+    <span>Sections : <b>15.1 à 15.29</b></span>
+  </div>
+
+  <h2 id="s15-1"><span class="sec">§15.1</span>Évaluation, dénotation et résultat</h2>
+  <p>Évaluer une expression produit l'un de trois résultats : une <b>variable</b> (à gauche d'une affectation : <code>a[i]</code>, <code>x.f</code>), une <b>valeur</b>, ou <b>rien</b> (appel d'une méthode <code>void</code>, permis seulement comme instruction). L'évaluation peut aussi avoir des <b>effets de bord</b> : affectations, appels, créations.</p>
+
+  <h2 id="s15-2"><span class="sec">§15.2</span>Formes des expressions</h2>
+  <p>La spec distingue les <b>expressions autonomes</b> (standalone), dont le type se déduit de leur seul contenu, et les <b>poly-expressions</b>, dont le type dépend aussi du <b>type cible</b> du contexte. Sont des poly-expressions, dans un contexte d'affectation ou d'invocation : les lambdas, les références de méthodes, les créations avec diamant <code>new X&lt;&gt;()</code>, les appels de méthodes génériques dont le type de retour mentionne leurs paramètres de type, les conditionnels et switch expressions de type référence, et les expressions parenthésées qui en contiennent.</p>
+  <div class="code"><div class="bar"><span>Java</span></div><pre><code class="java">List&lt;String&gt; a = new ArrayList&lt;&gt;();        // poly : &lt;&gt; inféré depuis la cible List&lt;String&gt;
+List&lt;String&gt; b = List.of();                // poly : E inféré = String grâce à la cible
+var c = List.of();                         // autonome : pas de cible → List&lt;Object&gt;
+Runnable r = () -&gt; {};                     // poly : une lambda n'a de type que par sa cible</code></pre></div>
+
+  <h2 id="s15-3"><span class="sec">§15.3</span>Type d'une expression</h2>
+  <p>Le type d'une expression est déterminé à la compilation. La valeur d'une expression est toujours compatible avec son type, sauf pollution du tas (§4.12.2). Quand le type mentionne des jokers, la conversion par capture (§5.1.10) est appliquée au résultat.</p>
+
+  <h2 id="s15-4"><span class="sec">§15.4</span>Expressions flottantes</h2>
+  <p>Depuis Java 17, toute expression flottante est évaluée exactement selon IEEE 754 : chaque opération sur des <code>float</code> se fait en simple précision, sur des <code>double</code> en double précision, sans précision étendue intermédiaire. Les résultats sont identiques au bit près sur toutes les plateformes.</p>
+
+  <h2 id="s15-5"><span class="sec">§15.5</span>Expressions et vérifications à l'exécution</h2>
+  <p>Le type statique ne garantit pas tout. Les opérations suivantes sont vérifiées à l'exécution et peuvent lever une exception : cast vers un type référence (<code>ClassCastException</code>), écriture dans un tableau (<code>ArrayStoreException</code>), accès à un tableau (<code>ArrayIndexOutOfBoundsException</code>), accès via <code>null</code> (<code>NullPointerException</code>), division entière par zéro (<code>ArithmeticException</code>), création de tableau de taille négative, unboxing de <code>null</code>, et correspondance de motif sur un record dont un accesseur échoue (<code>MatchException</code>).</p>
+
+  <h2 id="s15-6"><span class="sec">§15.6</span>Évaluation normale et abrupte</h2>
+  <p>Une expression se termine <b>abruptement</b> si elle lève une exception. Si une sous-expression se termine abruptement, l'expression englobante aussi, immédiatement : les sous-expressions restantes ne sont <b>pas</b> évaluées (avec les exceptions précisées au §15.7).</p>
+
+  <h2 id="s15-7"><span class="sec">§15.7</span>Ordre d'évaluation</h2>
+  <p>Contrairement à C, Java garantit un ordre d'évaluation <b>apparent</b> : un programme se comporte comme si les opérandes étaient évalués dans l'ordre défini ci-dessous. Le compilateur et la JVM peuvent réordonner tant que le résultat observable est le même.</p>
+  <div class="rule"><span class="lbl">Règles</span>
+    <ul style="margin:0">
+      <li><b>§15.7.1</b> L'opérande gauche d'un opérateur binaire est entièrement évalué <b>avant</b> l'opérande droit. Pour une affectation composée <code>a op= b</code>, la valeur de <code>a</code> est <b>sauvegardée</b> avant d'évaluer <code>b</code>.</li>
+      <li><b>§15.7.2</b> Tous les opérandes sont évalués avant l'opération (sauf <code>&amp;&amp;</code>, <code>||</code> et <code>? :</code>, qui sont paresseux).</li>
+      <li><b>§15.7.3</b> Les parenthèses et la priorité déterminent le groupement, pas l'ordre : <code>(a + b) + c</code> et <code>a + (b + c)</code> ne sont pas interchangeables en flottant ni pour la concaténation.</li>
+      <li><b>§15.7.4</b> Les arguments d'un appel sont évalués de gauche à droite.</li>
+      <li><b>§15.7.5</b> Les autres expressions (création d'instance, de tableau, accès) suivent un ordre précisé dans leur section.</li>
+    </ul>
+  </div>
+</div>
+
+<div class="wide">
+  <figure>
+    <p class="fig-title">Figure 15.1 · L'ordre d'évaluation sur quatre cas célèbres</p>
+    <div data-w="stepper">
+<pre class="src">int i = 2;
+int j = (i = 3) * i;
+int a = 9;
+a += (a = 3);
+int[] t = {0, 0};
+int k = 0;
+t[k] = k = 1;
+int x = 1;
+x = x++ + ++x;</pre>
+<script type="application/json">[
+ {"t":"(i = 3) * i","d":"<p>L'opérande gauche <code>(i = 3)</code> est évalué en premier : il affecte 3 à i et vaut 3. Puis l'opérande droit <code>i</code> est lu : il vaut maintenant 3. Résultat : <b>j = 9</b> (exemple 15.7.1-1).</p>","hl":[1,2],"p":"<div class=\"state\"><span>i = 3</span><span class=\"new\">j = 9</span></div>"},
+ {"t":"a += (a = 3)","d":"<p>Pour une affectation composée, la valeur de <code>a</code> (9) est <b>sauvegardée</b> d'abord. Puis <code>(a = 3)</code> est évalué : il vaut 3. Le calcul fait 9 + 3. Résultat : <b>a = 12</b>, pas 6 (exemple 15.26.2-2).</p>","hl":[3,4],"p":"<div class=\"state\"><span class=\"new\">a = 12</span></div>"},
+ {"t":"t[k] = k = 1","d":"<p>Dans une affectation à un composant de tableau, l'expression du tableau puis l'<b>index</b> sont évalués d'abord : <code>t[k]</code> désigne <code>t[0]</code>, figé. Ensuite le côté droit <code>k = 1</code> s'exécute. Résultat : <b>t[0] = 1</b>, t[1] reste 0, k = 1 (§15.26.1).</p>","hl":[5,6,7],"p":"<div class=\"state\"><span class=\"new\">t = {1, 0}</span><span class=\"new\">k = 1</span></div>"},
+ {"t":"x = x++ + ++x","d":"<p>De gauche à droite : <code>x++</code> vaut 1 et met x à 2 ; puis <code>++x</code> met x à 3 et vaut 3 ; la somme vaut 4 ; enfin l'affectation met x à <b>4</b>. Parfaitement défini en Java, contrairement au C ; mais illisible : à proscrire.</p>","hl":[8,9],"p":"<div class=\"state\"><span class=\"new\">x = 4</span></div>"}
+]</script></div>
+  </figure>
+</div>
+
+<div class="col">
+  <div class="code"><div class="bar"><span>Java · terminaison abrupte et ordre</span></div><pre><code class="java">int j = 1;
+try {
+    int i = forgetIt() / (j = 2);   // forgetIt() lève une exception
+} catch (Exception e) {
+    System.out.println(j);          // 1 : l'opérande droit n'a jamais été évalué (exemple 15.7.1-3)
+}
+
+int d = 0;
+int r = d / d + effet();            // ArithmeticException AVANT l'appel à effet() (§15.7.2)
+f(a(), b(), c());                   // a, puis b, puis c, puis l'appel</code></pre></div>
+
+  <h2 id="s15-8"><span class="sec">§15.8</span>Expressions primaires</h2>
+  <p>Les primaires sont les briques de base : littéraux, littéraux de classe, <code>this</code>, expressions parenthésées, créations, accès aux champs et aux tableaux, appels de méthodes, références de méthodes.</p>
+  <div class="tbl"><table>
+    <thead><tr><th>Section</th><th>Forme</th><th>Type et règles</th></tr></thead>
+    <tbody>
+      <tr><td>§15.8.1</td><td>littéral</td><td>type du littéral (§3.10) ; <code>null</code> : type nul</td></tr>
+      <tr><td>§15.8.2</td><td><code>T.class</code>, <code>int.class</code>, <code>void.class</code></td><td><code>Class&lt;T&gt;</code> (ou <code>Class&lt;Integer&gt;</code> pour <code>int.class</code>) ; T doit être réifiable : <code>List&lt;String&gt;.class</code> est une erreur</td></tr>
+      <tr><td>§15.8.3</td><td><code>this</code></td><td>l'objet courant ; interdit dans un contexte statique et dans le prologue d'un constructeur</td></tr>
+      <tr><td>§15.8.4</td><td><code>Externe.this</code></td><td>l'instance englobante de niveau Externe</td></tr>
+      <tr><td>§15.8.5</td><td><code>( e )</code></td><td>même type et valeur que e ; une variable entre parenthèses reste une variable : <code>(x) = 3</code> est permis</td></tr>
+    </tbody>
+  </table></div>
+
+  <h2 id="s15-9"><span class="sec">§15.9</span>Création d'instances de classe</h2>
+  <p><code>new C(args)</code>, éventuellement qualifié (<code>externe.new Interne()</code>), avec arguments de type explicites ou diamant (<code>new ArrayList&lt;&gt;()</code>), et éventuellement un corps de classe anonyme.</p>
+  <h3 id="s15-9-1"><span class="sec">§15.9.1</span>Déterminer la classe instanciée</h3>
+  <p>La classe doit être accessible, non abstraite (sauf avec un corps anonyme), et ne pas être un enum. Avec un corps, une classe anonyme qui étend C (ou implémente l'interface C) est déclarée.</p>
+  <h3 id="s15-9-2"><span class="sec">§15.9.2</span>Déterminer les instances englobantes</h3>
+  <p>Pour une classe interne, l'instance englobante est donnée par la qualification (<code>o.new I()</code>) ou, à défaut, c'est <code>this</code> (ou une instance englobante de <code>this</code>). Dans un contexte statique, créer une classe interne sans qualification est une erreur.</p>
+  <h3 id="s15-9-3"><span class="sec">§15.9.3</span>Choisir le constructeur</h3>
+  <p>Comme pour les méthodes (§15.12.2), avec en plus l'inférence des arguments de type pour le diamant (§18.5.2).</p>
+  <h3 id="s15-9-4"><span class="sec">§15.9.4</span>Évaluation à l'exécution</h3>
+  <p>Dans l'ordre : l'expression qualifiante (une <code>null</code> lève <code>NullPointerException</code>), puis l'<b>allocation</b> (avec <code>OutOfMemoryError</code> possible, <b>avant</b> l'évaluation des arguments : exemple 15.9.4-1), puis les arguments de gauche à droite, puis le constructeur (§12.5).</p>
+  <h3 id="s15-9-5"><span class="sec">§15.9.5</span>Classes anonymes</h3>
+  <p>Une classe anonyme n'a pas de nom, est implicitement <b>non</b> <code>final</code> du point de vue de la spec (mais ne peut pas être étendue faute de nom), jamais <code>abstract</code> ni <code>static</code>. Elle ne peut pas déclarer de constructeur : son <b>constructeur anonyme</b> (§15.9.5.1) est implicite et transmet les arguments au constructeur de la superclasse. Depuis Java 9, le diamant est permis avec une classe anonyme si le type inféré est dénotable.</p>
+  <div class="code"><div class="bar"><span>Java</span></div><pre><code class="java">Comparator&lt;String&gt; parLongueur = new Comparator&lt;&gt;() {        // diamant + anonyme (Java 9)
+    public int compare(String a, String b) { return Integer.compare(a.length(), b.length()); }
+};
+Thread t = new Thread("nom") { public void run() { } };     // arguments transmis à Thread(String)</code></pre></div>
+
+  <h2 id="s15-10"><span class="sec">§15.10</span>Création et accès aux tableaux</h2>
+  <p>§15.10.1 : <code>new T[d1][d2]…[]</code> ; chaque dimension est promue en <code>int</code>. §15.10.2 : les expressions de dimensions sont évaluées de gauche à droite, <b>toutes</b>, avant l'allocation ; une dimension négative lève <code>NegativeArraySizeException</code> après l'évaluation de toutes (exemple 15.10.2-3). §15.10.3 et §15.10.4 : l'accès <code>a[i]</code> évalue a puis i, puis vérifie <code>null</code>, puis les bornes (voir ch. 10).</p>
+
+  <h2 id="s15-11"><span class="sec">§15.11</span>Accès aux champs</h2>
+  <p>§15.11.1 : <code>Primaire.f</code>. Le champ est choisi à la compilation d'après le <b>type statique</b> du primaire : pas de liaison dynamique pour les champs. Pour un champ <code>static</code>, le primaire est évalué puis ignoré, même s'il vaut <code>null</code>. §15.11.2 : <code>super.f</code> désigne le champ tel que vu depuis la superclasse ; <code>Externe.super.f</code> pour la superclasse d'une classe englobante.</p>
+  <div class="code"><div class="bar"><span>Java</span></div><pre><code class="java">class S { int x = 1; static int y = 10; }
+class T extends S { int x = 2; }
+S s = new T();
+s.x;                 // 1 : type statique S (exemple 15.11.1-1)
+((T) s).x;           // 2
+S n = null;
+n.y;                 // 10, aucune NullPointerException : champ static (exemple 15.11.1-2)</code></pre></div>
+
+  <h2 id="s15-12"><span class="sec">§15.12</span>Appels de méthodes</h2>
+  <p>La résolution d'un appel se fait en trois étapes à la compilation, puis une à l'exécution. C'est l'une des parties les plus techniques de la spec.</p>
+  <h3 id="s15-12-1"><span class="sec">§15.12.1</span>Étape 1 : le type où chercher</h3>
+  <p><code>m(…)</code> : la classe ou interface englobante la plus proche qui a un membre nommé m. <code>T.m(…)</code> : le type T. <code>e.m(…)</code> : le type de e. <code>super.m(…)</code> : la superclasse. <code>I.super.m(…)</code> : la superinterface directe I.</p>
+  <h3 id="s15-12-2"><span class="sec">§15.12.2</span>Étape 2 : la signature de méthode</h3>
+  <p>On identifie d'abord les méthodes <b>potentiellement applicables</b> (§15.12.2.1) : bon nom, accessibles, bon nombre de paramètres (arité), compatibles en forme avec les lambdas passées. Puis trois <b>phases</b> successives ; la première qui trouve au moins une méthode applicable s'arrête :</p>
+  <div class="tbl"><table>
+    <thead><tr><th>Phase</th><th>Conversions permises sur les arguments</th><th>Variadique ?</th></tr></thead>
+    <tbody>
+      <tr><td><b>1</b> §15.12.2.2 — invocation stricte</td><td>identité, élargissement primitif, élargissement de référence</td><td>non (arité exacte)</td></tr>
+      <tr><td><b>2</b> §15.12.2.3 — invocation souple</td><td>+ boxing et unboxing</td><td>non (arité exacte)</td></tr>
+      <tr><td><b>3</b> §15.12.2.4 — arité variable</td><td>tout ce qui précède</td><td>oui</td></tr>
+    </tbody>
+  </table></div>
+  <p>Ces phases garantissent que du code écrit avant Java 5 (sans boxing ni variadiques) garde le même sens. Parmi les méthodes applicables d'une phase, on choisit la <b>plus spécifique</b> (§15.12.2.5) : m1 est plus spécifique que m2 si tout appel accepté par m1 l'est aussi par m2 (en gros, si les types de paramètres de m1 sont des sous-types de ceux de m2). S'il n'y en a pas une unique, l'appel est <b>ambigu</b>.</p>
+</div>
+
+<div class="wide">
+  <figure>
+    <p class="fig-title">Figure 15.2 · Simulateur de résolution de surcharge</p>
+    <p class="fig-hint">Choisissez les méthodes déclarées et le type de l'argument de l'appel <code>f(x)</code>.</p>
+    <div data-w="overload"></div>
+  </figure>
+</div>
+
+<div class="col">
+  <h4 id="s15-12-2-6"><span class="sec">§15.12.2.6</span>Type de l'invocation</h4>
+  <p>Une fois la méthode choisie, son type de retour (après inférence, et après effacement si une conversion non vérifiée a été nécessaire) donne le type de l'expression d'appel ; ses <code>throws</code> donnent les exceptions possibles.</p>
+  <h3 id="s15-12-3"><span class="sec">§15.12.3</span>Étape 3 : la méthode choisie est-elle appropriée ?</h3>
+  <p>Vérifications finales : pas de méthode d'instance appelée depuis un contexte statique ; pas de méthode abstraite via <code>super</code> ; pour <code>I.super.m()</code>, la méthode ne doit pas être redéfinie par une autre superinterface directe ; une méthode <code>void</code> n'est pas utilisée comme valeur.</p>
+
+  <h3 id="s15-12-4"><span class="sec">§15.12.4</span>Évaluation à l'exécution</h3>
+  <ol>
+    <li><b>§15.12.4.1</b> Calculer la référence cible (si méthode d'instance) ; pour une méthode <code>static</code>, l'expression cible est évaluée puis ignorée (exemple 15.12.4.1-1).</li>
+    <li><b>§15.12.4.2</b> Évaluer les arguments de gauche à droite ; pour un variadique, créer le tableau.</li>
+    <li><b>§15.12.4.3</b> Vérifier l'accessibilité (la classe a pu changer depuis la compilation : <code>IllegalAccessError</code>).</li>
+    <li><b>§15.12.4.4</b> Localiser la méthode à exécuter : pour un appel virtuel, on part de la <b>classe réelle</b> de l'objet cible et on remonte vers les superclasses pour trouver la méthode qui redéfinit celle choisie à la compilation. Si la cible vaut <code>null</code> : <code>NullPointerException</code>.</li>
+    <li><b>§15.12.4.5</b> Créer le cadre de pile, acquérir le moniteur si la méthode est <code>synchronized</code>, transférer le contrôle.</li>
+  </ol>
+  <div class="trap"><span class="lbl">Le point clé : surcharge statique, redéfinition dynamique</span>
+    <p>La <b>signature</b> est choisie à la compilation (types statiques des arguments) ; l'<b>implémentation</b> de cette signature est choisie à l'exécution (classe réelle du récepteur). Les deux mécanismes se combinent :</p>
+  </div>
+  <div class="code"><div class="bar"><span>Java</span></div><pre><code class="java">class A { String f(Object o) { return "A.f(Object)"; } }
+class B extends A {
+    String f(Object o) { return "B.f(Object)"; }
+    String f(String s) { return "B.f(String)"; }
+}
+A a = new B();
+a.f("x");      // "B.f(Object)" : signature f(Object) choisie sur le type A, puis implémentée par B
+((B) a).f("x"); // "B.f(String)"</code></pre></div>
+
+  <h2 id="s15-13"><span class="sec">§15.13</span>Références de méthodes</h2>
+  <p>Une référence de méthode <code>::</code> désigne une méthode ou un constructeur sans l'appeler. Comme une lambda, elle n'a de type que par une interface fonctionnelle cible.</p>
+  <div class="tbl"><table>
+    <thead><tr><th>Sorte</th><th>Forme</th><th>Lambda équivalente</th></tr></thead>
+    <tbody>
+      <tr><td>Méthode statique</td><td><code>Integer::parseInt</code></td><td><code>s -&gt; Integer.parseInt(s)</code></td></tr>
+      <tr><td>Méthode d'instance <b>liée</b> (récepteur fixé)</td><td><code>System.out::println</code>, <code>this::f</code></td><td><code>x -&gt; System.out.println(x)</code> (mais voir le piège)</td></tr>
+      <tr><td>Méthode d'instance <b>non liée</b> (récepteur = 1er argument)</td><td><code>String::length</code></td><td><code>s -&gt; s.length()</code></td></tr>
+      <tr><td>Constructeur</td><td><code>ArrayList::new</code></td><td><code>() -&gt; new ArrayList&lt;&gt;()</code></td></tr>
+      <tr><td>Création de tableau</td><td><code>int[]::new</code></td><td><code>n -&gt; new int[n]</code></td></tr>
+      <tr><td>Méthode de la superclasse</td><td><code>super::toString</code></td><td><code>() -&gt; super.toString()</code></td></tr>
+    </tbody>
+  </table></div>
+  <p>§15.13.1 détermine la déclaration au moment de la compilation (avec une recherche qui peut trouver deux candidats pour <code>Type::m</code>, l'un statique, l'autre non lié : ambiguïté si les deux sont applicables) ; §15.13.2 son type ; §15.13.3 son évaluation.</p>
+  <div class="trap"><span class="lbl">Piège · évaluation du récepteur</span>
+    <p>Pour une référence liée <code>expr::m</code>, l'expression <code>expr</code> est évaluée <b>une fois, quand la référence est évaluée</b>, et une valeur <code>null</code> lève <code>NullPointerException</code> immédiatement. Une lambda <code>x -&gt; expr.m(x)</code> évalue <code>expr</code> à chaque appel.</p>
+  </div>
+  <div class="code"><div class="bar"><span>Java</span></div><pre><code class="java">Compteur c = null;
+Runnable r1 = c::incrementer;        // NullPointerException ICI
+Runnable r2 = () -&gt; c.incrementer(); // OK ici ; NPE seulement à r2.run()
+
+Supplier&lt;Compteur&gt; s = Compteur::new;   // référence de constructeur
+IntFunction&lt;String[]&gt; f = String[]::new;
+String[] t = liste.toArray(String[]::new);</code></pre></div>
+
+  <h2 id="s15-14"><span class="sec">§15.14</span>Expressions postfixes</h2>
+  <p>§15.14.1 : un nom d'expression seul est une expression postfixe. §15.14.2 et §15.14.3 : <code>x++</code> et <code>x--</code> ; l'opérande doit être une <b>variable</b> de type numérique (après unboxing) ; la valeur de l'expression est l'<b>ancienne</b> valeur ; un cast implicite ramène le résultat au type de la variable (<code>byte b = 127; b++;</code> donne −128).</p>
+
+  <h2 id="s15-15"><span class="sec">§15.15</span>Opérateurs unaires</h2>
+  <div class="tbl"><table>
+    <thead><tr><th>Section</th><th>Opérateur</th><th>Règles</th></tr></thead>
+    <tbody>
+      <tr><td>§15.15.1 / §15.15.2</td><td><code>++x</code>, <code>--x</code></td><td>valeur : la <b>nouvelle</b> valeur ; même cast implicite que le postfixe</td></tr>
+      <tr><td>§15.15.3</td><td><code>+x</code></td><td>promotion unaire : <code>+b</code> d'un byte est un int</td></tr>
+      <tr><td>§15.15.4</td><td><code>-x</code></td><td>pour les entiers, <code>-x</code> vaut <code>(~x) + 1</code> : <code>-Integer.MIN_VALUE == Integer.MIN_VALUE</code>. Pour les flottants, inverse le signe, y compris de 0.0 et NaN</td></tr>
+      <tr><td>§15.15.5</td><td><code>~x</code></td><td>complément bit à bit ; <code>~x == -x - 1</code></td></tr>
+      <tr><td>§15.15.6</td><td><code>!b</code></td><td>négation logique ; boolean ou Boolean</td></tr>
+    </tbody>
+  </table></div>
+
+  <h2 id="s15-16"><span class="sec">§15.16</span>Expressions de cast</h2>
+  <p><code>(T) e</code> convertit e au type T dans un contexte de cast (§5.5). La forme <code>(T &amp; I1 &amp; I2) e</code> cast vers une intersection. Un cast d'une lambda ou référence de méthode fournit un type cible. Le résultat d'un cast n'est <b>jamais</b> une variable : <code>(int) x = 3</code> est une erreur. La grammaire distingue <code>(Type) -x</code> (cast d'un type primitif seulement) pour lever l'ambiguïté avec la soustraction (§2.3).</p>
+
+  <h2 id="s15-17"><span class="sec">§15.17</span>Opérateurs multiplicatifs</h2>
+  <p>§15.17.1 <code>*</code> : commutatif pour les entiers et sans effet de bord ; associatif pour les entiers, <b>pas</b> pour les flottants. §15.17.2 <code>/</code> : division entière tronquée vers zéro ; par zéro → <code>ArithmeticException</code> ; <code>Integer.MIN_VALUE / -1</code> déborde et vaut <code>MIN_VALUE</code>. §15.17.3 <code>%</code> : <code>(a/b)*b + (a%b) == a</code> ; le signe du reste suit le dividende. Pour les flottants, <code>%</code> n'est <b>pas</b> le reste IEEE (qui serait <code>Math.IEEEremainder</code>) mais la troncature, comme pour les entiers.</p>
+  <div class="code"><div class="bar"><span>Java</span></div><pre><code class="java">5 % 3 == 2;   -5 % 3 == -2;   5 % -3 == 2;   -5 % -3 == -2;   // exemple 15.17.3-1
+5.0 % 3 == 2.0;   -5.0 % 3 == -2.0;   5.0 % 0 → NaN             // exemple 15.17.3-2
+x % 2 == 1        // FAUX pour les impairs négatifs ! utiliser x % 2 != 0</code></pre></div>
+
+  <h2 id="s15-18"><span class="sec">§15.18</span>Opérateurs additifs</h2>
+  <h3 id="s15-18-1"><span class="sec">§15.18.1</span>Concaténation de chaînes</h3>
+  <p>Si un opérande de <code>+</code> est de type <code>String</code>, l'autre subit la conversion en chaîne (§5.1.11) et le résultat est un <b>nouvel</b> objet <code>String</code>, sauf si l'expression est constante (§15.29), auquel cas elle est internée. L'implémentation est libre : depuis Java 9, javac utilise <code>invokedynamic</code> (<code>StringConcatFactory</code>) plutôt qu'un <code>StringBuilder</code>.</p>
+  <div class="code"><div class="bar"><span>Java</span></div><pre><code class="java">String s = null;
+s + "!";                 // "null!" : aucune exception
+"" + 1 + 2;              // "12"
+1 + 2 + "";              // "3"
+"total : " + (a + b);    // parenthèses nécessaires pour additionner d'abord
+String r = "";
+for (String m : mots) r += m;   // quadratique : préférer StringBuilder ou String.join</code></pre></div>
+  <h3 id="s15-18-2"><span class="sec">§15.18.2</span>+ et − numériques</h3>
+  <p>Après promotion numérique binaire. Débordement silencieux pour les entiers ; IEEE 754 pour les flottants (<code>∞ + (−∞)</code> = NaN). L'addition flottante n'est pas associative : <code>(1e20 + -1e20) + 1 == 1</code> mais <code>1e20 + (-1e20 + 1) == 0</code>.</p>
+
+  <h2 id="s15-19"><span class="sec">§15.19</span>Opérateurs de décalage</h2>
+  <p><code>&lt;&lt;</code> (gauche), <code>&gt;&gt;</code> (droite arithmétique, propage le signe), <code>&gt;&gt;&gt;</code> (droite logique, remplit de zéros). Chaque opérande subit une promotion unaire <b>séparée</b> ; le type du résultat est celui de l'opérande gauche promu. Seuls les 5 bits de poids faible de la distance comptent pour un <code>int</code> (<code>&amp; 0x1f</code>), 6 bits pour un <code>long</code> (<code>&amp; 0x3f</code>).</p>
+  <div class="code"><div class="bar"><span>Java</span></div><pre><code class="java">1 &lt;&lt; 32;          // 1 (32 &amp; 31 = 0), pas 0 !
+1L &lt;&lt; 32;         // 4294967296
+-16 &gt;&gt; 2;         // -4  (signe propagé)
+-16 &gt;&gt;&gt; 28;       // 15  (zéros insérés)
+(byte) -16 &gt;&gt;&gt; 4; // 268435455 : le byte est promu en int AVANT le décalage</code></pre></div>
+
+  <h2 id="s15-20"><span class="sec">§15.20</span>Opérateurs relationnels</h2>
+  <p>§15.20.1 : <code>&lt; &lt;= &gt; &gt;=</code> sur des types numériques (après promotion) ; faux si un opérande est NaN ; −0.0 et 0.0 sont égaux. §15.20.2 : <code>instanceof</code>.</p>
+  <h3 id="s15-20-2"><span class="sec">§15.20.2</span>L'opérateur instanceof</h3>
+  <p>Deux formes : <code>e instanceof T</code> (test de type) et <code>e instanceof Motif</code> (§14.30). Le type de <code>e</code> doit pouvoir être converti en T par un cast vérifiable, sinon erreur de compilation (types prouvablement disjoints). Le résultat est <code>false</code> si e vaut <code>null</code>.</p>
+  <div class="code"><div class="bar"><span>Java</span></div><pre><code class="java">Integer n = 5;
+n instanceof String;                 // ERREUR : Integer et String sont disjoints
+o instanceof List&lt;String&gt; l          // ERREUR si o est un Object : non réifiable (§4.7)
+coll instanceof List&lt;String&gt; l       // OK si coll est une Collection&lt;String&gt; : vérification sûre
+if (o instanceof String s &amp;&amp; !s.isBlank()) use(s);   // variable de motif (§6.3.1)</code></pre></div>
+
+  <h2 id="s15-21"><span class="sec">§15.21</span>Opérateurs d'égalité</h2>
+  <p>§15.21.1 numérique : après promotion ; NaN ≠ NaN ; 0.0 == −0.0. §15.21.2 booléen. §15.21.3 référence : compare l'<b>identité</b> ; les deux types doivent être convertibles l'un vers l'autre par un cast, sinon erreur (<code>"a" == 1</code>). Si un opérande est numérique et l'autre une enveloppe, l'enveloppe est <b>unboxée</b> : comparaison de valeurs, et <code>NullPointerException</code> possible.</p>
+  <div class="code"><div class="bar"><span>Java</span></div><pre><code class="java">Integer a = 1000, b = 1000;
+a == b;          // false : deux références
+a == 1000;       // true : a est unboxé (numérique)
+a.equals(b);     // true
+Integer z = null;
+z == 0;          // NullPointerException</code></pre></div>
+
+  <h2 id="s15-22"><span class="sec">§15.22</span>Opérateurs bit à bit et logiques</h2>
+  <p>§15.22.1 sur des entiers : <code>&amp;</code>, <code>^</code>, <code>|</code> bit à bit après promotion. §15.22.2 sur des booléens : <code>&amp;</code>, <code>^</code> (ou exclusif), <code>|</code> logiques, qui évaluent <b>toujours</b> les deux opérandes.</p>
+  <h2 id="s15-23"><span class="sec">§15.23</span>ET conditionnel &amp;&amp;</h2>
+  <p>Évalue l'opérande droit seulement si le gauche est vrai. Associatif. Les variables de motif introduites à gauche quand il est vrai sont en portée à droite (§6.3.1.1).</p>
+  <h2 id="s15-24"><span class="sec">§15.24</span>OU conditionnel ||</h2>
+  <p>Évalue l'opérande droit seulement si le gauche est faux.</p>
+  <div class="code"><div class="bar"><span>Java</span></div><pre><code class="java">if (s != null &amp;&amp; s.length() &gt; 0) { }    // sûr : length() pas appelé si s est null
+if (s != null &amp; s.length() &gt; 0) { }     // NullPointerException si s est null
+boolean ok = verifierA() | verifierB();   // les deux méthodes sont TOUJOURS appelées</code></pre></div>
+
+  <h2 id="s15-25"><span class="sec">§15.25</span>L'opérateur conditionnel ? :</h2>
+  <p><code>c ? a : b</code> évalue c, puis <b>un seul</b> des deux opérandes. Il est associatif à droite : <code>a ? b : c ? d : e</code> vaut <code>a ? b : (c ? d : e)</code>. Son type dépend de la catégorie de ses opérandes :</p>
+  <div class="tbl"><table>
+    <thead><tr><th>Catégorie</th><th>Quand</th><th>Type</th></tr></thead>
+    <tbody>
+      <tr><td><b>Booléenne</b> §15.25.1</td><td>les deux opérandes sont boolean / Boolean</td><td><code>boolean</code> (unboxing si l'un est primitif)</td></tr>
+      <tr><td><b>Numérique</b> §15.25.2</td><td>les deux sont numériques (primitifs ou enveloppes)</td><td>promotion numérique binaire ; cas spécial : une constante int représentable dans byte/short/char garde le type de l'autre</td></tr>
+      <tr><td><b>Référence</b> §15.25.3</td><td>tous les autres cas</td><td>poly-expression avec cible : le type cible ; sinon <code>lub</code> des deux types (§4.10.4)</td></tr>
+    </tbody>
+  </table></div>
+  <div class="trap"><span class="lbl">Pièges classiques</span></div>
+  <div class="code"><div class="bar"><span>Java</span></div><pre><code class="java">Object o = true ? Integer.valueOf(1) : Double.valueOf(2);
+System.out.println(o);           // 1.0 ! numérique : promotion en double, puis boxing en Double
+
+Integer x = null;
+int y = flag ? x : 0;            // NullPointerException si flag : unboxing de x
+Integer z = flag ? x : 0;        // NullPointerException aussi : le conditionnel est numérique (int)
+Integer w = flag ? x : Integer.valueOf(0);   // OK : référence
+
+char c = 'a';
+System.out.println(true ? c : 0);    // "a" : 0 est une constante représentable en char
+System.out.println(true ? c : i);    // "97" si i est une variable int : promotion en int</code></pre></div>
+
+  <h2 id="s15-26"><span class="sec">§15.26</span>Opérateurs d'affectation</h2>
+  <p>Douze opérateurs : <code>=</code> et les composés <code>*= /= %= += -= &lt;&lt;= &gt;&gt;= &gt;&gt;&gt;= &amp;= ^= |=</code>. L'opérande gauche doit être une <b>variable</b>. Le résultat d'une affectation est la valeur affectée, mais ce n'est pas une variable. L'affectation est associative à droite.</p>
+  <h3 id="s15-26-1"><span class="sec">§15.26.1</span>Affectation simple</h3>
+  <p>La valeur est convertie dans un contexte d'affectation (§5.2). Pour un composant de tableau, l'ordre est : tableau, index, côté droit, puis vérification <code>null</code>, bornes et <code>ArrayStoreException</code> (exemple 15.26.1-1).</p>
+  <h3 id="s15-26-2"><span class="sec">§15.26.2</span>Affectations composées</h3>
+  <div class="rule"><span class="lbl">Règle</span>
+    <p><code>E1 op= E2</code> équivaut à <code>E1 = (T) ((E1) op (E2))</code>, où T est le type de E1, sauf que E1 n'est évalué <b>qu'une fois</b>. Le cast implicite permet des rétrécissements silencieux.</p>
+  </div>
+  <div class="code"><div class="bar"><span>Java</span></div><pre><code class="java">short s = 1;
+s += 1.7;          // compile : s = (short) (s + 1.7) = 2
+s = s + 1;         // ERREUR : int vers short sans cast
+
+char c = 'a';
+c += 1;            // 'b'
+int i = 0;
+i += 3.99;         // 3 : rétrécissement silencieux, souvent un bogue
+String t = "a";
+t += 1;            // "a1" : += marche aussi avec une String à gauche</code></pre></div>
+
+  <h2 id="s15-27"><span class="sec">§15.27</span>Expressions lambda</h2>
+  <p>Une lambda <code>(paramètres) -&gt; corps</code> ressemble à une méthode anonyme. Elle n'est permise que là où il y a un <b>type cible</b> fonctionnel : affectation, invocation, cast, ou retour d'une autre lambda. Évaluer une lambda produit une instance d'une interface fonctionnelle, sans exécuter le corps.</p>
+  <h3 id="s15-27-1"><span class="sec">§15.27.1</span>Paramètres</h3>
+  <div class="tbl"><table>
+    <thead><tr><th>Forme</th><th>Exemple</th></tr></thead>
+    <tbody>
+      <tr><td>un identifiant (type inféré)</td><td><code>x -&gt; x * 2</code></td></tr>
+      <tr><td>types inférés</td><td><code>(x, y) -&gt; x + y</code></td></tr>
+      <tr><td>types déclarés</td><td><code>(int x, int y) -&gt; x + y</code></td></tr>
+      <tr><td><code>var</code> (pour annoter)</td><td><code>(@NonNull var x, var y) -&gt; …</code></td></tr>
+      <tr><td>paramètre sans nom</td><td><code>(k, _) -&gt; k</code> (Java 22)</td></tr>
+    </tbody>
+  </table></div>
+  <p>On ne peut pas mélanger les formes (<code>(int x, y)</code> est une erreur). Un paramètre ne peut pas masquer une variable locale de la méthode englobante (§6.4).</p>
+  <h3 id="s15-27-2"><span class="sec">§15.27.2</span>Corps</h3>
+  <p>Une expression ou un bloc. Un corps bloc est <b>compatible void</b> si aucun <code>return</code> n'a de valeur, <b>compatible valeur</b> s'il ne peut pas se terminer normalement et que chaque <code>return</code> a une valeur. Dans le corps :</p>
+  <ul>
+    <li><code>this</code> et <code>super</code> désignent ceux de l'environnement englobant, <b>pas</b> l'objet lambda (contrairement à une classe anonyme) ;</li>
+    <li>les variables locales capturées doivent être <code>final</code> ou effectivement finales ;</li>
+    <li><code>break</code>, <code>continue</code> et <code>yield</code> ne peuvent pas en sortir.</li>
+  </ul>
+  <div class="code"><div class="bar"><span>Java</span></div><pre><code class="java">class Bouton {
+    String nom = "OK";
+    void installer() {
+        Runnable lambda = () -&gt; System.out.println(this.nom);          // this = le Bouton
+        Runnable anonyme = new Runnable() {
+            public void run() { System.out.println(this); }            // this = l'objet anonyme
+        };
+    }
+}
+int total = 0;
+liste.forEach(x -&gt; total += x);       // ERREUR : total n'est pas effectivement final
+int somme = liste.stream().mapToInt(Integer::intValue).sum();   // la bonne façon</code></pre></div>
+  <h3 id="s15-27-3"><span class="sec">§15.27.3</span>Type d'une lambda</h3>
+  <p>Le type d'une lambda est son type cible T, s'il est compatible : même nombre de paramètres que le type de fonction de T (§9.9), types compatibles, corps compatible void ou valeur selon le retour, exceptions vérifiées autorisées. Si T contient des jokers, la spec dérive un <b>type cible de base</b> (ground target type) : à partir des types de paramètres explicites (§18.5.3) ou par le paramétrage sans joker (§9.9).</p>
+  <h3 id="s15-27-4"><span class="sec">§15.27.4</span>Évaluation à l'exécution</h3>
+  <p>L'évaluation produit une référence vers un objet qui implémente l'interface. La spec laisse une grande liberté : ce peut être un <b>nouvel objet</b> ou un objet <b>existant</b> (une lambda sans capture est en pratique un singleton). Ne comptez donc jamais sur l'identité, l'égalité ou le verrou d'une lambda.</p>
+
+  <h2 id="s15-28"><span class="sec">§15.28</span>Switch expressions</h2>
+  <p>Un <code>switch</code> utilisé comme expression produit une valeur. Ses règles <code>-&gt;</code> donnent une expression, un bloc qui se termine par <code>yield</code>, ou un <code>throw</code> ; avec des groupes <code>:</code>, chaque chemin doit finir par <code>yield</code>.</p>
+  <h3 id="s15-28-1"><span class="sec">§15.28.1</span>Le bloc d'une switch expression</h3>
+  <div class="rule"><span class="lbl">Règles</span>
+    <p>Le bloc doit être <b>exhaustif</b> (§14.11.1.1). Il doit produire une valeur sur chaque chemin : pas de chute en fin de bloc, pas de <code>return</code>, <code>break</code> ou <code>continue</code> qui en sortent. Son type suit la même logique que le conditionnel : booléen, numérique, ou référence (poly-expression avec cible).</p>
+  </div>
+  <h3 id="s15-28-2"><span class="sec">§15.28.2</span>Évaluation à l'exécution</h3>
+  <p>Le sélecteur est évalué ; la première étiquette qui s'applique est choisie (§14.11.1.2) ; sa valeur est le résultat. Si aucune ne s'applique (exhaustivité rompue par une compilation séparée), <code>MatchException</code>.</p>
+  <div class="code"><div class="bar"><span>Java</span></div><pre><code class="java">String taille(Object o) {
+    return switch (o) {
+        case null                          -&gt; "rien";
+        case Integer i when i &gt; 1_000      -&gt; "grand entier";
+        case Integer i                     -&gt; "entier";
+        case String s when s.length() &gt; 10 -&gt; "long texte";
+        case String s                      -&gt; "texte";
+        case int[] t                       -&gt; "tableau de " + t.length;
+        default                            -&gt; o.getClass().getSimpleName();
+    };
+}</code></pre></div>
+
+  <h2 id="s15-29"><span class="sec">§15.29</span>Expressions constantes</h2>
+  <p>Une <b>expression constante</b> est une expression de type primitif ou <code>String</code> calculable à la compilation, construite uniquement à partir de :</p>
+  <ul>
+    <li>littéraux de type primitif et de <code>String</code> (pas <code>null</code>) ;</li>
+    <li>casts vers un type primitif ou <code>String</code> ;</li>
+    <li>opérateurs unaires <code>+ - ~ !</code> (pas <code>++</code>/<code>--</code>), multiplicatifs, additifs, décalages, relationnels (pas <code>instanceof</code>), égalités, bit à bit et logiques, <code>&amp;&amp; || ? :</code> ;</li>
+    <li>expressions parenthésées ;</li>
+    <li>noms simples ou qualifiés <code>T.nom</code> de <b>variables constantes</b> (§4.12.4).</li>
+  </ul>
+  <p>Elles servent aux étiquettes <code>case</code>, à l'initialisation des variables constantes, au rétrécissement implicite des affectations (§5.2), à l'analyse de flux (§14.22, ch. 16), et sont recopiées dans le binaire (§13.1). Les chaînes constantes sont internées.</p>
+  <div class="code"><div class="bar"><span>Java</span></div><pre><code class="java">final int A = 2 * 3;                // constante : 6
+final String S = "x" + A;           // constante : "x6", internée
+final int B = Math.max(1, 2);       // PAS constante : appel de méthode
+final Integer C = 5;                // PAS constante : type Integer
+switch (n) { case A -&gt; {} case B -&gt; {} }   // ERREUR sur B : étiquette non constante
+byte b = A;                          // OK : A est constante et 6 tient dans un byte</code></pre></div>
+
+  <h2 id="s15-prec">Récapitulatif : priorité et associativité</h2>
+  <p>La spec n'a pas de table de priorité normative : elle découle de la grammaire (voir la figure 2.2). Voici l'ordre qui en résulte, du plus prioritaire au moins prioritaire :</p>
+  <div class="tbl prec"><table>
+    <thead><tr><th>Niv.</th><th>Opérateurs</th><th>Associativité</th></tr></thead>
+    <tbody>
+      <tr><td>1</td><td>primaires : <code>a.b</code> <code>a[i]</code> <code>f()</code> <code>new</code> <code>::</code> ; postfixes <code>x++ x--</code></td><td>gauche</td></tr>
+      <tr><td>2</td><td>unaires <code>++x --x +x -x ~ !</code>, cast <code>(T)</code>, <code>switch</code></td><td>droite</td></tr>
+      <tr><td>3</td><td><code>* / %</code></td><td>gauche</td></tr>
+      <tr><td>4</td><td><code>+ -</code></td><td>gauche</td></tr>
+      <tr><td>5</td><td><code>&lt;&lt; &gt;&gt; &gt;&gt;&gt;</code></td><td>gauche</td></tr>
+      <tr><td>6</td><td><code>&lt; &gt; &lt;= &gt;= instanceof</code></td><td>non associatif en pratique</td></tr>
+      <tr><td>7</td><td><code>== !=</code></td><td>gauche</td></tr>
+      <tr><td>8</td><td><code>&amp;</code></td><td>gauche</td></tr>
+      <tr><td>9</td><td><code>^</code></td><td>gauche</td></tr>
+      <tr><td>10</td><td><code>|</code></td><td>gauche</td></tr>
+      <tr><td>11</td><td><code>&amp;&amp;</code></td><td>gauche</td></tr>
+      <tr><td>12</td><td><code>||</code></td><td>gauche</td></tr>
+      <tr><td>13</td><td><code>? :</code></td><td>droite</td></tr>
+      <tr><td>14</td><td><code>= += -= *= …</code>, lambda <code>-&gt;</code></td><td>droite</td></tr>
+    </tbody>
+  </table></div>
+
+  <h2 id="s15-quiz">Vérifier ses acquis</h2>
+  <div data-w="quiz"><script type="application/json">[
+    {"q":"<code>int a = 9; a += (a = 3);</code> — que vaut a ?","o":["6","12","3"],"a":1,"e":"La valeur gauche (9) est sauvegardée avant d'évaluer la droite (§15.7.1)."},
+    {"q":"Avec <code>f(long)</code> et <code>f(Integer)</code>, <code>f(5)</code> appelle…","o":["f(Integer)","f(long)","ambigu"],"a":1,"e":"La phase 1 (stricte) trouve f(long) par élargissement ; le boxing n'est tenté qu'en phase 2."},
+    {"q":"Avec <code>f(Integer)</code> et <code>f(Long)</code>, <code>f(null)</code>…","o":["appelle f(Integer)","appelle f(Long)","est ambigu"],"a":2,"e":"Les deux sont applicables, aucun n'est plus spécifique que l'autre (§15.12.2.5)."},
+    {"q":"<code>Object o = true ? Integer.valueOf(1) : Double.valueOf(2);</code> affiche…","o":["1","1.0","Erreur"],"a":1,"e":"Conditionnel numérique : promotion binaire en double (§15.25.2)."},
+    {"q":"Que vaut <code>1 &lt;&lt; 32</code> ?","o":["0","1","4294967296"],"a":1,"e":"La distance est masquée à 5 bits pour un int : 32 &amp; 31 = 0 (§15.19)."},
+    {"q":"Dans une lambda, <code>this</code> désigne…","o":["l'objet lambda","l'instance de la classe englobante","rien, c'est interdit"],"a":1,"e":"Une lambda n'introduit pas de nouveau this (§15.27.2), contrairement à une classe anonyme."},
+    {"q":"<code>Runnable r = obj::run;</code> avec obj null…","o":["NullPointerException à l'appel r.run()","NullPointerException immédiatement","Pas d'erreur"],"a":1,"e":"Le récepteur d'une référence liée est évalué et vérifié à l'évaluation de la référence (§15.13.3)."},
+    {"q":"<code>final int B = Math.max(1, 2);</code> est-il une constante ?","o":["Oui","Non : un appel de méthode n'est jamais constant"],"a":1,"e":"Liste fermée des formes permises au §15.29."},
+    {"q":"<code>short s = 1; s += 1.7;</code>","o":["Erreur de compilation","s vaut 2","s vaut 2.7"],"a":1,"e":"E1 op= E2 contient un cast implicite vers le type de E1 (§15.26.2)."}
+  ]</script></div>
+</div>
+
+<script>
+ATLAS.w.overload = function(el){
+  el.classList.add('ov');
+  const M = [['long','f(long x)'],['double','f(double x)'],['Integer','f(Integer x)'],['Long','f(Long x)'],['Object','f(Object x)'],['Number','f(Number x)'],['int...','f(int... x)'],['Object...','f(Object... x)']];
+  const ARGS = [['int','int (ex. 5)'],['short','short'],['char','char'],['long','long'],['Integer','Integer'],['null','null'],['String','String']];
+  const PRIM = {byte:['short'],short:['int'],char:['int'],int:['long'],long:['float'],float:['double'],double:[]};
+  const REF = {Integer:['Number'],Long:['Number'],Short:['Number'],Character:['Object'],Number:['Object'],String:['Object'],Object:[]};
+  const BOX = {int:'Integer',long:'Long',short:'Short',char:'Character',double:'Double'};
+  const UNB = {Integer:'int',Long:'long',Short:'short',Character:'char'};
+  const isPrim = t=>t in PRIM;
+  function psub(a,b){ if(a===b) return true; return (PRIM[a]||[]).some(x=>psub(x,b)); }
+  function rsub(a,b){ if(a===b||b==='Object') return a!=='null'||true; if(a==='Double') return b==='Number'||b==='Object'; return (REF[a]||[]).some(x=>rsub(x,b)); }
+  function strict(a,p){ if(a==='null') return !isPrim(p); if(isPrim(a)&&isPrim(p)) return psub(a,p); if(!isPrim(a)&&!isPrim(p)) return rsub(a,p); return false; }
+  function loose(a,p){ if(strict(a,p)) return true; if(isPrim(a)&&!isPrim(p)) return rsub(BOX[a],p); if(!isPrim(a)&&isPrim(p)&&UNB[a]) return psub(UNB[a],p); return false; }
+  function moreSpec(p,q){ // p plus spécifique que q ?
+    if(isPrim(p)&&isPrim(q)) return psub(p,q);
+    if(!isPrim(p)&&!isPrim(q)) return rsub(p,q);
+    return false;
+  }
+  el.innerHTML='<div class="grid"><div><fieldset><legend>Méthodes déclarées</legend>'+M.map(([t,s],i)=>'<label class="opt"><input type="checkbox" data-i="'+i+'"'+([0,2,4].includes(i)?' checked':'')+'><span><code>void '+s+'</code></span></label>').join('')+'</fieldset></div><div><fieldset><legend>Argument x de type</legend><div class="btnrow">'+ARGS.map(([a,l])=>'<button type="button" class="btn arg" data-a="'+a+'">'+l+'</button>').join('')+'</div></fieldset><div class="phase"><span>Phase 1 · stricte</span><span>Phase 2 · souple</span><span>Phase 3 · variadique</span></div><div class="verdict" aria-live="polite"></div></div></div>';
+  let arg='int';
+  const out=el.querySelector('.verdict');
+  function run(){
+    el.querySelectorAll('.arg').forEach(b=>b.classList.toggle('on',b.dataset.a===arg));
+    const on=[...el.querySelectorAll('input')].filter(i=>i.checked).map(i=>+i.dataset.i);
+    const vari=on.filter(i=>M[i][0].endsWith('...'));
+    const ptype=i=>M[i][0].endsWith('...')?M[i][0].slice(0,-3)+'[]':M[i][0];   // phases 1-2 : arité fixe, paramètre tableau
+    let phase=0, app=[], notes=[];
+    const p1=on.filter(i=>strict(arg,ptype(i)));
+    if(p1.length){ phase=1; app=p1; }
+    else { const p2=on.filter(i=>loose(arg,ptype(i))); if(p2.length){ phase=2; app=p2; }
+      else { const p3=vari.filter(i=>{ const e=M[i][0].slice(0,-3); return arg==='null' ? true : loose(arg,e); }); if(p3.length){ phase=3; app=p3; } } }
+    el.querySelectorAll('.phase span').forEach((s,j)=>{ s.className = j+1===phase?'hit':(j+1<phase?'miss':''); });
+    if(!phase){ out.className='verdict err'; out.innerHTML='<div class="v">Erreur : aucune méthode applicable</div><p>Aucune des méthodes cochées n\'accepte un argument de type <code>'+arg+'</code>, même avec boxing ou en variadique.</p>'; return; }
+    const key=i=>phase===3?M[i][0].slice(0,-3):ptype(i);
+    const best=app.filter(i=>app.every(j=>j===i||moreSpec(key(i),key(j))));
+    const names=app.map(i=>'<code>'+M[i][1]+'</code>').join(', ');
+    if(arg==='null' && app.some(i=>M[i][0].endsWith('...'))) notes.push('Dans les phases 1 et 2, une méthode variadique est vue avec un paramètre tableau : <code>null</code> y est accepté comme <b>tableau</b> null, pas comme un élément.');
+    if(best.length===1){
+      out.className='verdict ok';
+      out.innerHTML='<div class="v">Appelle '+M[best[0]][1]+'</div><p>Phase '+phase+' : applicables '+names+'. '+(app.length>1?'<code>'+M[best[0]][1]+'</code> est la plus spécifique : son type de paramètre est un sous-type de celui des autres.':'Une seule méthode applicable.')+'</p>'+(phase>1?'<p>Les phases précédentes n\'ont trouvé aucune méthode : '+(phase===2?'il a fallu un boxing ou un unboxing.':'il a fallu passer en arité variable.')+'</p>':'')+notes.map(n=>'<p>'+n+'</p>').join('');
+    } else {
+      out.className='verdict err';
+      out.innerHTML='<div class="v">Erreur : appel ambigu</div><p>Phase '+phase+' : '+names+' sont applicables, et aucune n\'est plus spécifique que toutes les autres. Il faut un cast sur l\'argument pour choisir.</p>';
+    }
+  }
+  el.querySelectorAll('.arg').forEach(b=>b.onclick=()=>{ arg=b.dataset.a; run(); });
+  el.querySelectorAll('input').forEach(i=>i.onchange=run);
+  run();
+};
+</script>

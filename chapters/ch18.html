@@ -1,0 +1,185 @@
+<div class="col">
+  <div class="eyebrow">Chapitre 18 · Java SE 27 Edition</div>
+  <h1>Inférence de types</h1>
+  <p class="lede">Quand vous écrivez <code>List.of(1, 2)</code>, <code>new HashMap&lt;&gt;()</code> ou une lambda sans types, le compilateur doit deviner les types manquants. Ce chapitre décrit l'algorithme : des variables d'inférence, des contraintes réduites en bornes, des bornes combinées, puis résolues.</p>
+  <div class="meta">
+    <span>Source : <a href="https://docs.oracle.com/javase/specs/jls/se27/html/jls-18.html" target="_blank" rel="noopener">JLS SE 27, chapitre 18</a></span>
+    <span>Sections : <b>18.1 à 18.5</b></span>
+  </div>
+
+  <h2 id="s18-0"><span class="sec">§18</span>Vue d'ensemble</h2>
+  <p>L'inférence intervient dans quatre situations : choisir et typer un appel de méthode ou de constructeur générique (y compris le diamant), typer une lambda ou une référence de méthode, comparer deux méthodes génériques lors de la résolution de surcharge, et typer un motif d'enregistrement générique. Le processus a toujours la même forme :</p>
+  <div class="svgwrap"><svg viewBox="0 0 820 120" width="820" role="img" aria-label="Contraintes, réduction, bornes, incorporation, résolution">
+    <g class="d-txt">
+      <rect class="d-box" x="10" y="35" width="140" height="50" rx="8"/><text class="d-b" x="80" y="56" text-anchor="middle">Contraintes</text><text class="d-mut" x="80" y="72" text-anchor="middle">‹e → T›, ‹S &lt;: T›…</text>
+      <rect class="d-acc" x="200" y="35" width="120" height="50" rx="8"/><text class="d-b" x="260" y="56" text-anchor="middle">Réduction</text><text class="d-mut" x="260" y="72" text-anchor="middle">§18.2</text>
+      <rect class="d-box" x="370" y="35" width="130" height="50" rx="8"/><text class="d-b" x="435" y="56" text-anchor="middle">Bornes</text><text class="d-mut" x="435" y="72" text-anchor="middle">α = T, S &lt;: α…</text>
+      <rect class="d-acc" x="550" y="35" width="120" height="50" rx="8"/><text class="d-b" x="610" y="56" text-anchor="middle">Incorporation</text><text class="d-mut" x="610" y="72" text-anchor="middle">§18.3</text>
+      <rect class="d-ok" x="710" y="35" width="100" height="50" rx="8"/><text class="d-b" x="760" y="56" text-anchor="middle">Résolution</text><text class="d-mut" x="760" y="72" text-anchor="middle">§18.4</text>
+    </g>
+    <g class="d-line"><path d="M150,60 H198" marker-end="url(#arr)"/><path d="M320,60 H368" marker-end="url(#arr)"/><path d="M500,60 H548" marker-end="url(#arr)"/><path d="M670,60 H708" marker-end="url(#arr)"/>
+      <path d="M610,35 C610,5 435,5 435,33" marker-end="url(#arr)"/></g>
+    <text class="d-mut" x="522" y="14" text-anchor="middle">de nouvelles contraintes peuvent apparaître</text>
+    <text class="d-mut" x="760" y="108" text-anchor="middle">ou « false » : échec</text>
+  </svg></div>
+
+  <h2 id="s18-1"><span class="sec">§18.1</span>Concepts et notation</h2>
+  <h3 id="s18-1-1"><span class="sec">§18.1.1</span>Variables d'inférence</h3>
+  <p>Les <b>variables d'inférence</b>, notées α, β, γ, sont des inconnues qui représentent les types à déterminer : un par paramètre de type de la méthode appelée. Elles ne sont jamais visibles dans le programme. Un type qui ne mentionne aucune variable d'inférence est dit <b>propre</b>.</p>
+  <h3 id="s18-1-2"><span class="sec">§18.1.2</span>Formules de contraintes</h3>
+  <div class="tbl"><table>
+    <thead><tr><th>Formule</th><th>Signification</th><th>Exemple d'origine</th></tr></thead>
+    <tbody>
+      <tr><td><code>‹Expression → T›</code></td><td>l'expression est compatible avec T dans un contexte d'affectation ou d'invocation souple</td><td>un argument <code>1</code> pour un paramètre α</td></tr>
+      <tr><td><code>‹S → T›</code></td><td>le type S est compatible avec T (souple)</td><td>type de retour vers type cible</td></tr>
+      <tr><td><code>‹S &lt;: T›</code></td><td>S est un sous-type de T</td><td>—</td></tr>
+      <tr><td><code>‹S &lt;= T›</code></td><td>l'argument de type S est contenu dans T (§4.5.1)</td><td>comparer <code>List&lt;α&gt;</code> et <code>List&lt;? extends Number&gt;</code></td></tr>
+      <tr><td><code>‹S = T›</code></td><td>S et T sont le même type</td><td>argument de type sans joker</td></tr>
+      <tr><td><code>‹LambdaExpression →throws T›</code></td><td>les exceptions vérifiées du corps sont compatibles avec la clause throws du type de fonction</td><td>une lambda passée à une méthode <code>throws X</code></td></tr>
+      <tr><td><code>‹MethodReference →throws T›</code></td><td>idem pour une référence de méthode</td><td></td></tr>
+    </tbody>
+  </table></div>
+  <h3 id="s18-1-3"><span class="sec">§18.1.3</span>Bornes</h3>
+  <div class="tbl"><table>
+    <thead><tr><th>Borne</th><th>Sens</th></tr></thead>
+    <tbody>
+      <tr><td><code>α = T</code></td><td>borne d'égalité</td></tr>
+      <tr><td><code>α &lt;: T</code></td><td>borne supérieure (T est « au-dessus »)</td></tr>
+      <tr><td><code>T &lt;: α</code></td><td>borne inférieure</td></tr>
+      <tr><td><code>false</code></td><td>aucune solution : échec de l'inférence</td></tr>
+      <tr><td><code>G&lt;α1,…,αn&gt; = capture(G&lt;A1,…,An&gt;)</code></td><td>les α représentent le résultat d'une conversion par capture</td></tr>
+      <tr><td><code>throws α</code></td><td>α apparaît dans une clause throws ; si possible, on le résoudra en <code>RuntimeException</code></td></tr>
+    </tbody>
+  </table></div>
+  <p>Toute variable d'inférence reçoit au départ la borne <code>α &lt;: B</code> pour chaque borne B déclarée de son paramètre de type (ou <code>α &lt;: Object</code>).</p>
+
+  <h2 id="s18-2"><span class="sec">§18.2</span>Réduction</h2>
+  <p>La réduction transforme chaque formule en bornes plus simples, en nouvelles formules, ou en <code>true</code>/<code>false</code>. Principales règles :</p>
+  <div class="tbl"><table>
+    <thead><tr><th>Section</th><th>Formule</th><th>Réduction (simplifiée)</th></tr></thead>
+    <tbody>
+      <tr><td>§18.2.1</td><td><code>‹e → T›</code>, e autonome</td><td><code>‹type(e) → T›</code></td></tr>
+      <tr><td>§18.2.1</td><td><code>‹e → T›</code>, e est une lambda</td><td>T doit être une interface fonctionnelle ; paramètres et retour du type de fonction donnent de nouvelles formules ; un corps dont les paramètres sont implicites et mentionnent des α peut être <b>reporté</b></td></tr>
+      <tr><td>§18.2.1</td><td><code>‹e → T›</code>, e est un appel générique (poly)</td><td>on réduit l'appel imbriqué et on unit ses bornes : l'inférence traverse les appels imbriqués</td></tr>
+      <tr><td>§18.2.2</td><td><code>‹S → T›</code>, S primitif, T référence</td><td><code>‹box(S) &lt;: T›</code> (boxing)</td></tr>
+      <tr><td>§18.2.2</td><td><code>‹S → T›</code>, S référence, T primitif</td><td><code>‹S → box(T)›</code> puis unboxing</td></tr>
+      <tr><td>§18.2.2</td><td><code>‹S → T›</code> sinon</td><td><code>‹S &lt;: T›</code> (ou <code>true</code> par conversion non vérifiée, avec avertissement)</td></tr>
+      <tr><td>§18.2.3</td><td><code>‹α &lt;: T›</code>, <code>‹S &lt;: α›</code></td><td>la borne correspondante</td></tr>
+      <tr><td>§18.2.3</td><td><code>‹G&lt;A&gt; &lt;: G'&lt;B&gt;›</code></td><td>trouver le supertype <code>G'&lt;A'&gt;</code> de S, puis <code>‹A' &lt;= B›</code> pour chaque argument</td></tr>
+      <tr><td>§18.2.3</td><td><code>‹S &lt;= ? extends T›</code></td><td><code>‹S &lt;: T›</code></td></tr>
+      <tr><td>§18.2.3</td><td><code>‹S &lt;= ? super T›</code></td><td><code>‹T &lt;: S›</code></td></tr>
+      <tr><td>§18.2.3</td><td><code>‹S &lt;= T›</code>, T sans joker</td><td><code>‹S = T›</code></td></tr>
+      <tr><td>§18.2.4</td><td><code>‹S = T›</code></td><td>bornes d'égalité, ou égalités composante par composante</td></tr>
+      <tr><td>§18.2.5</td><td><code>‹λ →throws T›</code></td><td>chaque exception vérifiée du corps doit être sous-type d'une exception permise, ou d'un α (qui reçoit <code>throws α</code>)</td></tr>
+    </tbody>
+  </table></div>
+
+  <h2 id="s18-3"><span class="sec">§18.3</span>Incorporation</h2>
+  <p>Chaque fois qu'une borne est ajoutée, on la combine avec les bornes existantes pour en déduire de nouvelles formules. C'est ce qui propage l'information d'une variable à l'autre, et détecte les contradictions.</p>
+  <h3 id="s18-3-1"><span class="sec">§18.3.1</span>Paires de bornes complémentaires</h3>
+  <div class="tbl"><table>
+    <thead><tr><th>Si l'on a…</th><th>…on en déduit</th></tr></thead>
+    <tbody>
+      <tr><td><code>α = S</code> et <code>α = T</code></td><td><code>‹S = T›</code></td></tr>
+      <tr><td><code>α = S</code> et <code>α &lt;: T</code></td><td><code>‹S &lt;: T›</code></td></tr>
+      <tr><td><code>α = S</code> et <code>T &lt;: α</code></td><td><code>‹T &lt;: S›</code></td></tr>
+      <tr><td><code>S &lt;: α</code> et <code>α &lt;: T</code></td><td><code>‹S &lt;: T›</code> (transitivité)</td></tr>
+      <tr><td><code>α = U</code> et une autre borne qui mentionne α</td><td>la même borne où α est remplacé par U</td></tr>
+      <tr><td><code>α &lt;: G&lt;S&gt;</code> et <code>α &lt;: G&lt;T&gt;</code> (même classe générique)</td><td><code>‹S = T›</code> quand S et T ne sont pas des jokers</td></tr>
+    </tbody>
+  </table></div>
+  <h3 id="s18-3-2"><span class="sec">§18.3.2</span>Bornes impliquant une capture</h3>
+  <p>Une borne <code>G&lt;α1…&gt; = capture(G&lt;A1…&gt;)</code> est combinée avec les autres bornes des αi en tenant compte de la nature de chaque Ai (type, <code>?</code>, <code>? extends</code>, <code>? super</code>). Elle permet, par exemple, d'inférer correctement le type de retour d'une méthode générique appelée sur une <code>List&lt;?&gt;</code>.</p>
+
+  <h2 id="s18-4"><span class="sec">§18.4</span>Résolution</h2>
+  <p>Une fois toutes les contraintes réduites et incorporées, il faut choisir une valeur pour chaque variable. On résout les variables par groupes, dans l'ordre de leurs <b>dépendances</b> (α dépend de β si une borne de α mentionne β). Pour une variable α :</p>
+  <ol>
+    <li>si α a des bornes inférieures propres <code>L1…Lk</code> : <code>α = lub(L1, …, Lk)</code> (§4.10.4) ;</li>
+    <li>sinon, si α a une borne <code>throws α</code> et ses bornes supérieures le permettent : <code>α = RuntimeException</code> ;</li>
+    <li>sinon, avec des bornes supérieures propres <code>U1…Uk</code> : <code>α = glb(U1, …, Uk)</code>, c'est-à-dire leur intersection ;</li>
+    <li>si ces choix produisent <code>false</code> par incorporation, on recommence avec de <b>nouvelles variables de capture</b> (variables de type fraîches dont les bornes sont celles de α).</li>
+  </ol>
+  <p>La préférence pour la borne inférieure explique pourquoi <code>var l = List.of(1, 2)</code> donne <code>List&lt;Integer&gt;</code> plutôt que <code>List&lt;Object&gt;</code>.</p>
+
+  <h2 id="s18-5"><span class="sec">§18.5</span>Usages de l'inférence</h2>
+  <h3 id="s18-5-1"><span class="sec">§18.5.1</span>Inférence d'applicabilité</h3>
+  <p>Pendant la résolution de surcharge (§15.12.2), on vérifie qu'une méthode générique est applicable. On crée les variables α, leurs bornes initiales, puis la formule <code>‹ei → Fi θ›</code> pour chaque argument <b>pertinent pour l'applicabilité</b>. Ne sont <b>pas</b> pertinents : les lambdas à paramètres implicites, les références de méthodes inexactes, et ces mêmes formes imbriquées dans un conditionnel ou un switch. Leur type ne peut pas encore être déterminé ; ils seront traités à l'étape suivante. Si la réduction ne produit pas <code>false</code>, la méthode est applicable.</p>
+  <h3 id="s18-5-2"><span class="sec">§18.5.2</span>Inférence du type de l'invocation</h3>
+  <p>Une fois la méthode choisie, on ajoute ce que l'applicabilité avait laissé de côté : la compatibilité du type de retour avec le <b>type cible</b> (§18.5.2.1, si l'appel est une poly-expression), puis les contraintes des arguments non pertinents, notamment les lambdas implicites (§18.5.2.2). On résout alors les variables : c'est le type final de l'appel.</p>
+  <p>Suivez l'inférence complète de deux appels :</p>
+</div>
+
+<div class="wide">
+  <figure>
+    <p class="fig-title">Figure 18.1 · Inférer E dans <code>List.of(1, 2.5)</code></p>
+    <div data-w="stepper">
+<pre class="src">// dans java.util.List :
+static &lt;E&gt; List&lt;E&gt; of(E e1, E e2)
+
+List&lt;Number&gt; a = List.of(1, 2.5);    // avec type cible
+var b = List.of(1, 2.5);             // sans type cible
+List&lt;Integer&gt; c = List.of(1, 2.5);   // cible incompatible</pre>
+<script type="application/json">[
+ {"t":"Variable d'inférence","d":"<p>Pour le paramètre de type E, on crée une variable α avec sa borne initiale (E n'a pas de borne déclarée).</p>","hl":[2],"p":"<div class=\"state\"><span class=\"new\">α &lt;: Object</span></div>"},
+ {"t":"Applicabilité : phase stricte","d":"<p>Les arguments donnent <code>‹1 → α›</code> et <code>‹2.5 → α›</code>. En invocation <b>stricte</b> (phase 1, §15.12.2.2), un argument primitif ne peut pas aller vers un paramètre de type référence α sans boxing : la méthode n'est pas applicable en phase 1.</p>","hl":[4]},
+ {"t":"Applicabilité : phase souple","d":"<p>En phase 2, <code>‹int → α›</code> se réduit par boxing en <code>‹Integer &lt;: α›</code>, et <code>‹double → α›</code> en <code>‹Double &lt;: α›</code> (§18.2.2). L'incorporation avec <code>α &lt;: Object</code> donne <code>Integer &lt;: Object</code> et <code>Double &lt;: Object</code> : vrai. La méthode est applicable.</p>","hl":[4],"p":"<div class=\"state\"><span>α &lt;: Object</span><span class=\"new\">Integer &lt;: α</span><span class=\"new\">Double &lt;: α</span></div>"},
+ {"t":"Cas a : type cible List<Number>","d":"<p>L'appel est une poly-expression. On ajoute <code>‹List&lt;α&gt; → List&lt;Number&gt;›</code>, qui se réduit en <code>‹List&lt;α&gt; &lt;: List&lt;Number&gt;›</code>, puis <code>‹α &lt;= Number›</code>, puis <code>‹α = Number›</code> (argument sans joker).</p>","hl":[4],"p":"<div class=\"state\"><span>Integer &lt;: α</span><span>Double &lt;: α</span><span class=\"new\">α = Number</span></div>"},
+ {"t":"Incorporation et résolution (a)","d":"<p><code>α = Number</code> avec <code>Integer &lt;: α</code> donne <code>Integer &lt;: Number</code> : vrai. Idem pour Double. La résolution choisit <b>α = Number</b> : l'appel a le type <code>List&lt;Number&gt;</code>.</p>","hl":[4],"p":"<div class=\"state\"><span class=\"new\">E := Number</span></div>"},
+ {"t":"Cas b : pas de type cible","d":"<p>Avec <code>var</code>, aucune contrainte de cible. α n'a que des bornes inférieures : la résolution prend leur <b>lub</b> (§4.10.4). Le résultat est un type intersection, à peu près <code>Number &amp; Comparable&lt;? extends Number &amp; Comparable&lt;?&gt; &amp; Constable &amp; ConstantDesc&gt; &amp; Constable &amp; ConstantDesc</code>.</p>","hl":[5],"p":"<div class=\"state\"><span>Integer &lt;: α</span><span>Double &lt;: α</span><span class=\"new\">α := lub(Integer, Double)</span></div>"},
+ {"t":"Cas c : cible List<Integer>","d":"<p>La cible donne <code>α = Integer</code>. L'incorporation avec <code>Double &lt;: α</code> produit <code>‹Double &lt;: Integer›</code>, qui se réduit en <b>false</b>. L'inférence échoue : javac signale que la variable d'inférence E a des bornes incompatibles (égalité Integer, bornes inférieures Double et Integer).</p>","hl":[6],"p":"<div class=\"state\"><span>Integer &lt;: α</span><span>Double &lt;: α</span><span class=\"new\">α = Integer</span><span class=\"new\">false</span></div>"}
+]</script></div>
+  </figure>
+</div>
+
+<div class="col">
+  <h4 id="s18-5-2-1"><span class="sec">§18.5.2.1</span>Compatibilité d'une invocation poly</h4>
+  <p>Si le type de retour R de la méthode mentionne ses paramètres de type et que l'appel a un type cible T, on ajoute <code>‹R θ → T›</code>. Quelques cas particuliers évitent des inférences absurdes : si R θ est une variable α et que T est un type primitif, on infère d'abord α comme son enveloppe ; si T est un type référence paramétré et que α a une borne de capture, on résout α d'abord.</p>
+  <h4 id="s18-5-2-2"><span class="sec">§18.5.2.2</span>Contraintes supplémentaires sur les arguments</h4>
+  <p>Pour chaque argument non pertinent à l'applicabilité (lambda implicite…), on ajoute <code>‹ei → Fi θ›</code>. Ces contraintes sont traitées dans l'ordre de leurs dépendances : une lambda dont les types de paramètres dépendent de α ne peut être analysée qu'après la résolution de α. C'est ce qui permet l'inférence « de gauche à droite » de :</p>
+  <div class="code"><div class="bar"><span>Java</span></div><pre><code class="java">Map&lt;String, Integer&gt; longueurs =
+    mots.stream().collect(Collectors.toMap(m -&gt; m, m -&gt; m.length()));
+// T de toMap est d'abord résolu à String (depuis Stream&lt;String&gt;) ;
+// puis les lambdas sont typées : m : String ; K := String, U := Integer
+
+Comparator&lt;String&gt; c = Comparator.comparing(s -&gt; s.length());   // OK
+Comparator&lt;String&gt; d = Comparator.comparing(s -&gt; s.length()).reversed();
+// ERREUR : sans type cible pour comparing(...), T est résolu à Object, et s.length() n'existe pas
+Comparator&lt;String&gt; e = Comparator.comparing(String::length).reversed();   // OK : référence exacte</code></pre></div>
+  <div class="trap"><span class="lbl">Pourquoi le dernier exemple échoue</span>
+    <p>Un appel en chaîne <code>a().b()</code> ne transmet pas le type cible de <code>b()</code> à <code>a()</code> : le récepteur d'un appel de méthode n'est jamais une poly-expression. Une lambda implicite y est donc typée sans information. Remèdes : référence de méthode exacte, paramètre de lambda typé <code>(String s) -&gt; …</code>, ou argument de type explicite <code>Comparator.&lt;String, Integer&gt;comparing(…)</code>.</p>
+  </div>
+
+  <h3 id="s18-5-3"><span class="sec">§18.5.3</span>Inférence du paramétrage d'une interface fonctionnelle</h3>
+  <p>Quand une lambda à paramètres <b>explicites</b> cible un type avec jokers, comme <code>Function&lt;? super Integer, ?&gt;</code>, on infère le paramétrage à partir des types déclarés : <code>(Integer i) -&gt; …</code> fixe le premier argument de type à Integer.</p>
+  <h3 id="s18-5-4"><span class="sec">§18.5.4</span>Inférence de la méthode la plus spécifique</h3>
+  <p>Pour comparer deux méthodes génériques m1 et m2 lors de la résolution de surcharge (§15.12.2.5), on se demande si m2 pourrait accepter les paramètres de m1 : on crée des variables d'inférence pour les paramètres de type de m2 et on résout les contraintes <code>‹Si &lt;: Ti›</code>. Les arguments lambda font l'objet de règles spécifiques (comparaison des types de retour des types de fonction).</p>
+  <h3 id="s18-5-5"><span class="sec">§18.5.5</span>Inférence de type d'un motif d'enregistrement</h3>
+  <p>Dans <code>o instanceof Boite(var x)</code> où <code>Boite</code> est un record générique, les arguments de type de <code>Boite</code> ne sont pas écrits : on les infère à partir du type de <code>o</code>. Si <code>o</code> est de type <code>Boite&lt;String&gt;</code>, le motif est <code>Boite&lt;String&gt;</code> et <code>x</code> est un <code>String</code>. Si <code>o</code> est un <code>Object</code>, on obtient un paramétrage avec joker, et <code>x</code> a pour type la borne supérieure : <code>Object</code>.</p>
+  <div class="code"><div class="bar"><span>Java · exemple 18.5.5-1 reformulé</span></div><pre><code class="java">record Boite&lt;T&gt;(T contenu) { }
+sealed interface Forme permits … { }
+
+static void f(Boite&lt;? extends Forme&gt; b) {
+    if (b instanceof Boite(var x)) {
+        // motif inféré : Boite&lt;CAP#1&gt; ; x : CAP#1, dont la borne est Forme
+        Forme forme = x;                       // OK
+    }
+}</code></pre></div>
+
+  <h2 id="s18-recap">À retenir en pratique</h2>
+  <div class="grid2">
+    <div class="card"><b class="h">Le type cible aide</b>L'inférence regarde où va le résultat : <code>List&lt;Number&gt; l = List.of(1, 2.5)</code> fonctionne, <code>var</code> donnerait une intersection.</div>
+    <div class="card"><b class="h">Les chaînes cassent la cible</b>Dans <code>a().b()</code>, <code>a()</code> n'a pas de cible : tapez les paramètres de lambda ou utilisez une référence de méthode.</div>
+    <div class="card"><b class="h">Bornes inférieures d'abord</b>La résolution préfère la lub des bornes inférieures : <code>Arrays.asList(1, 2)</code> est une <code>List&lt;Integer&gt;</code>.</div>
+    <div class="card"><b class="h">throws X</b>Une variable de type qui n'apparaît que dans <code>throws</code> est résolue en <code>RuntimeException</code> : aucune exception à gérer.</div>
+  </div>
+
+  <h2 id="s18-quiz">Vérifier ses acquis</h2>
+  <div data-w="quiz"><script type="application/json">[
+    {"q":"Que vaut E dans <code>List&lt;Number&gt; l = List.of(1, 2.5);</code> ?","o":["Object","Number","lub(Integer, Double)"],"a":1,"e":"Le type cible ajoute α = Number, compatible avec les bornes inférieures Integer et Double."},
+    {"q":"Pourquoi <code>List&lt;Integer&gt; l = List.of(1, 2.5);</code> échoue-t-il ?","o":["2.5 ne peut pas être boxé","Incorporation : α = Integer et Double &lt;: α donnent Double &lt;: Integer, faux","List.of n'accepte pas deux arguments"],"a":1,"e":"§18.3.1 : la paire de bornes complémentaires produit false."},
+    {"q":"Une lambda à paramètres implicites est-elle pertinente pour l'applicabilité ?","o":["Oui","Non : elle est traitée après le choix de la méthode"],"a":1,"e":"§18.5.1 ; elle est ajoutée au §18.5.2.2."},
+    {"q":"Quand α n'a que des bornes inférieures Integer et String, la résolution donne…","o":["Object","lub(Integer, String)","une erreur"],"a":1,"e":"§18.4 : les bornes inférieures propres sont combinées par lub."},
+    {"q":"<code>Comparator.comparing(s -&gt; s.length()).reversed()</code> ne compile pas parce que…","o":["reversed n'existe pas","le récepteur d'un appel chaîné n'a pas de type cible : T est résolu à Object","les lambdas ne peuvent pas appeler length()"],"a":1,"e":"Seules les poly-expressions reçoivent un type cible ; le récepteur d'un appel n'en est pas une."},
+    {"q":"<code>&lt;X extends Exception&gt; void run(Action&lt;X&gt; a) throws X</code> appelée avec une lambda qui ne lève rien : X vaut…","o":["Exception","RuntimeException","Throwable"],"a":1,"e":"La borne throws α conduit à RuntimeException (§18.4)."}
+  ]</script></div>
+</div>

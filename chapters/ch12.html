@@ -1,0 +1,207 @@
+<div class="col">
+  <div class="eyebrow">Chapitre 12 · Java SE 27 Edition</div>
+  <h1>Exécution</h1>
+  <p class="lede">Ce qui se passe quand un programme tourne : le démarrage de la JVM, le chargement, la liaison et l'initialisation des classes, la création des objets, leur récupération, le déchargement des classes et la fin du programme.</p>
+  <div class="meta">
+    <span>Source : <a href="https://docs.oracle.com/javase/specs/jls/se27/html/jls-12.html" target="_blank" rel="noopener">JLS SE 27, chapitre 12</a></span>
+    <span>Sections : <b>12.1 à 12.8</b></span>
+  </div>
+
+  <h2 id="s12-0"><span class="sec">§12</span>Le cycle de vie d'une classe</h2>
+  <p>Une classe ou interface passe par une suite d'états. La JLS décrit ce qu'elle impose au langage ; la JVMS (ch. 5) précise le reste.</p>
+  <div class="svgwrap"><svg viewBox="0 0 860 210" width="860" role="img" aria-label="États : binaire, chargée, liée, initialisation, initialisée ou erronée, déchargée">
+    <g class="d-txt">
+      <rect class="d-box" x="10" y="70" width="100" height="50" rx="8"/><text class="d-b" x="60" y="92" text-anchor="middle">fichier</text><text class="d-mut" x="60" y="108" text-anchor="middle">.class</text>
+      <rect class="d-acc" x="150" y="70" width="110" height="50" rx="8"/><text class="d-b" x="205" y="92" text-anchor="middle">chargée</text><text class="d-mut" x="205" y="108" text-anchor="middle">§12.2</text>
+      <rect class="d-acc" x="300" y="30" width="160" height="130" rx="8"/><text class="d-b" x="380" y="52" text-anchor="middle">liée §12.3</text>
+      <rect class="d-box" x="315" y="64" width="130" height="24" rx="5"/><text class="d-mut" x="380" y="80" text-anchor="middle">1. vérifiée</text>
+      <rect class="d-box" x="315" y="94" width="130" height="24" rx="5"/><text class="d-mut" x="380" y="110" text-anchor="middle">2. préparée</text>
+      <rect class="d-box d-dash" x="315" y="124" width="130" height="24" rx="5"/><text class="d-mut" x="380" y="140" text-anchor="middle">3. résolue (paresseux)</text>
+      <rect class="d-emb" x="500" y="70" width="130" height="50" rx="8"/><text class="d-b" x="565" y="92" text-anchor="middle">en cours</text><text class="d-mut" x="565" y="108" text-anchor="middle">d'initialisation</text>
+      <rect class="d-ok" x="680" y="20" width="130" height="50" rx="8"/><text class="d-b" x="745" y="42" text-anchor="middle">initialisée</text><text class="d-mut" x="745" y="58" text-anchor="middle">utilisable</text>
+      <rect class="d-vio" x="680" y="120" width="130" height="50" rx="8"/><text class="d-b" x="745" y="142" text-anchor="middle">erronée</text><text class="d-mut" x="745" y="158" text-anchor="middle">NoClassDefFoundError</text>
+    </g>
+    <g class="d-line">
+      <path d="M110,95 H148" marker-end="url(#arr)"/><path d="M260,95 H298" marker-end="url(#arr)"/><path d="M460,95 H498" marker-end="url(#arr)"/>
+      <path d="M630,85 L678,50" marker-end="url(#arr)"/><path d="M630,105 L678,140" marker-end="url(#arr)"/>
+    </g>
+    <text class="d-mut" x="652" y="196" text-anchor="middle">déchargement possible quand le chargeur devient inatteignable (§12.7)</text>
+  </svg></div>
+
+  <h2 id="s12-1"><span class="sec">§12.1</span>Démarrage de la machine virtuelle</h2>
+  <p>La JVM démarre en <b>chargeant</b> une classe initiale, désignée de façon dépendante de l'implémentation (en pratique, sur la ligne de commande : <code>java Test</code>), puis la <b>lie</b>, l'<b>initialise</b>, et appelle sa méthode <code>main</code>.</p>
+  <h3 id="s12-1-1"><span class="sec">§12.1.1</span>Charger la classe initiale</h3>
+  <p>Si la JVM ne trouve pas de représentation binaire de la classe, ou que celle-ci est invalide, elle signale une erreur (<code>ClassNotFoundException</code> rapportée par le lanceur, <code>ClassFormatError</code>, <code>UnsupportedClassVersionError</code> si le fichier vient d'un JDK plus récent).</p>
+  <h3 id="s12-1-2"><span class="sec">§12.1.2</span>Lier : vérifier, préparer, (éventuellement) résoudre</h3>
+  <p>Voir §12.3. La résolution peut être différée : une classe référencée par la classe initiale n'est chargée que lorsqu'elle est réellement utilisée, ce qui permet de démarrer même si une dépendance rarement utilisée manque.</p>
+  <h3 id="s12-1-3"><span class="sec">§12.1.3</span>Initialiser : exécuter les initialiseurs</h3>
+  <p>L'initialisation de la classe initiale exécute ses initialiseurs statiques, après avoir initialisé sa superclasse. Voir §12.4.</p>
+  <h3 id="s12-1-4"><span class="sec">§12.1.4</span>Appeler une méthode main</h3>
+  <p>Depuis Java 25 (JEP 512), la méthode <code>main</code> est plus souple. Une méthode est <b>candidate</b> si elle s'appelle <code>main</code>, n'est pas <code>private</code>, renvoie <code>void</code>, et a soit un seul paramètre <code>String[]</code>, soit aucun paramètre. Elle peut être <code>static</code> ou d'instance, déclarée ou héritée.</p>
+  <div class="tbl"><table>
+    <thead><tr><th>Ordre de préférence</th><th>Forme</th><th>Comment elle est appelée</th></tr></thead>
+    <tbody>
+      <tr><td>1</td><td><code>main(String[] args)</code> (static ou d'instance)</td><td>avec les arguments de la ligne de commande</td></tr>
+      <tr><td>2</td><td><code>main()</code> (static ou d'instance)</td><td>sans argument</td></tr>
+    </tbody>
+  </table></div>
+  <p>Si la méthode choisie est d'instance, la classe doit avoir un constructeur non privé sans paramètre ; le lanceur crée une instance puis appelle <code>main</code> dessus.</p>
+  <div class="code"><div class="bar"><span>Java · formes lançables</span></div><pre><code class="java">public static void main(String[] args) { }   // forme classique, toujours valide
+static void main() { }                         // static sans paramètre
+void main(String[] args) { }                   // d'instance
+void main() { }                                // d'instance, sans paramètre (unités compactes)
+private static void main(String[] a) { }       // non candidate : private</code></pre></div>
+
+  <h2 id="s12-2"><span class="sec">§12.2</span>Chargement des classes et interfaces</h2>
+  <p>Le <b>chargement</b> trouve la représentation binaire d'une classe à partir de son nom (dans un fichier, un JAR, une image de modules, ou même calculée à la volée) et construit l'objet <code>Class</code> qui la représente.</p>
+  <h3 id="s12-2-1"><span class="sec">§12.2.1</span>Le processus de chargement</h3>
+  <p>Il est réalisé par des <b>chargeurs de classes</b> (<code>ClassLoader</code>). Ceux de la plateforme forment une hiérarchie : chargeur d'amorçage (<i>bootstrap</i>, pour <code>java.base</code>), chargeur de plateforme, chargeur d'application. Par convention, un chargeur <b>délègue</b> d'abord à son parent avant de chercher lui-même. Une classe est identifiée à l'exécution par son nom binaire <b>et</b> son chargeur définissant.</p>
+  <div class="tbl"><table>
+    <thead><tr><th>Erreur de chargement</th><th>Cause</th></tr></thead>
+    <tbody>
+      <tr><td><code>ClassFormatError</code></td><td>binaire mal formé</td></tr>
+      <tr><td><code>UnsupportedClassVersionError</code></td><td>version de fichier non prise en charge (classe compilée pour un JDK plus récent, ou avec des previews d'une autre version)</td></tr>
+      <tr><td><code>ClassCircularityError</code></td><td>la classe serait sa propre superclasse</td></tr>
+      <tr><td><code>NoClassDefFoundError</code></td><td>aucune définition trouvée pour une classe requise</td></tr>
+    </tbody>
+  </table></div>
+  <h3 id="s12-2-2"><span class="sec">§12.2.2</span>Cohérence des chargeurs</h3>
+  <p>Avec plusieurs chargeurs, le même nom peut désigner deux classes différentes. La JVM impose des <b>contraintes de chargement</b> (JVMS §5.3.4) pour qu'une méthode ne puisse pas recevoir, sous un même nom de type, des objets de deux classes distinctes : la sûreté du typage est préservée même entre chargeurs. Une violation produit une <code>LinkageError</code>.</p>
+
+  <h2 id="s12-3"><span class="sec">§12.3</span>Liaison des classes et interfaces</h2>
+  <p>La liaison intègre la forme binaire dans l'état d'exécution de la JVM. Elle comporte trois activités ; la spec laisse à l'implémentation le choix du moment (immédiat ou paresseux), à condition que les erreurs soient signalées au point d'utilisation qui les déclenche.</p>
+  <h3 id="s12-3-1"><span class="sec">§12.3.1</span>Vérification de la représentation binaire</h3>
+  <p>Le vérificateur s'assure que le bytecode est bien formé et sûr : types cohérents dans la pile d'opérandes, sauts vers des instructions valides, pas d'accès à des variables non initialisées, appels de méthodes avec les bons arguments. Il ne fait <b>pas confiance</b> au compilateur. Un échec lève <code>VerifyError</code>.</p>
+  <h3 id="s12-3-2"><span class="sec">§12.3.2</span>Préparation</h3>
+  <p>Les champs statiques sont créés et mis à leur <b>valeur par défaut</b> (0, <code>false</code>, <code>null</code>). Aucun code Java n'est exécuté pendant la préparation : les initialiseurs viennent plus tard, à l'initialisation.</p>
+  <h3 id="s12-3-3"><span class="sec">§12.3.3</span>Résolution des références symboliques</h3>
+  <p>Le binaire désigne les autres classes, champs et méthodes par des <b>références symboliques</b> (des noms). La résolution les remplace par des références directes, en chargeant les classes nécessaires. Les erreurs possibles sont des sous-classes de <code>IncompatibleClassChangeError</code> : <code>IllegalAccessError</code>, <code>InstantiationError</code>, <code>NoSuchFieldError</code>, <code>NoSuchMethodError</code>, <code>AbstractMethodError</code>. Elles apparaissent typiquement quand une bibliothèque a changé sans recompilation des clients (ch. 13).</p>
+
+  <h2 id="s12-4"><span class="sec">§12.4</span>Initialisation des classes et interfaces</h2>
+  <p>Initialiser une classe, c'est exécuter ses initialiseurs statiques et les initialiseurs de ses champs statiques. Pour une interface, les initialiseurs de ses champs. L'initialisation est <b>paresseuse</b> : elle a lieu au premier usage actif, une seule fois.</p>
+  <h3 id="s12-4-1"><span class="sec">§12.4.1</span>Quand l'initialisation a lieu</h3>
+  <div class="rule"><span class="lbl">Règle · les déclencheurs</span>
+    <p>Une classe ou interface T est initialisée juste avant la première occurrence de :</p>
+    <ul style="margin:0">
+      <li>la création d'une instance de T (si T est une classe) ;</li>
+      <li>l'appel d'une méthode <code>static</code> <b>déclarée</b> par T ;</li>
+      <li>l'affectation d'un champ <code>static</code> déclaré par T ;</li>
+      <li>l'utilisation d'un champ <code>static</code> déclaré par T qui n'est <b>pas une variable constante</b> (§4.12.4).</li>
+    </ul>
+    <p>Initialiser une classe initialise d'abord sa superclasse (et les superinterfaces qui déclarent des méthodes default). Certaines méthodes de réflexion (<code>Class.forName</code>) déclenchent aussi l'initialisation.</p>
+  </div>
+</div>
+
+<div class="wide">
+  <figure>
+    <p class="fig-title">Figure 12.1 · Cette ligne initialise-t-elle la classe ?</p>
+    <p class="fig-hint">Contexte : <code>class Config { static final int MAX = 10; static final String NOM = "app"; static final long DEBUT = System.nanoTime(); static int compteur; static { IO.println("init Config"); } static void f() {} }</code> et <code>class Sous extends Config { static { IO.println("init Sous"); } }</code></p>
+    <div data-w="explorer"><script type="application/json">{"items":[
+      {"k":"int m = Config.MAX;","sub":"variable constante","d":"<p><span class=\"pill r\">non</span> MAX est une variable constante : sa valeur 10 est <b>recopiée</b> dans le code client à la compilation. La classe Config n'est même pas chargée par cette ligne.</p>"},
+      {"k":"String n = Config.NOM;","sub":"String constante","d":"<p><span class=\"pill r\">non</span> Même règle : String initialisée par une expression constante.</p>"},
+      {"k":"long d = Config.DEBUT;","sub":"final mais pas constante","d":"<p><span class=\"pill o\">oui</span> DEBUT est final mais son initialiseur n'est pas une expression constante : la lire initialise Config. Affiche « init Config ».</p>"},
+      {"k":"Config.compteur++;","sub":"champ static","d":"<p><span class=\"pill o\">oui</span> Lecture et affectation d'un champ static non constant.</p>"},
+      {"k":"Sous.compteur = 3;","sub":"champ hérité via une sous-classe","d":"<p><span class=\"pill e\">seulement Config</span> Le champ est <b>déclaré</b> par Config : seule Config est initialisée. « init Sous » n'est pas affiché (exemple 12.4.1-2 de la spec).</p>"},
+      {"k":"Sous.f();","sub":"méthode static héritée","d":"<p><span class=\"pill e\">seulement Config</span> La méthode est déclarée par Config.</p>"},
+      {"k":"new Sous();","sub":"création d'instance","d":"<p><span class=\"pill o\">oui, les deux</span> Config d'abord (superclasse), puis Sous : « init Config », « init Sous ».</p>"},
+      {"k":"Config[] t = new Config[5];","sub":"tableau","d":"<p><span class=\"pill r\">non</span> Créer un tableau de Config ne crée aucun objet Config.</p>"},
+      {"k":"Class<?> c = Config.class;","sub":"littéral de classe","d":"<p><span class=\"pill r\">non</span> Le littéral charge la classe mais ne l'initialise pas. <code>Class.forName(\"Config\")</code>, lui, initialise.</p>"},
+      {"k":"Object o = (Config) null;","sub":"cast","d":"<p><span class=\"pill r\">non</span> Un cast ou un instanceof ne déclenche pas l'initialisation.</p>"}
+    ]}</script></div>
+  </figure>
+</div>
+
+<div class="col">
+  <div class="code"><div class="bar"><span>Java · l'idiome du détenteur paresseux</span></div><pre><code class="java">class Ressource {
+    private Ressource() { /* coûteux */ }
+    private static class Detenteur {            // pas initialisée tant qu'on ne la touche pas
+        static final Ressource INSTANCE = new Ressource();
+    }
+    static Ressource get() { return Detenteur.INSTANCE; }  // 1er appel : initialise Detenteur, une seule fois
+}
+// Paresseux ET sûr entre threads : la procédure du §12.4.2 garantit l'exclusion mutuelle.</code></pre></div>
+
+  <h3 id="s12-4-2"><span class="sec">§12.4.2</span>La procédure détaillée d'initialisation</h3>
+  <p>Plusieurs threads peuvent tenter d'initialiser la même classe en même temps, et l'initialisation d'une classe peut en déclencher récursivement d'autres. La spec donne une procédure précise, fondée sur un <b>verrou d'initialisation</b> LC propre à chaque classe C :</p>
+</div>
+
+<div class="wide">
+  <figure>
+    <p class="fig-title">Figure 12.2 · Les étapes de l'initialisation de C</p>
+    <div data-w="stepper"><script type="application/json">[
+     {"t":"1. Prendre le verrou LC","d":"<p>Le thread se synchronise sur le verrou d'initialisation de C. Ce verrou est interne à la JVM, distinct du moniteur de l'objet Class.</p>"},
+     {"t":"2. Un autre thread initialise C ?","d":"<p>Si l'objet Class indique qu'un <b>autre</b> thread est en train d'initialiser C, on relâche LC et on se bloque jusqu'à être notifié, puis on recommence l'étape 1.</p>"},
+     {"t":"3. C'est nous qui initialisons C ?","d":"<p>Si c'est le thread <b>courant</b> qui initialise déjà C, c'est une demande <b>récursive</b> (C utilise C dans ses propres initialiseurs, directement ou via une autre classe). On relâche LC et on termine normalement : le code continue avec une classe <b>partiellement initialisée</b>.</p>"},
+     {"t":"4. Déjà initialisée ?","d":"<p>Si C est déjà complètement initialisée, rien à faire : on relâche LC et on termine. C'est le cas courant, rendu très rapide par la JVM.</p>"},
+     {"t":"5. État erroné ?","d":"<p>Si une tentative précédente a échoué, C est dans un état erroné : on relâche LC et on lève <code>NoClassDefFoundError</code>. Une classe dont l'initialisation a échoué reste inutilisable.</p>"},
+     {"t":"6. Marquer « en cours »","d":"<p>Sinon, on note que C est en cours d'initialisation par le thread courant, on relâche LC, puis on initialise les champs <code>static final</code> qui ont une valeur constante.</p>"},
+     {"t":"7. Initialiser les supertypes","d":"<p>Si C est une classe, on initialise récursivement sa superclasse SC, puis les superinterfaces qui déclarent au moins une méthode default, dans l'ordre. Si cela lève une exception, C est marquée erronée, les threads en attente sont notifiés, et l'exception est propagée.</p>"},
+     {"t":"8. Assertions","d":"<p>On détermine si les assertions sont activées pour C (en interrogeant son chargeur).</p>"},
+     {"t":"9. Exécuter les initialiseurs","d":"<p>Les initialiseurs de champs statiques et les blocs <code>static</code> sont exécutés dans l'<b>ordre textuel</b>, comme un seul bloc.</p>"},
+     {"t":"10. Succès","d":"<p>Si tout se termine normalement : on reprend LC, on marque C comme complètement initialisée, on <b>notifie</b> tous les threads en attente, on relâche LC.</p>"},
+     {"t":"11. Échec : envelopper","d":"<p>Si une exception E a été levée : si E n'est pas une <code>Error</code>, on crée une <code>ExceptionInInitializerError</code> avec E pour cause (ou on utilise <code>OutOfMemoryError</code> si cette création échoue).</p>"},
+     {"t":"12. Échec : marquer erronée","d":"<p>On reprend LC, on marque C erronée, on notifie les threads en attente, on relâche LC et on termine abruptement avec l'exception. Tous les usages suivants de C lèveront <code>NoClassDefFoundError</code>.</p>"}
+    ]</script></div>
+  </figure>
+</div>
+
+<div class="col">
+  <div class="trap"><span class="lbl">Pièges</span>
+    <p><b>Interblocage d'initialisation.</b> Si le thread 1 initialise A, qui touche B, pendant que le thread 2 initialise B, qui touche A, chacun attend l'autre à l'étape 2 : les deux threads sont bloqués pour toujours. Évitez les dépendances circulaires entre initialiseurs statiques.</p>
+    <p><b>Classe partiellement initialisée.</b> L'étape 3 permet à un initialiseur de voir des champs statiques encore à leur valeur par défaut :</p>
+  </div>
+  <div class="code"><div class="bar"><span>Java</span></div><pre><code class="java">class Singleton {
+    static final Singleton INSTANCE = new Singleton();   // s'exécute EN PREMIER
+    static int compteur = 0;                              // s'exécute ensuite : remet à 0 !
+    Singleton() { compteur++; }
+}
+Singleton.compteur;   // 0, pas 1 : l'ordre textuel des initialiseurs compte</code></pre></div>
+
+  <h2 id="s12-5"><span class="sec">§12.5</span>Création de nouvelles instances</h2>
+  <p>Une instance est créée explicitement par <code>new</code>, ou implicitement (chargement d'un littéral chaîne, concaténation, boxing…). La mémoire est allouée pour tous les champs de la classe et de toutes ses superclasses ; s'il n'y en a pas assez, <code>OutOfMemoryError</code>. Tous les champs reçoivent leur valeur par défaut, puis le constructeur indiqué est exécuté selon cette procédure :</p>
+  <ol>
+    <li>Affecter les arguments aux paramètres du constructeur.</li>
+    <li>S'il contient un appel explicite <code>this(…)</code> : exécuter son prologue, puis évaluer les arguments et traiter récursivement l'autre constructeur avec ces cinq étapes ; puis aller à l'étape 5.</li>
+    <li>Sinon (classe autre que <code>Object</code>) : exécuter le <b>prologue</b>, puis l'appel <code>super(…)</code> explicite ou implicite, traité récursivement avec ces cinq étapes.</li>
+    <li>Exécuter les initialiseurs d'instance et les initialiseurs de champs d'instance de cette classe, dans l'ordre textuel.</li>
+    <li>Exécuter le reste du corps (l'<b>épilogue</b>).</li>
+  </ol>
+  <p>La figure 8.2 (§8.8.7) déroule cette procédure pas à pas, y compris l'appel d'une méthode redéfinie depuis le constructeur de la superclasse. Contrairement à C++, la liaison dynamique fonctionne <b>pendant</b> la construction : la méthode de la sous-classe est appelée même si ses champs ne sont pas encore initialisés. L'exemple 12.5-3 de la spec montre comment le prologue (Java 25) permet de les initialiser à temps.</p>
+
+  <h2 id="s12-6"><span class="sec">§12.6</span>Finalisation des instances</h2>
+  <div class="modern"><span class="lbl">Déprécié pour suppression</span>
+    <p>La finalisation (<code>Object.finalize</code>) est dépréciée pour suppression depuis Java 18 (JEP 421), et peut être désactivée avec <code>--finalization=disabled</code>. Elle reste décrite dans la spec, mais pour du code nouveau utilisez try-with-resources ou <code>java.lang.ref.Cleaner</code>.</p>
+  </div>
+  <p>Avant de récupérer un objet dont la classe redéfinit <code>finalize</code>, la JVM appelle ce <b>finaliseur</b>. La spec ne garantit ni <b>quand</b> il est appelé, ni sur quel thread, ni dans quel ordre par rapport aux autres finaliseurs, ni même <b>qu'il</b> sera appelé avant la fin du programme. Il est appelé au plus une fois par objet. Une exception qu'il lève est ignorée.</p>
+  <h3 id="s12-6-1"><span class="sec">§12.6.1</span>Implémentation de la finalisation</h3>
+  <p>La spec définit des états d'atteignabilité (atteignable, atteignable par finaliseur, inatteignable) et de finalisation (non finalisé, finalisable, finalisé). Un finaliseur peut <b>ressusciter</b> un objet en stockant <code>this</code> quelque part ; il ne sera pas rappelé. Une optimisation peut rendre un objet inatteignable plus tôt que le code ne le laisse penser, dès que plus aucun calcul ne l'utilise.</p>
+  <h3 id="s12-6-2"><span class="sec">§12.6.2</span>Interaction avec le modèle mémoire</h3>
+  <p>La fin d'un constructeur <i>happens-before</i> le début du finaliseur de l'objet (§17.4.5) : le finaliseur voit les écritures faites par le constructeur.</p>
+
+  <h2 id="s12-7"><span class="sec">§12.7</span>Déchargement des classes et interfaces</h2>
+  <p>Une classe peut être déchargée <b>si et seulement si</b> son chargeur définissant peut être récupéré par le ramasse-miettes. Les classes du chargeur d'amorçage ne sont jamais déchargées. Le déchargement est invisible pour le programme, sauf par ses effets sur la mémoire : c'est pour ça qu'un serveur d'applications peut redéployer une application en jetant son chargeur.</p>
+
+  <h2 id="s12-8"><span class="sec">§12.8</span>Fin du programme</h2>
+  <p>Un programme se termine quand l'une des situations suivantes se produit :</p>
+  <ul>
+    <li>tous les threads qui ne sont pas des <b>démons</b> (<code>setDaemon(true)</code>) se sont terminés ; les threads démons sont alors arrêtés brutalement ;</li>
+    <li>un thread appelle <code>Runtime.exit</code> (ou <code>System.exit</code>) : les <b>shutdown hooks</b> enregistrés par <code>Runtime.addShutdownHook</code> s'exécutent, puis la JVM s'arrête ;</li>
+    <li><code>Runtime.halt</code> arrête immédiatement, sans hooks.</li>
+  </ul>
+  <div class="code"><div class="bar"><span>Java</span></div><pre><code class="java">Runtime.getRuntime().addShutdownHook(Thread.ofPlatform().unstarted(() -&gt;
+    IO.println("fermeture propre")));          // exécuté sur exit ou Ctrl-C (SIGINT)
+
+Thread t = Thread.ofPlatform().daemon(true).start(() -&gt; { while (true) { } });
+// main se termine : la JVM s'arrête malgré la boucle infinie, car t est un démon</code></pre></div>
+
+  <h2 id="s12-quiz">Vérifier ses acquis</h2>
+  <div data-w="quiz"><script type="application/json">[
+    {"q":"Lire <code>Config.MAX</code> où <code>static final int MAX = 10;</code> initialise-t-il Config ?","o":["Oui","Non : c'est une variable constante recopiée à la compilation","Seulement la première fois"],"a":1,"e":"L'usage d'une variable constante n'est pas un déclencheur (§12.4.1)."},
+    {"q":"<code>Sous.x</code> où x est un champ static déclaré dans la superclasse Base…","o":["initialise Sous et Base","initialise seulement Base","n'initialise rien"],"a":1,"e":"Seule la classe qui déclare le champ est initialisée (exemple 12.4.1-2)."},
+    {"q":"Un initialiseur statique lève une NullPointerException. Que voit l'appelant ?","o":["NullPointerException","ExceptionInInitializerError","Rien"],"a":1,"e":"Étape 11 : une exception qui n'est pas une Error est enveloppée."},
+    {"q":"Et lors d'une tentative suivante d'utiliser la classe ?","o":["Nouvelle tentative d'initialisation","NoClassDefFoundError","ExceptionInInitializerError à nouveau"],"a":1,"e":"La classe est dans un état erroné (étape 5)."},
+    {"q":"Que fait la préparation d'une classe ?","o":["Exécute les blocs static","Crée les champs static avec leur valeur par défaut","Vérifie le bytecode"],"a":1,"e":"Aucun code utilisateur ne s'exécute pendant la préparation (§12.3.2)."},
+    {"q":"Une classe sans <code>main(String[])</code> mais avec un <code>void main()</code> d'instance est-elle lançable en Java 27 ?","o":["Non","Oui, si elle a un constructeur non privé sans paramètre","Seulement dans une unité compacte"],"a":1,"e":"Depuis Java 25, main peut être d'instance et sans paramètre (§12.1.4)."},
+    {"q":"Quand une classe peut-elle être déchargée ?","o":["Quand plus aucune instance n'existe","Quand son chargeur définissant peut être récupéré","Jamais"],"a":1,"e":"§12.7 ; les classes du chargeur d'amorçage ne le sont jamais."}
+  ]</script></div>
+</div>

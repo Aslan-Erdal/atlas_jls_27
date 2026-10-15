@@ -1,0 +1,293 @@
+<style>
+.gb .bar2{display:flex; gap:8px; flex-wrap:wrap; align-items:center; margin-bottom:10px}
+.gb .bar2 input{flex:1 1 220px; min-width:0}
+.gb .cnt{font-family:var(--f-display); font-size:var(--s-1); color:var(--muted)}
+.gb .list{display:flex; flex-direction:column; gap:8px; max-height:640px; overflow-y:auto; padding-right:4px}
+.gb .pr{border:1px solid var(--rule); border-radius:8px; padding:10px 12px; background:var(--sheet); scroll-margin-top:8px}
+.gb .pr.flash{border-color:var(--accent); box-shadow:0 0 0 3px var(--accent-soft)}
+.gb .pr h5{margin:0 0 4px; font-family:var(--f-mono); font-size:.88rem; display:flex; gap:10px; align-items:baseline; flex-wrap:wrap}
+.gb .pr h5 em{font-style:italic; color:var(--accent)}
+.gb .pr h5 small{font-family:var(--f-display); font-weight:500; color:var(--muted); font-size:.75rem}
+.gb .alt{font-family:var(--f-mono); font-size:.8rem; line-height:1.7; padding-left:1.4em; white-space:pre-wrap}
+.gb .nt{font-style:italic; color:var(--accent); cursor:pointer; border-bottom:1px dotted var(--accent); background:none; border-top:none; border-left:none; border-right:none; font:inherit; font-style:italic; padding:0}
+.gb .alt .ntx{font-style:italic; color:var(--muted)}
+.gb .alt .mt{color:var(--violet); font-weight:700}
+.gb .alt .tm{font-weight:700; color:var(--ink)}
+.gb .used{font-family:var(--f-display); font-size:.75rem; color:var(--muted); margin-top:4px}
+.gb .note{font-family:var(--f-display); font-size:.78rem; color:var(--ember); margin-top:2px}
+</style>
+
+<div class="col">
+  <div class="eyebrow">Chapitre 19 · Java SE 27 Edition</div>
+  <h1>Syntaxe</h1>
+  <p class="lede">Le chapitre 19 rassemble toute la grammaire syntaxique présentée dans les chapitres 4 à 15. Cette page en propose un explorateur : les productions essentielles, classées par domaine, reliées entre elles, avec un renvoi vers la section qui en donne le sens.</p>
+  <div class="meta">
+    <span>Source : <a href="https://docs.oracle.com/javase/specs/jls/se27/html/jls-19.html" target="_blank" rel="noopener">JLS SE 27, chapitre 19</a></span>
+  </div>
+
+  <h2 id="s19-0"><span class="sec">§19</span>Lire la grammaire complète</h2>
+  <p>La grammaire du chapitre 19 utilise la notation du §2.4 : une production par non terminal, alternatives sur des lignes séparées, <code>{x}</code> pour zéro ou plusieurs, <code>[x]</code> pour optionnel, <code>(one of)</code> pour une liste de terminaux. Le symbole but est <i>CompilationUnit</i>.</p>
+  <div class="rule"><span class="lbl">À garder en tête</span>
+    <p>Cette grammaire décrit l'ensemble des programmes <b>syntaxiquement</b> acceptables, avant toute règle de typage. Elle n'est pas conçue pour un analyseur particulier, et quelques distinctions ne sont pas faites par la grammaire seule (contextes de type pour <code>&gt;&gt;</code>, mots-clés contextuels, noms ambigus du §6.5).</p>
+  </div>
+  <p>Comment l'utiliser efficacement :</p>
+  <ul>
+    <li>Partez d'une construction que vous connaissez (une boucle, une lambda) et remontez les liens pour voir où elle peut apparaître (« utilisée par »).</li>
+    <li>Descendez dans un non terminal inconnu pour voir sa forme, puis ouvrez la section indiquée pour sa sémantique.</li>
+    <li>Les préfixes <i>Unann</i> (UnannType, UnannClassType…) désignent un type sans annotations en tête : les annotations qui précèdent sont alors des modificateurs de la déclaration.</li>
+  </ul>
+</div>
+
+<div class="wide">
+  <figure>
+    <p class="fig-title">Figure 19.1 · Explorateur de la grammaire</p>
+    <p class="fig-hint">Cherchez un non terminal ou un mot-clé (ex. <code>yield</code>, <code>Lambda</code>, <code>permits</code>). Cliquez un non terminal souligné pour sauter à sa définition. Les productions sont reformulées et parfois simplifiées ; la mention en orange l'indique.</p>
+    <div data-w="grammar"></div>
+  </figure>
+</div>
+
+<div class="col">
+  <h2 id="s19-art">Les grandes articulations</h2>
+  <div class="tbl"><table>
+    <thead><tr><th>Domaine</th><th>Point d'entrée</th><th>Chapitre</th></tr></thead>
+    <tbody>
+      <tr><td>Programme</td><td><i>CompilationUnit</i></td><td>ch. 7</td></tr>
+      <tr><td>Types</td><td><i>Type</i>, <i>TypeArguments</i>, <i>TypeParameter</i></td><td>ch. 4</td></tr>
+      <tr><td>Classes, enums, records</td><td><i>ClassDeclaration</i></td><td>ch. 8</td></tr>
+      <tr><td>Interfaces, annotations</td><td><i>InterfaceDeclaration</i>, <i>Annotation</i></td><td>ch. 9</td></tr>
+      <tr><td>Tableaux</td><td><i>ArrayInitializer</i>, <i>ArrayCreationExpression</i></td><td>ch. 10, ch. 15</td></tr>
+      <tr><td>Instructions</td><td><i>Block</i>, <i>Statement</i></td><td>ch. 14</td></tr>
+      <tr><td>Motifs</td><td><i>Pattern</i></td><td>§14.30</td></tr>
+      <tr><td>Expressions</td><td><i>Expression</i></td><td>ch. 15</td></tr>
+    </tbody>
+  </table></div>
+
+  <h2 id="s19-rev">Ce que la grammaire révèle</h2>
+  <div class="grid2">
+    <div class="card"><b class="h">Le else pendant</b><i>IfThenElseStatement</i> exige un <i>StatementNoShortIf</i> avant le <code>else</code> : un <code>if</code> sans <code>else</code> ne peut pas s'y trouver, donc le <code>else</code> va au <code>if</code> le plus proche.</div>
+    <div class="card"><b class="h">Un switch, deux formes</b><i>SwitchBlock</i> a deux alternatives exclusives : que des <i>SwitchRule</i> (<code>-&gt;</code>), ou que des groupes (<code>:</code>). Impossible de mélanger.</div>
+    <div class="card"><b class="h">Le prologue des constructeurs</b><i>ConstructorBody</i> permet des <i>BlockStatements</i> <b>avant</b> l'<i>ExplicitConstructorInvocation</i> (Java 25).</div>
+    <div class="card"><b class="h">Priorité des opérateurs</b>La chaîne <i>ConditionalOrExpression</i> → … → <i>UnaryExpression</i> encode toute la table de priorité (figure 2.2).</div>
+    <div class="card"><b class="h">Lambdas partout ?</b>Une <i>LambdaExpression</i> n'est qu'une alternative de <i>Expression</i> et de la dernière branche de <i>ConditionalExpression</i> ou d'un cast : jamais opérande d'un <code>+</code>.</div>
+    <div class="card"><b class="h">Unités compactes</b><i>CompactCompilationUnit</i> accepte des champs et méthodes au niveau le plus haut, à condition qu'il y ait au moins une méthode.</div>
+  </div>
+
+  <h2 id="s19-quiz">Vérifier ses acquis</h2>
+  <div data-w="quiz"><script type="application/json">[
+    {"q":"Quel est le symbole but de la grammaire syntaxique ?","o":["Program","CompilationUnit","ClassDeclaration"],"a":1,"e":"§7.3 et ch. 19."},
+    {"q":"Que signifie le préfixe <i>Unann</i> dans UnannType ?","o":["Type inconnu","Type sans annotation en tête","Type non générique"],"a":1,"e":"Les annotations qui précèdent sont alors analysées comme modificateurs de la déclaration."},
+    {"q":"Peut-on mélanger <code>case X -&gt;</code> et <code>case Y:</code> dans un même switch ?","o":["Oui","Non : SwitchBlock a deux formes exclusives"],"a":1,"e":"Voir SwitchBlock dans l'explorateur."},
+    {"q":"Une lambda peut-elle être l'opérande droit d'un <code>+</code> ?","o":["Oui","Non : la grammaire ne le permet pas"],"a":1,"e":"LambdaExpression n'apparaît que comme Expression complète, dernière branche d'un conditionnel ou opérande d'un cast."},
+    {"q":"Où la grammaire place-t-elle <code>yield</code> ?","o":["Comme une expression","Comme une instruction YieldStatement","Comme un modificateur"],"a":1,"e":"YieldStatement : yield Expression ;"}
+  ]</script></div>
+</div>
+
+<script>
+ATLAS.w.grammar = function(el){
+  const G = [
+    // [nom, catégorie, section, alternatives (séparées par \n), simplifié?]
+    ['CompilationUnit','Programme','7.3','OrdinaryCompilationUnit\nCompactCompilationUnit\nModularCompilationUnit'],
+    ['OrdinaryCompilationUnit','Programme','7.3','[PackageDeclaration] {ImportDeclaration} {TopLevelClassOrInterfaceDeclaration}'],
+    ['CompactCompilationUnit','Programme','7.3','{ImportDeclaration} {ClassMemberDeclaration} MethodDeclaration {ClassMemberDeclaration}',1],
+    ['ModularCompilationUnit','Programme','7.3','{ImportDeclaration} ModuleDeclaration'],
+    ['PackageDeclaration','Programme','7.4','{PackageModifier} package Identifier {. Identifier} ;'],
+    ['ImportDeclaration','Programme','7.5','SingleTypeImportDeclaration\nTypeImportOnDemandDeclaration\nSingleStaticImportDeclaration\nStaticImportOnDemandDeclaration\nSingleModuleImportDeclaration'],
+    ['SingleTypeImportDeclaration','Programme','7.5.1','import TypeName ;'],
+    ['TypeImportOnDemandDeclaration','Programme','7.5.2','import PackageOrTypeName . * ;'],
+    ['SingleStaticImportDeclaration','Programme','7.5.3','import static TypeName . Identifier ;'],
+    ['StaticImportOnDemandDeclaration','Programme','7.5.4','import static TypeName . * ;'],
+    ['SingleModuleImportDeclaration','Programme','7.5.5','import module ModuleName ;'],
+    ['TopLevelClassOrInterfaceDeclaration','Programme','7.6','ClassDeclaration\nInterfaceDeclaration\n;'],
+    ['ModuleDeclaration','Programme','7.7','{Annotation} [open] module Identifier {. Identifier} { {ModuleDirective} }'],
+    ['ModuleDirective','Programme','7.7','requires {RequiresModifier} ModuleName ;\nexports PackageName [to ModuleName {, ModuleName}] ;\nopens PackageName [to ModuleName {, ModuleName}] ;\nuses TypeName ;\nprovides TypeName with TypeName {, TypeName} ;'],
+    ['RequiresModifier','Programme','7.7.1','(one of) transitive static'],
+
+    ['Type','Types','4.1','PrimitiveType\nReferenceType'],
+    ['PrimitiveType','Types','4.2','{Annotation} NumericType\n{Annotation} boolean'],
+    ['NumericType','Types','4.2','IntegralType\nFloatingPointType'],
+    ['IntegralType','Types','4.2.1','(one of) byte short int long char'],
+    ['FloatingPointType','Types','4.2.3','(one of) float double'],
+    ['ReferenceType','Types','4.3','ClassOrInterfaceType\nTypeVariable\nArrayType'],
+    ['ClassType','Types','4.3','{Annotation} TypeIdentifier [TypeArguments]\nPackageName . {Annotation} TypeIdentifier [TypeArguments]\nClassOrInterfaceType . {Annotation} TypeIdentifier [TypeArguments]'],
+    ['ArrayType','Types','4.3','PrimitiveType Dims\nClassOrInterfaceType Dims\nTypeVariable Dims'],
+    ['Dims','Types','4.3','{Annotation} [ ] {{Annotation} [ ]}'],
+    ['TypeParameter','Types','4.4','{TypeParameterModifier} TypeIdentifier [TypeBound]'],
+    ['TypeBound','Types','4.4','extends TypeVariable\nextends ClassOrInterfaceType {AdditionalBound}'],
+    ['AdditionalBound','Types','4.4','& InterfaceType'],
+    ['TypeArguments','Types','4.5.1','< TypeArgument {, TypeArgument} >'],
+    ['TypeArgument','Types','4.5.1','ReferenceType\nWildcard'],
+    ['Wildcard','Types','4.5.1','{Annotation} ? [WildcardBounds]'],
+    ['WildcardBounds','Types','4.5.1','extends ReferenceType\nsuper ReferenceType'],
+
+    ['ClassDeclaration','Classes','8.1','NormalClassDeclaration\nEnumDeclaration\nRecordDeclaration'],
+    ['NormalClassDeclaration','Classes','8.1','{ClassModifier} class TypeIdentifier [TypeParameters]\n    [ClassExtends] [ClassImplements] [ClassPermits] ClassBody'],
+    ['ClassModifier','Classes','8.1.1','(one of) Annotation public protected private abstract static final sealed non-sealed strictfp'],
+    ['ClassExtends','Classes','8.1.4','extends ClassType'],
+    ['ClassImplements','Classes','8.1.5','implements InterfaceType {, InterfaceType}'],
+    ['ClassPermits','Classes','8.1.6','permits TypeName {, TypeName}'],
+    ['ClassBody','Classes','8.1.7','{ {ClassBodyDeclaration} }'],
+    ['ClassBodyDeclaration','Classes','8.1.7','ClassMemberDeclaration\nInstanceInitializer\nStaticInitializer\nConstructorDeclaration'],
+    ['ClassMemberDeclaration','Classes','8.2','FieldDeclaration\nMethodDeclaration\nClassDeclaration\nInterfaceDeclaration\n;'],
+    ['FieldDeclaration','Classes','8.3','{FieldModifier} UnannType VariableDeclaratorList ;'],
+    ['VariableDeclarator','Classes','8.3','VariableDeclaratorId [= VariableInitializer]'],
+    ['VariableInitializer','Classes','8.3','Expression\nArrayInitializer'],
+    ['MethodDeclaration','Classes','8.4','{MethodModifier} MethodHeader MethodBody'],
+    ['MethodHeader','Classes','8.4','Result MethodDeclarator [Throws]\nTypeParameters {Annotation} Result MethodDeclarator [Throws]'],
+    ['Result','Classes','8.4.5','UnannType\nvoid'],
+    ['MethodDeclarator','Classes','8.4','Identifier ( [ReceiverParameter ,] [FormalParameterList] ) [Dims]'],
+    ['FormalParameter','Classes','8.4.1','{VariableModifier} UnannType VariableDeclaratorId\nVariableArityParameter'],
+    ['VariableArityParameter','Classes','8.4.1','{VariableModifier} UnannType {Annotation} ... Identifier'],
+    ['Throws','Classes','8.4.6','throws ExceptionType {, ExceptionType}'],
+    ['MethodBody','Classes','8.4.7','Block\n;'],
+    ['InstanceInitializer','Classes','8.6','Block'],
+    ['StaticInitializer','Classes','8.7','static Block'],
+    ['ConstructorDeclaration','Classes','8.8','{ConstructorModifier} ConstructorDeclarator [Throws] ConstructorBody'],
+    ['ConstructorBody','Classes','8.8.7','{ [BlockStatements] }\n{ [BlockStatements] ExplicitConstructorInvocation [BlockStatements] }'],
+    ['ExplicitConstructorInvocation','Classes','8.8.7.1','[TypeArguments] this ( [ArgumentList] ) ;\n[TypeArguments] super ( [ArgumentList] ) ;\nExpressionName . [TypeArguments] super ( [ArgumentList] ) ;\nPrimary . [TypeArguments] super ( [ArgumentList] ) ;'],
+    ['EnumDeclaration','Classes','8.9','{ClassModifier} enum TypeIdentifier [ClassImplements] EnumBody'],
+    ['EnumBody','Classes','8.9','{ [EnumConstantList] [,] [EnumBodyDeclarations] }'],
+    ['EnumConstant','Classes','8.9.1','{EnumConstantModifier} Identifier [( [ArgumentList] )] [ClassBody]'],
+    ['EnumBodyDeclarations','Classes','8.9.2','; {ClassBodyDeclaration}'],
+    ['RecordDeclaration','Classes','8.10','{ClassModifier} record TypeIdentifier [TypeParameters]\n    RecordHeader [ClassImplements] RecordBody'],
+    ['RecordHeader','Classes','8.10.1','( [RecordComponentList] )'],
+    ['RecordComponent','Classes','8.10.1','{RecordComponentModifier} UnannType Identifier\nVariableArityRecordComponent'],
+    ['RecordBody','Classes','8.10.2','{ {RecordBodyDeclaration} }'],
+    ['RecordBodyDeclaration','Classes','8.10.2','ClassBodyDeclaration\nCompactConstructorDeclaration'],
+    ['CompactConstructorDeclaration','Classes','8.10.4.2','{ConstructorModifier} SimpleTypeName ConstructorBody'],
+
+    ['InterfaceDeclaration','Interfaces','9.1','NormalInterfaceDeclaration\nAnnotationInterfaceDeclaration'],
+    ['NormalInterfaceDeclaration','Interfaces','9.1','{InterfaceModifier} interface TypeIdentifier [TypeParameters]\n    [InterfaceExtends] [InterfacePermits] InterfaceBody'],
+    ['InterfaceModifier','Interfaces','9.1.1','(one of) Annotation public protected private abstract static sealed non-sealed strictfp'],
+    ['InterfaceExtends','Interfaces','9.1.3','extends InterfaceType {, InterfaceType}'],
+    ['InterfaceBody','Interfaces','9.1.5','{ {InterfaceMemberDeclaration} }'],
+    ['InterfaceMemberDeclaration','Interfaces','9.1.5','ConstantDeclaration\nInterfaceMethodDeclaration\nClassDeclaration\nInterfaceDeclaration\n;'],
+    ['InterfaceMethodModifier','Interfaces','9.4','(one of) Annotation public private abstract default static strictfp'],
+    ['AnnotationInterfaceDeclaration','Interfaces','9.6','{InterfaceModifier} @ interface TypeIdentifier AnnotationInterfaceBody'],
+    ['AnnotationInterfaceElementDeclaration','Interfaces','9.6.1','{AnnotationInterfaceElementModifier} UnannType Identifier ( ) [Dims] [DefaultValue] ;'],
+    ['DefaultValue','Interfaces','9.6.2','default ElementValue'],
+    ['Annotation','Interfaces','9.7','NormalAnnotation\nMarkerAnnotation\nSingleElementAnnotation'],
+    ['NormalAnnotation','Interfaces','9.7.1','@ TypeName ( [ElementValuePairList] )'],
+    ['MarkerAnnotation','Interfaces','9.7.2','@ TypeName'],
+    ['SingleElementAnnotation','Interfaces','9.7.3','@ TypeName ( ElementValue )'],
+
+    ['ArrayInitializer','Tableaux','10.6','{ [VariableInitializerList] [,] }'],
+    ['ArrayCreationExpression','Tableaux','15.10.1','new PrimitiveType DimExprs [Dims]\nnew ClassOrInterfaceType DimExprs [Dims]\nnew PrimitiveType Dims ArrayInitializer\nnew ClassOrInterfaceType Dims ArrayInitializer'],
+    ['DimExpr','Tableaux','15.10.1','{Annotation} [ Expression ]'],
+    ['ArrayAccess','Tableaux','15.10.3','ExpressionName [ Expression ]\nPrimaryNoNewArray [ Expression ]\nArrayCreationExpressionWithInitializer [ Expression ]'],
+
+    ['Block','Instructions','14.2','{ [BlockStatements] }'],
+    ['BlockStatements','Instructions','14.2','BlockStatement {BlockStatement}'],
+    ['BlockStatement','Instructions','14.2','LocalClassOrInterfaceDeclaration\nLocalVariableDeclarationStatement\nStatement'],
+    ['LocalVariableDeclaration','Instructions','14.4','{VariableModifier} LocalVariableType VariableDeclaratorList'],
+    ['LocalVariableType','Instructions','14.4','UnannType\nvar'],
+    ['Statement','Instructions','14.5','StatementWithoutTrailingSubstatement\nLabeledStatement\nIfThenStatement\nIfThenElseStatement\nWhileStatement\nForStatement'],
+    ['StatementNoShortIf','Instructions','14.5','StatementWithoutTrailingSubstatement\nLabeledStatementNoShortIf\nIfThenElseStatementNoShortIf\nWhileStatementNoShortIf\nForStatementNoShortIf'],
+    ['StatementWithoutTrailingSubstatement','Instructions','14.5','Block\nEmptyStatement\nExpressionStatement\nAssertStatement\nSwitchStatement\nDoStatement\nBreakStatement\nContinueStatement\nReturnStatement\nSynchronizedStatement\nThrowStatement\nTryStatement\nYieldStatement'],
+    ['LabeledStatement','Instructions','14.7','Identifier : Statement'],
+    ['ExpressionStatement','Instructions','14.8','StatementExpression ;'],
+    ['StatementExpression','Instructions','14.8','Assignment\nPreIncrementExpression\nPreDecrementExpression\nPostIncrementExpression\nPostDecrementExpression\nMethodInvocation\nClassInstanceCreationExpression'],
+    ['IfThenStatement','Instructions','14.9.1','if ( Expression ) Statement'],
+    ['IfThenElseStatement','Instructions','14.9.2','if ( Expression ) StatementNoShortIf else Statement'],
+    ['AssertStatement','Instructions','14.10','assert Expression ;\nassert Expression : Expression ;'],
+    ['SwitchStatement','Instructions','14.11','switch ( Expression ) SwitchBlock'],
+    ['SwitchBlock','Instructions','14.11.1','{ SwitchRule {SwitchRule} }\n{ {SwitchBlockStatementGroup} {SwitchLabel :} }'],
+    ['SwitchRule','Instructions','14.11.1','SwitchLabel -> Expression ;\nSwitchLabel -> Block\nSwitchLabel -> ThrowStatement'],
+    ['SwitchBlockStatementGroup','Instructions','14.11.1','SwitchLabel : {SwitchLabel :} BlockStatements'],
+    ['SwitchLabel','Instructions','14.11.1','case CaseConstant {, CaseConstant}\ncase null [, default]\ncase CasePattern {, CasePattern} [Guard]\ndefault'],
+    ['Guard','Instructions','14.11.1','when Expression'],
+    ['WhileStatement','Instructions','14.12','while ( Expression ) Statement'],
+    ['DoStatement','Instructions','14.13','do Statement while ( Expression ) ;'],
+    ['ForStatement','Instructions','14.14','BasicForStatement\nEnhancedForStatement'],
+    ['BasicForStatement','Instructions','14.14.1','for ( [ForInit] ; [Expression] ; [ForUpdate] ) Statement'],
+    ['EnhancedForStatement','Instructions','14.14.2','for ( LocalVariableDeclaration : Expression ) Statement'],
+    ['BreakStatement','Instructions','14.15','break [Identifier] ;'],
+    ['ContinueStatement','Instructions','14.16','continue [Identifier] ;'],
+    ['ReturnStatement','Instructions','14.17','return [Expression] ;'],
+    ['ThrowStatement','Instructions','14.18','throw Expression ;'],
+    ['SynchronizedStatement','Instructions','14.19','synchronized ( Expression ) Block'],
+    ['TryStatement','Instructions','14.20','try Block Catches\ntry Block [Catches] Finally\nTryWithResourcesStatement'],
+    ['CatchClause','Instructions','14.20','catch ( CatchFormalParameter ) Block'],
+    ['CatchType','Instructions','14.20','UnannClassType {| ClassType}'],
+    ['Finally','Instructions','14.20','finally Block'],
+    ['TryWithResourcesStatement','Instructions','14.20.3','try ResourceSpecification Block [Catches] [Finally]'],
+    ['ResourceSpecification','Instructions','14.20.3','( Resource {; Resource} [;] )'],
+    ['Resource','Instructions','14.20.3','LocalVariableDeclaration\nVariableAccess'],
+    ['YieldStatement','Instructions','14.21','yield Expression ;'],
+
+    ['Pattern','Motifs','14.30.1','TypePattern\nRecordPattern'],
+    ['TypePattern','Motifs','14.30.1','LocalVariableDeclaration'],
+    ['RecordPattern','Motifs','14.30.1','ReferenceType ( [ComponentPatternList] )'],
+    ['ComponentPattern','Motifs','14.30.1','Pattern\nMatchAllPattern'],
+    ['MatchAllPattern','Motifs','14.30.1','_'],
+    ['CasePattern','Motifs','14.11.1','Pattern'],
+
+    ['Expression','Expressions','15.2','LambdaExpression\nAssignmentExpression'],
+    ['AssignmentExpression','Expressions','15.26','ConditionalExpression\nAssignment'],
+    ['Assignment','Expressions','15.26','LeftHandSide AssignmentOperator Expression'],
+    ['LeftHandSide','Expressions','15.26','ExpressionName\nFieldAccess\nArrayAccess'],
+    ['AssignmentOperator','Expressions','15.26','(one of) = *= /= %= += -= <<= >>= >>>= &= ^= |='],
+    ['ConditionalExpression','Expressions','15.25','ConditionalOrExpression\nConditionalOrExpression ? Expression : ConditionalExpression\nConditionalOrExpression ? Expression : LambdaExpression'],
+    ['ConditionalOrExpression','Expressions','15.24','ConditionalAndExpression\nConditionalOrExpression || ConditionalAndExpression'],
+    ['ConditionalAndExpression','Expressions','15.23','InclusiveOrExpression\nConditionalAndExpression && InclusiveOrExpression'],
+    ['EqualityExpression','Expressions','15.21','RelationalExpression\nEqualityExpression == RelationalExpression\nEqualityExpression != RelationalExpression'],
+    ['RelationalExpression','Expressions','15.20','ShiftExpression\nRelationalExpression < ShiftExpression\nRelationalExpression > ShiftExpression\nRelationalExpression <= ShiftExpression\nRelationalExpression >= ShiftExpression\nInstanceofExpression'],
+    ['InstanceofExpression','Expressions','15.20.2','RelationalExpression instanceof ReferenceType\nRelationalExpression instanceof Pattern'],
+    ['AdditiveExpression','Expressions','15.18','MultiplicativeExpression\nAdditiveExpression + MultiplicativeExpression\nAdditiveExpression - MultiplicativeExpression'],
+    ['MultiplicativeExpression','Expressions','15.17','UnaryExpression\nMultiplicativeExpression * UnaryExpression\nMultiplicativeExpression / UnaryExpression\nMultiplicativeExpression % UnaryExpression'],
+    ['UnaryExpression','Expressions','15.15','PreIncrementExpression\nPreDecrementExpression\n+ UnaryExpression\n- UnaryExpression\nUnaryExpressionNotPlusMinus'],
+    ['UnaryExpressionNotPlusMinus','Expressions','15.15','PostfixExpression\n~ UnaryExpression\n! UnaryExpression\nCastExpression\nSwitchExpression'],
+    ['PostfixExpression','Expressions','15.14','Primary\nExpressionName\nPostIncrementExpression\nPostDecrementExpression'],
+    ['CastExpression','Expressions','15.16','( PrimitiveType ) UnaryExpression\n( ReferenceType {AdditionalBound} ) UnaryExpressionNotPlusMinus\n( ReferenceType {AdditionalBound} ) LambdaExpression'],
+    ['Primary','Expressions','15.8','PrimaryNoNewArray\nArrayCreationExpression'],
+    ['PrimaryNoNewArray','Expressions','15.8','Literal\nClassLiteral\nthis\nTypeName . this\n( Expression )\nClassInstanceCreationExpression\nFieldAccess\nArrayAccess\nMethodInvocation\nMethodReference'],
+    ['Literal','Expressions','15.8.1','IntegerLiteral\nFloatingPointLiteral\nBooleanLiteral\nCharacterLiteral\nStringLiteral\nTextBlock\nNullLiteral'],
+    ['ClassLiteral','Expressions','15.8.2','TypeName {[ ]} . class\nNumericType {[ ]} . class\nboolean {[ ]} . class\nvoid . class'],
+    ['ClassInstanceCreationExpression','Expressions','15.9','UnqualifiedClassInstanceCreationExpression\nExpressionName . UnqualifiedClassInstanceCreationExpression\nPrimary . UnqualifiedClassInstanceCreationExpression'],
+    ['UnqualifiedClassInstanceCreationExpression','Expressions','15.9','new [TypeArguments] ClassOrInterfaceTypeToInstantiate ( [ArgumentList] ) [ClassBody]'],
+    ['FieldAccess','Expressions','15.11','Primary . Identifier\nsuper . Identifier\nTypeName . super . Identifier'],
+    ['MethodInvocation','Expressions','15.12','MethodName ( [ArgumentList] )\nTypeName . [TypeArguments] Identifier ( [ArgumentList] )\nExpressionName . [TypeArguments] Identifier ( [ArgumentList] )\nPrimary . [TypeArguments] Identifier ( [ArgumentList] )\nsuper . [TypeArguments] Identifier ( [ArgumentList] )\nTypeName . super . [TypeArguments] Identifier ( [ArgumentList] )'],
+    ['ArgumentList','Expressions','15.12','Expression {, Expression}'],
+    ['MethodReference','Expressions','15.13','ExpressionName :: [TypeArguments] Identifier\nPrimary :: [TypeArguments] Identifier\nReferenceType :: [TypeArguments] Identifier\nsuper :: [TypeArguments] Identifier\nTypeName . super :: [TypeArguments] Identifier\nClassType :: [TypeArguments] new\nArrayType :: new'],
+    ['LambdaExpression','Expressions','15.27','LambdaParameters -> LambdaBody'],
+    ['LambdaParameters','Expressions','15.27.1','( [LambdaParameterList] )\nIdentifier'],
+    ['LambdaBody','Expressions','15.27.2','Expression\nBlock'],
+    ['SwitchExpression','Expressions','15.28','switch ( Expression ) SwitchBlock'],
+    ['ConstantExpression','Expressions','15.29','Expression']
+  ];
+  const idx={}; G.forEach((g,i)=>idx[g[0]]=i);
+  const used={}; G.forEach(g=>{ (g[3].match(/\b[A-Z][A-Za-z]+\b/g)||[]).forEach(n=>{ if(n!==g[0]&&idx[n]!==undefined){ (used[n]=used[n]||new Set()).add(g[0]); } }); });
+  const cats=['Tout'].concat([...new Set(G.map(g=>g[1]))]);
+  el.classList.add('gb');
+  el.innerHTML='<div class="bar2"><input type="text" placeholder="Rechercher : SwitchLabel, yield, permits…" aria-label="Rechercher une production"><span class="cnt"></span></div><div class="btnrow">'+cats.map((c,i)=>'<button type="button" class="btn'+(i===0?' on':'')+'" data-c="'+c+'">'+c+'</button>').join('')+'</div><div class="list"></div>';
+  const list=el.querySelector('.list'), inp=el.querySelector('input'), cnt=el.querySelector('.cnt');
+  let cat='Tout';
+  const E=ATLAS.esc;
+  function fmt(alt){
+    return alt.split(/(\s+)/).map(tok=>{
+      if(/^\s+$/.test(tok)) return tok;
+      if(/^[A-Z][A-Za-z]+$/.test(tok)) return idx[tok]!==undefined ? '<button type="button" class="nt" data-go="'+tok+'">'+tok+'</button>' : '<span class="ntx">'+tok+'</span>';
+      if(/^[\{\}\[\]\|]+$/.test(tok) || tok==='(one' || tok==='of)') return '<span class="mt">'+E(tok)+'</span>';
+      const m=/^([\{\[]+)?([A-Z][A-Za-z]+)([\}\]]+)?$/.exec(tok);
+      if(m) return (m[1]?'<span class="mt">'+m[1]+'</span>':'')+(idx[m[2]]!==undefined?'<button type="button" class="nt" data-go="'+m[2]+'">'+m[2]+'</button>':'<span class="ntx">'+m[2]+'</span>')+(m[3]?'<span class="mt">'+m[3]+'</span>':'');
+      return '<span class="tm">'+E(tok)+'</span>';
+    }).join('');
+  }
+  function draw(){
+    const q=inp.value.trim().toLowerCase();
+    const rows=G.filter(g=>(cat==='Tout'||g[1]===cat)&&(!q||g[0].toLowerCase().includes(q)||g[3].toLowerCase().includes(q)));
+    cnt.textContent=rows.length+' production'+(rows.length>1?'s':'');
+    list.innerHTML=rows.map(g=>'<div class="pr" id="g-'+g[0]+'"><h5><em>'+g[0]+'</em>:<small>§'+g[2]+' · '+g[1]+'</small></h5>'+g[3].split('\n').map(a=>'<div class="alt">'+fmt(a)+'</div>').join('')+(g[4]?'<div class="note">forme simplifiée</div>':'')+(used[g[0]]?'<div class="used">utilisée par : '+[...used[g[0]]].map(u=>'<button type="button" class="nt" data-go="'+u+'">'+u+'</button>').join(', ')+'</div>':'')+'</div>').join('');
+    list.querySelectorAll('[data-go]').forEach(b=>b.onclick=()=>go(b.dataset.go));
+  }
+  function go(n){
+    let t=list.querySelector('#g-'+n);
+    if(!t){ inp.value=''; cat='Tout'; el.querySelectorAll('.btnrow .btn').forEach(x=>x.classList.toggle('on',x.dataset.c==='Tout')); draw(); t=list.querySelector('#g-'+n); }
+    if(!t) return;
+    list.scrollTop = t.offsetTop - list.offsetTop - 4;
+    list.querySelectorAll('.pr.flash').forEach(x=>x.classList.remove('flash')); t.classList.add('flash');
+  }
+  inp.oninput=draw;
+  el.querySelectorAll('.btnrow .btn').forEach(b=>b.onclick=()=>{ cat=b.dataset.c; el.querySelectorAll('.btnrow .btn').forEach(x=>x.classList.toggle('on',x===b)); draw(); });
+  draw();
+};
+</script>

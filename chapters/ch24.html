@@ -1,0 +1,295 @@
+<style>
+.os .ctl{display:grid; grid-template-columns:repeat(auto-fit,minmax(150px,1fr)); gap:10px 14px; margin-bottom:10px}
+.os label{font-family:var(--f-display); font-size:var(--s-1); color:var(--muted); display:flex; flex-direction:column; gap:4px}
+.os input[type=number]{font-family:var(--f-mono); font-size:.95rem; padding:6px 8px; border:1px solid var(--rule); border-radius:6px; background:var(--paper); color:var(--ink); width:100%; min-width:0}
+.os .opts{display:flex; flex-wrap:wrap; gap:8px 18px; margin:8px 0 14px; font-family:var(--f-display); font-size:.9rem}
+.os .lay{margin:8px 0}
+.os .lay b{display:block; font-family:var(--f-display); font-size:var(--s-1); color:var(--muted); margin-bottom:4px}
+.os .strip{display:flex; flex-wrap:wrap; gap:0}
+.os .byte{width:16px; height:22px; border:1px solid var(--paper); box-sizing:border-box}
+.os .hd{background:var(--ember)} .os .fd{background:var(--accent)} .os .pd{background:var(--rule)}
+.os .legend{display:flex; gap:14px; flex-wrap:wrap; font-size:.85rem; margin-top:6px}
+.os .legend i{display:inline-block; width:12px; height:12px; vertical-align:-1px; margin-right:4px; border-radius:2px}
+.os .tot{font-family:var(--f-display); font-size:1.05rem; margin-top:10px}
+.gs .zones{display:grid; grid-template-columns:minmax(0,3fr) minmax(0,1fr) minmax(0,1fr); gap:10px}
+.gs .old{grid-column:1 / -1}
+.gs .zone{border:1px solid var(--rule); border-radius:8px; padding:8px; background:var(--paper)}
+.gs .zone h4{margin:0 0 6px; font-family:var(--f-display); font-size:.85rem; color:var(--muted); font-weight:600; display:flex; justify-content:space-between}
+.gs .cells{display:flex; flex-wrap:wrap; gap:4px}
+.gs .o{width:30px; height:30px; border-radius:5px; display:flex; align-items:center; justify-content:center; font-family:var(--f-mono); font-size:.72rem; border:1.5px solid var(--accent); background:var(--accent-soft); color:var(--ink)}
+.gs .o.dead{border-style:dashed; border-color:var(--muted); background:transparent; color:var(--muted)}
+.gs .o.free{border:1px dotted var(--rule); background:transparent}
+.gs .lg{display:flex; flex-direction:column; gap:6px; font-size:.82rem}
+.gs .lg span{display:flex; align-items:center; gap:8px}
+.gs .stats{display:flex; flex-wrap:wrap; gap:6px 18px; font-family:var(--f-display); font-size:.88rem; margin-top:10px}
+.gs .log{font-size:.9rem; margin-top:8px; min-height:2.6em}
+@media (max-width:560px){ .gs .zones{grid-template-columns:minmax(0,1fr)} .gs .o{width:26px;height:26px} }
+</style>
+
+<div class="col">
+  <div class="eyebrow">Section 24 · Plateforme</div>
+  <h1>JVM et ramasse-miettes</h1>
+  <p class="lede">La JLS décrit le langage ; la spécification de la machine virtuelle (JVMS) décrit le format <code>.class</code> et le bytecode. Entre les deux, HotSpot, l'implémentation de référence, ajoute ce qui fait les performances réelles : compilation à la volée, disposition des objets en mémoire et ramasse-miettes.</p>
+  <div class="meta">
+    <span>Références : <a href="https://docs.oracle.com/javase/specs/jvms/se27/html/index.html" target="_blank" rel="noopener">JVMS SE 27</a>, <a href="https://docs.oracle.com/en/java/javase/27/gctuning/" target="_blank" rel="noopener">guide de réglage du GC</a></span>
+    <span>Liens avec la JLS : <b>ch. 12</b> (exécution), <b>§12.6</b> (finalisation), <b>§17.4</b></span>
+  </div>
+
+  <h2 id="s24-1"><span class="sec">24.1</span>Architecture de HotSpot</h2>
+</div>
+
+<div class="wide">
+  <div class="svgwrap"><svg viewBox="0 0 900 330" width="900" role="img" aria-label="Architecture de la JVM HotSpot">
+    <rect class="d-box" x="10" y="20" width="150" height="50" rx="7"/><text class="d-mono" x="85" y="42" text-anchor="middle">App.class</text><text class="d-mut" x="85" y="60" text-anchor="middle">bytecode (JVMS)</text>
+    <rect class="d-emb" x="200" y="12" width="220" height="66" rx="8"/><text class="d-txt d-b" x="310" y="34" text-anchor="middle">Chargeurs de classes</text><text class="d-mut" x="310" y="52" text-anchor="middle">chargement · édition de liens</text><text class="d-mut" x="310" y="68" text-anchor="middle">vérification · initialisation (ch. 12)</text>
+    <path class="d-line" d="M160,45 L198,45" marker-end="url(#arr)"/>
+    <rect class="d-line d-dash" x="10" y="100" width="560" height="150" rx="10"/>
+    <text class="d-txt d-b" x="24" y="122">Zones de données d'exécution</text>
+    <rect class="d-acc" x="24" y="134" width="200" height="104" rx="7"/><text class="d-txt d-b" x="124" y="156" text-anchor="middle">Tas (heap)</text><text class="d-mut" x="124" y="176" text-anchor="middle">objets et tableaux</text><text class="d-mut" x="124" y="194" text-anchor="middle">partagé par les threads</text><text class="d-mut" x="124" y="212" text-anchor="middle">géré par le GC</text><text class="d-mono" x="124" y="230" text-anchor="middle">-Xmx</text>
+    <rect class="d-box" x="236" y="134" width="150" height="48" rx="7"/><text class="d-txt d-b" x="311" y="154" text-anchor="middle">Metaspace</text><text class="d-mut" x="311" y="172" text-anchor="middle">classes, méthodes</text>
+    <rect class="d-box" x="236" y="190" width="150" height="48" rx="7"/><text class="d-txt d-b" x="311" y="210" text-anchor="middle">Code cache</text><text class="d-mut" x="311" y="228" text-anchor="middle">code machine JIT</text>
+    <rect class="d-box" x="398" y="134" width="160" height="104" rx="7"/><text class="d-txt d-b" x="478" y="156" text-anchor="middle">Par thread</text><text class="d-mut" x="478" y="178" text-anchor="middle">pile de cadres</text><text class="d-mut" x="478" y="196" text-anchor="middle">(variables locales,</text><text class="d-mut" x="478" y="212" text-anchor="middle">pile d'opérandes)</text><text class="d-mono" x="478" y="230" text-anchor="middle">-Xss · registre PC</text>
+    <path class="d-line" d="M310,78 L310,98" marker-end="url(#arr)"/>
+    <rect class="d-line d-dash" x="600" y="12" width="290" height="238" rx="10"/>
+    <text class="d-txt d-b" x="614" y="34">Moteur d'exécution</text>
+    <rect class="d-box" x="614" y="46" width="262" height="40" rx="7"/><text class="d-txt" x="745" y="71" text-anchor="middle">Interpréteur (démarrage)</text>
+    <rect class="d-ok" x="614" y="96" width="125" height="52" rx="7"/><text class="d-txt d-b" x="676" y="118" text-anchor="middle">C1</text><text class="d-mut" x="676" y="136" text-anchor="middle">compile vite</text>
+    <rect class="d-ok" x="751" y="96" width="125" height="52" rx="7"/><text class="d-txt d-b" x="813" y="118" text-anchor="middle">C2</text><text class="d-mut" x="813" y="136" text-anchor="middle">optimise fort</text>
+    <rect class="d-vio" x="614" y="158" width="262" height="40" rx="7"/><text class="d-txt" x="745" y="183" text-anchor="middle">Ramasse-miettes (G1, ZGC…)</text>
+    <rect class="d-box" x="614" y="206" width="262" height="34" rx="7"/><text class="d-mut" x="745" y="228" text-anchor="middle">JFR · JMX · JVMTI (observabilité)</text>
+    <path class="d-line" d="M570,175 L612,175" marker-end="url(#arr)"/>
+    <text class="d-mut" x="450" y="290" text-anchor="middle">Le code démarre interprété, les méthodes « chaudes » sont compilées par C1 avec profilage, puis par C2 avec les profils.</text>
+    <text class="d-mut" x="450" y="312" text-anchor="middle">Si une hypothèse de C2 devient fausse (nouvelle sous-classe chargée…), la méthode est désoptimisée et revient à l'interpréteur.</text>
+  </svg></div>
+</div>
+
+<div class="col">
+  <h2 id="s24-2"><span class="sec">24.2</span>Zones mémoire et erreurs associées</h2>
+  <div class="tbl"><table>
+    <thead><tr><th>Zone</th><th>Contenu</th><th>Réglage</th><th>Erreur en cas d'épuisement</th></tr></thead>
+    <tbody>
+      <tr><td>Tas</td><td>toutes les instances et tous les tableaux</td><td><code>-Xms</code>, <code>-Xmx</code>, <code>-XX:MaxRAMPercentage</code></td><td><code>OutOfMemoryError: Java heap space</code></td></tr>
+      <tr><td>Metaspace</td><td>métadonnées des classes (hors tas)</td><td><code>-XX:MaxMetaspaceSize</code> (illimité par défaut)</td><td><code>OutOfMemoryError: Metaspace</code> (souvent une fuite de chargeurs de classes)</td></tr>
+      <tr><td>Pile d'un thread</td><td>un cadre par appel en cours</td><td><code>-Xss</code></td><td><code>StackOverflowError</code> (récursion trop profonde)</td></tr>
+      <tr><td>Code cache</td><td>code compilé par le JIT</td><td><code>-XX:ReservedCodeCacheSize</code></td><td>avertissement, le JIT s'arrête : forte baisse de performance</td></tr>
+      <tr><td>Mémoire directe</td><td><code>ByteBuffer.allocateDirect</code></td><td><code>-XX:MaxDirectMemorySize</code></td><td><code>OutOfMemoryError: Direct buffer memory</code></td></tr>
+      <tr><td>Threads natifs</td><td>threads de plateforme</td><td>limites du système</td><td><code>OutOfMemoryError: unable to create native thread</code></td></tr>
+    </tbody>
+  </table></div>
+  <p>Les variables locales (§14.4) vivent dans la pile ; les objets qu'elles référencent, dans le tas. Grâce à l'<b>analyse d'échappement</b>, C2 peut toutefois supprimer l'allocation d'un objet qui ne sort pas de la méthode, en remplaçant ses champs par des variables locales (« scalar replacement »).</p>
+
+  <h2 id="s24-3"><span class="sec">24.3</span>Taille d'un objet en mémoire</h2>
+  <p>Chaque objet commence par un <b>en-tête</b> : un mot de marque (hachage, état de verrou, âge pour le GC) et un pointeur vers sa classe. Avec les options par défaut sur 64 bits jusqu'à Java 26, il fait 12 octets. Les <b>en-têtes compacts</b> (JEP 450, production en Java 25 via JEP 519, <b>par défaut en Java 27</b> via JEP 534) le réduisent à 8 octets. Les objets sont alignés sur 8 octets, et une référence occupe 4 octets tant que le tas reste sous 32 Gio (« compressed oops »).</p>
+</div>
+
+<div class="wide">
+  <figure>
+    <p class="fig-title">Figure 24.1 · Estimer la taille d'une instance</p>
+    <p class="fig-hint">Choisissez les champs d'une classe. Le modèle suit les règles de HotSpot (champs regroupés par taille, puis alignement sur 8 octets) ; l'outil JOL donne la disposition exacte.</p>
+    <div data-w="objsize"></div>
+  </figure>
+</div>
+
+<div class="col">
+  <div class="rule"><span class="lbl">Ordres de grandeur</span>
+    <p>Un <code>Integer</code> occupe 16 octets pour 4 octets utiles, un <code>Long</code> 16 ou 24. Une <code>ArrayList&lt;Integer&gt;</code> d'un million d'éléments pèse environ 20 Mo, contre 4 Mo pour un <code>int[]</code>. Pour de gros volumes de primitifs, les tableaux et les streams spécialisés (<code>IntStream</code>) évitent cette surcharge.</p>
+  </div>
+
+  <h2 id="s24-4"><span class="sec">24.4</span>Compilation à la volée et démarrage</h2>
+  <div class="tbl"><table>
+    <thead><tr><th>Niveau</th><th>Exécution</th></tr></thead>
+    <tbody>
+      <tr><td>0</td><td>interpréteur</td></tr>
+      <tr><td>1</td><td>C1 sans profilage (méthodes triviales)</td></tr>
+      <tr><td>2, 3</td><td>C1 avec profilage partiel ou complet</td></tr>
+      <tr><td>4</td><td>C2, optimisé à partir des profils</td></tr>
+    </tbody>
+  </table></div>
+  <p>Les optimisations clés de C2 : <b>inlining</b> (insérer le corps d'une méthode appelée), appels virtuels rendus directs quand une seule implémentation est chargée, suppression des vérifications de bornes, déroulement et vectorisation de boucles, analyse d'échappement, élimination de verrous inutiles. Conséquence pratique : un microbenchmark naïf mesure souvent l'interpréteur ou du code éliminé. Utilisez <b>JMH</b>.</p>
+  <p>Pour réduire le temps de démarrage, le projet Leyden ajoute un <b>cache AOT</b> : une exécution d'entraînement enregistre les classes chargées et liées, des profils de méthodes et, depuis Java 26, des objets du tas.</p>
+  <div class="code"><div class="bar"><span>Java 25+ · JEP 483, 514, 515, 516</span></div><pre><code class="sh"># 1. exécution d'entraînement qui crée le cache
+java -XX:AOTCacheOutput=app.aot -jar app.jar
+# 2. exécutions suivantes : démarrage et montée en régime plus rapides
+java -XX:AOTCache=app.aot -jar app.jar</code></pre></div>
+
+  <h2 id="s24-5"><span class="sec">24.5</span>Principes du ramasse-miettes</h2>
+  <p>Un objet est <b>vivant</b> s'il est accessible depuis une <b>racine</b> : variables locales des piles, champs statiques, références JNI, moniteurs détenus. Tout le reste est récupérable, y compris les cycles d'objets qui se référencent entre eux (contrairement au comptage de références). Les étapes possibles sont : <b>marquer</b> les objets vivants, <b>balayer</b> les morts, <b>compacter</b> ou <b>copier</b> les vivants pour éviter la fragmentation.</p>
+  <p>L'<b>hypothèse générationnelle</b> constate que la plupart des objets meurent jeunes. Les collecteurs générationnels séparent donc une jeune génération, collectée souvent et à faible coût (on ne copie que les survivants), et une vieille génération, collectée rarement.</p>
+</div>
+
+<div class="wide">
+  <figure>
+    <p class="fig-title">Figure 24.2 · Simulateur générationnel</p>
+    <p class="fig-hint">Allouez des objets : la plupart meurent vite (cadre pointillé). Quand l'Eden est plein, un GC mineur copie les survivants et incrémente leur âge ; à l'âge 3, ils sont promus dans la vieille génération.</p>
+    <div data-w="gensim"></div>
+  </figure>
+</div>
+
+<div class="col">
+  <h2 id="s24-6"><span class="sec">24.6</span>Les collecteurs de HotSpot</h2>
+  <div class="tbl"><table>
+    <thead><tr><th>Collecteur</th><th>Option</th><th>Principe</th><th>Pauses</th><th>Pour</th></tr></thead>
+    <tbody>
+      <tr><td><b>G1</b> (défaut)</td><td><code>-XX:+UseG1GC</code></td><td>tas découpé en régions ; collecte d'abord les régions les plus « rentables » ; marquage concurrent</td><td>objectif réglable (200 ms par défaut)</td><td>usage général. Défaut dans tous les environnements depuis Java 27 (JEP 523) ; débit amélioré en Java 26 (JEP 522)</td></tr>
+      <tr><td><b>ZGC</b></td><td><code>-XX:+UseZGC</code></td><td>générationnel, presque tout concurrent (barrières de chargement, pointeurs colorés)</td><td>inférieures à la milliseconde, indépendantes de la taille du tas</td><td>faible latence, très gros tas (jusqu'à 16 Tio)</td></tr>
+      <tr><td><b>Shenandoah</b></td><td><code>-XX:+UseShenandoahGC</code></td><td>compaction concurrente ; mode générationnel en production depuis Java 25 (JEP 521)</td><td>très courtes</td><td>faible latence</td></tr>
+      <tr><td><b>Parallel</b></td><td><code>-XX:+UseParallelGC</code></td><td>générationnel, tous les cœurs, arrêt complet</td><td>longues</td><td>débit maximal en traitement par lots</td></tr>
+      <tr><td><b>Serial</b></td><td><code>-XX:+UseSerialGC</code></td><td>un seul thread, arrêt complet</td><td>courtes sur petit tas</td><td>très petits conteneurs</td></tr>
+      <tr><td><b>Epsilon</b></td><td><code>-XX:+UseEpsilonGC</code> (expérimental)</td><td>alloue sans jamais collecter</td><td>aucune</td><td>tests de performance, programmes très courts</td></tr>
+    </tbody>
+  </table></div>
+  <div class="trap"><span class="lbl">Débit, latence, empreinte</span>
+    <p>Aucun collecteur ne maximise les trois. ZGC et Shenandoah échangent un peu de débit et de mémoire contre des pauses minimes ; Parallel fait l'inverse. Commencez par G1 avec seulement <code>-Xmx</code>, mesurez (journaux de GC, JFR), puis changez si un objectif précis n'est pas atteint.</p>
+  </div>
+
+  <h2 id="s24-7"><span class="sec">24.7</span>Réglages essentiels et conteneurs</h2>
+  <div class="code"><div class="bar"><span>Options courantes</span></div><pre><code class="sh">java -Xms2g -Xmx2g \                    # tas fixe : pas de redimensionnement
+     -XX:MaxGCPauseMillis=100 \          # objectif de pause pour G1
+     -Xlog:gc*:file=gc.log:time,uptime \ # journal de GC unifié (Java 9+)
+     -XX:+HeapDumpOnOutOfMemoryError \   # image du tas en cas d'OOM
+     -jar app.jar
+
+# en conteneur : la JVM lit les limites cgroup (CPU, mémoire)
+java -XX:MaxRAMPercentage=75 -jar app.jar   # défaut : 25 % de la mémoire du conteneur
+java -XX:+PrintFlagsFinal -version | grep -E "UseG1GC|MaxHeapSize"</code></pre></div>
+  <p>Le tas n'est qu'une partie de la mémoire du processus : il faut y ajouter Metaspace, piles, code cache, mémoire directe et structures du GC. Laissez donc une marge entre <code>-Xmx</code> et la limite du conteneur. <code>-XX:NativeMemoryTracking=summary</code> puis <code>jcmd &lt;pid&gt; VM.native_memory</code> détaille cette consommation.</p>
+
+  <h2 id="s24-8"><span class="sec">24.8</span>Références faibles et nettoyage</h2>
+  <div class="tbl"><table>
+    <thead><tr><th>Référence</th><th>L'objet est récupéré…</th><th>Usage</th></tr></thead>
+    <tbody>
+      <tr><td>forte (normale)</td><td>jamais tant qu'elle existe</td><td>tout le code ordinaire</td></tr>
+      <tr><td><code>SoftReference</code></td><td>quand la mémoire manque</td><td>caches sensibles à la mémoire (peu prévisibles)</td></tr>
+      <tr><td><code>WeakReference</code></td><td>au prochain GC s'il n'a plus de référence forte</td><td><code>WeakHashMap</code>, métadonnées associées à un objet</td></tr>
+      <tr><td><code>PhantomReference</code></td><td>déjà récupéré ; on est seulement notifié</td><td>nettoyage de ressources natives, via <code>Cleaner</code></td></tr>
+    </tbody>
+  </table></div>
+  <div class="modern"><span class="lbl">Fin de finalize</span>
+    <p>La finalisation (§12.6) est dépréciée pour suppression (JEP 421) : exécution tardive, imprévisible, coûteuse. Pour libérer une ressource, utilisez <code>AutoCloseable</code> et try-with-resources ; en filet de sécurité, un <code>java.lang.ref.Cleaner</code>.</p>
+  </div>
+
+  <h2 id="s24-9"><span class="sec">24.9</span>Fuites mémoire en Java</h2>
+  <p>Le GC ne récupère que ce qui est inaccessible. Une fuite Java est donc un objet <b>encore référencé</b> mais devenu inutile :</p>
+  <ul>
+    <li>collections statiques ou caches sans limite ni éviction ;</li>
+    <li>écouteurs (listeners) enregistrés et jamais retirés ;</li>
+    <li><code>ThreadLocal</code> jamais nettoyé dans un pool de threads ;</li>
+    <li>classes internes non statiques qui retiennent leur instance englobante (§8.1.3) ;</li>
+    <li>chargeurs de classes retenus après un redéploiement (fuite de Metaspace) ;</li>
+    <li>clés de <code>HashMap</code> dont <code>hashCode</code> change après insertion (section 20).</li>
+  </ul>
+  <p>Diagnostic : la courbe du tas après chaque GC complet qui monte sans cesse, puis une image du tas (<code>jcmd &lt;pid&gt; GC.heap_dump</code>) analysée avec Eclipse MAT ou VisualVM. Les outils sont décrits à la section 25.</p>
+
+  <h2 id="s24-quiz">Vérifier ses acquis</h2>
+  <div data-w="quiz"><script type="application/json">[
+    {"q":"Où vivent les objets créés par <code>new</code> ?","o":["Dans la pile du thread","Dans le tas","Dans le Metaspace"],"a":1,"e":"Sauf si l'analyse d'échappement supprime l'allocation."},
+    {"q":"Une récursion infinie provoque…","o":["OutOfMemoryError: Java heap space","StackOverflowError","Rien, le JIT l'optimise"],"a":1,"e":"Chaque appel ajoute un cadre à la pile du thread."},
+    {"q":"Deux objets qui se référencent mutuellement, inaccessibles depuis les racines, sont-ils récupérés ?","o":["Non, c'est une fuite","Oui"],"a":1,"e":"Le GC de la JVM suit l'accessibilité, pas un comptage de références."},
+    {"q":"Taille d'un objet sans champ avec en-têtes compacts ?","o":["8 octets","12 octets","16 octets"],"a":0,"e":"En-tête de 8 octets, déjà aligné. Avec l'en-tête classique : 12, arrondi à 16."},
+    {"q":"Quel collecteur est utilisé par défaut en Java 27, même sur une petite machine ?","o":["Serial","G1","ZGC"],"a":1,"e":"JEP 523."},
+    {"q":"Pourquoi la jeune génération est-elle collectée rapidement ?","o":["Elle est petite et on ne copie que les quelques survivants","Elle n'est jamais compactée","Elle est collectée en parallèle de l'application"],"a":0,"e":"Le coût est proportionnel aux vivants, pas aux morts."},
+    {"q":"Quel est le pourcentage par défaut de mémoire du conteneur utilisé pour le tas maximal ?","o":["25 %","50 %","75 %"],"a":0,"e":"MaxRAMPercentage vaut 25 par défaut : souvent trop bas pour un conteneur dédié."}
+  ]</script></div>
+</div>
+
+<script>
+ATLAS.w.objsize = function(el){
+  el.classList.add('os');
+  const F=[['long',8,1],['double',8,0],['int',4,2],['float',4,0],['short',2,0],['char',2,0],['byte',1,0],['boolean',1,1],['ref',0,2]];
+  el.innerHTML='<div class="ctl">'+F.map(([t,,d])=>'<label>'+(t==='ref'?'références':t)+'<input type="number" min="0" max="12" value="'+d+'" data-t="'+t+'"></label>').join('')+'</div>'+
+    '<div class="opts"><label style="flex-direction:row;align-items:center;gap:6px"><input type="checkbox" class="cmp" checked> en-têtes compacts (défaut Java 27)</label><label style="flex-direction:row;align-items:center;gap:6px"><input type="checkbox" class="coops" checked> références compressées (tas &lt; 32 Gio)</label></div>'+
+    '<div class="btnrow" style="margin-bottom:10px"><button class="btn" data-p="0,0,1,0,0,0,0,0,0">Integer</button><button class="btn" data-p="1,0,0,0,0,0,0,0,0">Long</button><button class="btn" data-p="0,0,1,0,0,0,1,1,1">String</button><button class="btn" data-p="0,0,1,0,0,0,0,0,3">HashMap.Node</button><button class="btn" data-p="0,0,0,0,0,0,0,0,0">Object</button></div>'+
+    '<div class="out"></div>';
+  const out=el.querySelector('.out');
+  function calc(cmp, coops){
+    const n={}; el.querySelectorAll('[data-t]').forEach(i=>n[i.dataset.t]=Math.max(0,Math.min(12,+i.value||0)));
+    const refSize=coops?4:8;
+    const hdr=cmp?8:(coops?12:16);
+    let fields=[];
+    F.forEach(([t,s])=>{ const sz=t==='ref'?refSize:s; for(let i=0;i<n[t];i++) fields.push(sz); });
+    fields.sort((a,b)=>b-a);
+    // HotSpot : combler le trou après l'en-tête avec des champs plus petits, puis champs par taille décroissante alignés naturellement
+    const bytes=[]; for(let i=0;i<hdr;i++) bytes.push('hd');
+    let off=hdr; const rest=fields.slice();
+    if(off%8 && rest.length){
+      const gap=8-off%8;
+      let filled=0;
+      // remplir avec des champs de taille <= gap, plus grands d'abord
+      for(let i=0;i<rest.length && filled<gap;){ const s=rest[i]; if(s<=gap-filled && (off+filled)%s===0){ for(let k=0;k<s;k++) bytes.push('fd'); filled+=s; rest.splice(i,1);} else i++; }
+      off+=filled;
+    }
+    rest.forEach(s=>{ while(off%s){bytes.push('pd'); off++;} for(let k=0;k<s;k++) bytes.push('fd'); off+=s; });
+    while(off%8){ bytes.push('pd'); off++; }
+    const useful=fields.reduce((a,b)=>a+b,0);
+    return {bytes, total:off, hdr, useful};
+  }
+  function strip(r){ return '<div class="strip">'+r.bytes.map(c=>'<span class="byte '+c+'"></span>').join('')+'</div>'; }
+  function run(){
+    const cmp=el.querySelector('.cmp').checked, coops=el.querySelector('.coops').checked;
+    const r=calc(cmp,coops), alt=calc(!cmp,coops);
+    out.innerHTML='<div class="lay"><b>Disposition ('+(cmp?'en-tête compact':'en-tête classique')+')</b>'+strip(r)+'</div>'+
+      '<div class="legend"><span><i style="background:var(--ember)"></i>en-tête '+r.hdr+' o</span><span><i style="background:var(--accent)"></i>champs '+r.useful+' o</span><span><i style="background:var(--rule)"></i>remplissage '+(r.total-r.hdr-r.useful)+' o</span></div>'+
+      '<p class="tot">Taille : <b>'+r.total+' octets</b> <span class="pill '+(alt.total>r.total?'e':'o')+'">'+(cmp?'classique':'compact')+' : '+alt.total+' o</span></p>'+
+      '<p style="font-size:.9rem;margin:4px 0 0">Pour un million d\'instances : '+(r.total).toLocaleString('fr-FR')+' Mo environ'+(alt.total!==r.total?', soit '+Math.abs(alt.total-r.total).toLocaleString('fr-FR')+' Mo de différence entre les deux en-têtes.':'.')+'</p>';
+  }
+  el.querySelectorAll('input').forEach(i=>i.oninput=run);
+  el.querySelectorAll('[data-p]').forEach(b=>b.onclick=()=>{ const v=b.dataset.p.split(','); el.querySelectorAll('[data-t]').forEach((i,k)=>i.value=v[k]); run(); });
+  run();
+};
+
+ATLAS.w.gensim = function(el){
+  el.classList.add('gs');
+  const CAP={eden:12, s:4, old:16}, AGE=3;
+  let t=0, id=0, eden=[], surv=[], old=[], st={minor:0,major:0,copied:0,promoted:0,freed:0}, fresh=new Set();
+  // durée de vie : 70 % meurent en 1-2 « ticks », 20 % vivent un moment, 10 % longtemps
+  function life(){ const r=Math.random(); return r<0.7 ? 1+Math.floor(Math.random()*2) : r<0.9 ? 4+Math.floor(Math.random()*6) : 40+Math.floor(Math.random()*40); }
+  const alive=o=>o.die>t;
+  el.innerHTML='<div class="btnrow" style="margin-bottom:12px"><button class="btn a1">Allouer 3 objets</button><button class="btn a2">Allouer 15 objets</button><button class="btn gc">Forcer un GC mineur</button><button class="btn rs">Réinitialiser</button></div><div class="zones"></div><div class="stats"></div><div class="log"></div>';
+  const Z=el.querySelector('.zones'), S=el.querySelector('.stats'), L=el.querySelector('.log');
+  let log='';
+  function minor(){
+    st.minor++; let copied=0, promoted=0, freed=0; const next=[];
+    for(const o of [...eden, ...surv]){
+      if(!alive(o)){ freed++; continue; }
+      o.age++;
+      if(o.age>=AGE || next.length>=CAP.s){ old.push(o); promoted++; } else { next.push(o); copied++; }
+    }
+    eden=[]; surv=next; st.copied+=copied; st.promoted+=promoted; st.freed+=freed;
+    log+=(log?'<br>':'')+'<b>GC mineur n° '+st.minor+'</b> : '+freed+' objets morts libérés sans aucun travail, '+copied+' copiés en survivant, '+promoted+' promus.';
+    if(old.length>CAP.old) major();
+  }
+  function major(){
+    st.major++; const before=old.length; old=old.filter(alive); const f=before-old.length; st.freed+=f;
+    log+=' <b>Vieille génération pleine : GC majeur</b> ('+f+' objets libérés, pause plus longue).';
+    if(old.length>CAP.old){ old=old.slice(0,CAP.old); log+=' Il reste trop d\'objets vivants : en vrai, OutOfMemoryError.'; }
+  }
+  function alloc(n){
+    fresh=new Set(); log='';
+    for(let i=0;i<n;i++){
+      t++;
+      if(eden.length>=CAP.eden) minor();
+      const o={id:++id, die:t+life(), age:0}; eden.push(o); fresh.add(o.id);
+    }
+    if(!log) log='Allocation dans l\'Eden : simple incrément d\'un pointeur (TLAB), très rapide.';
+    draw();
+  }
+  function cells(arr,cap,showAge){
+    let h=''; arr.forEach(o=>{ h+='<span class="o'+(alive(o)?'':' dead')+'" title="objet '+o.id+'">'+(showAge?o.age:o.id)+'</span>'; });
+    for(let i=arr.length;i<cap;i++) h+='<span class="o free"></span>';
+    return '<div class="cells">'+h+'</div>';
+  }
+  function draw(){
+    Z.innerHTML='<div class="zone"><h4><span>Eden (jeune)</span><span>'+eden.length+'/'+CAP.eden+'</span></h4>'+cells(eden,CAP.eden,false)+'</div>'+
+      '<div class="zone"><h4><span>Survivant</span><span>âge</span></h4>'+cells(surv,CAP.s,true)+'</div>'+
+      '<div class="zone"><h4><span>Légende</span></h4><div class="lg"><span><span class="o">n</span>vivant</span><span><span class="o dead">n</span>mort, pas encore récupéré</span></div></div>'+
+      '<div class="zone old"><h4><span>Vieille génération</span><span>'+old.length+'/'+CAP.old+'</span></h4>'+cells(old,CAP.old,false)+'</div>';
+    S.innerHTML='<span>GC mineurs : <b>'+st.minor+'</b></span><span>GC majeurs : <b>'+st.major+'</b></span><span>objets libérés : <b>'+st.freed+'</b></span><span>copies : <b>'+st.copied+'</b></span><span>promotions : <b>'+st.promoted+'</b></span>';
+    L.innerHTML=log;
+  }
+  el.querySelector('.a1').onclick=()=>alloc(3);
+  el.querySelector('.a2').onclick=()=>alloc(15);
+  el.querySelector('.gc').onclick=()=>{ fresh=new Set(); log=''; minor(); draw(); };
+  el.querySelector('.rs').onclick=()=>{ t=0; id=0; eden=[]; surv=[]; old=[]; st={minor:0,major:0,copied:0,promoted:0,freed:0}; fresh=new Set(); log='Tas vide.'; draw(); };
+  log='Cliquez sur « Allouer » pour commencer.'; draw();
+};
+</script>

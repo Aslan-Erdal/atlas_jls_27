@@ -1,0 +1,312 @@
+<style>
+.hier svg .nd{cursor:pointer}
+.hier svg .nd rect{fill:var(--sheet); stroke:var(--plate-edge); stroke-width:1.5}
+.hier svg .nd.map rect{fill:var(--violet-soft); stroke:var(--violet)}
+.hier svg .nd.seq rect{fill:var(--ember-soft); stroke:var(--ember)}
+.hier svg .nd.sel rect{fill:var(--ink); stroke:var(--ink)}
+.hier svg .nd.sel text{fill:var(--paper)}
+.hier svg .nd text{font-family:var(--f-mono); font-size:12px; fill:var(--ink); font-weight:600}
+.hier .det{margin-top:12px}
+.hier .impls{display:flex; flex-wrap:wrap; gap:6px; margin-top:6px}
+.hier .impls code{font-size:.8rem}
+.hm .row{display:flex; gap:8px; flex-wrap:wrap; align-items:center; margin-bottom:10px}
+.hm .row input{flex:1 1 240px; min-width:0}
+.hm .buckets{display:grid; grid-template-columns:repeat(auto-fill,minmax(150px,1fr)); gap:6px}
+.hm .b{border:1px solid var(--rule); border-radius:6px; padding:5px 8px; font-family:var(--f-mono); font-size:.75rem; background:var(--paper); min-height:42px}
+.hm .b i{font-style:normal; color:var(--muted); display:block; font-size:.68rem}
+.hm .b span{display:inline-block; background:var(--accent-soft); border:1px solid var(--accent); border-radius:4px; padding:1px 5px; margin:2px 3px 0 0}
+.hm .b.col span{background:var(--ember-soft); border-color:var(--ember)}
+.hm .b.empty{opacity:.5}
+.hm .stats{font-family:var(--f-display); font-size:var(--s-1); color:var(--muted); margin:8px 0}
+.chooser .q{margin-bottom:10px}
+.chooser .q .btnrow{margin:4px 0 0}
+</style>
+
+<div class="col">
+  <div class="eyebrow">Section 20 · Bibliothèque Java SE</div>
+  <h1>Collections</h1>
+  <p class="lede">Le framework de collections de <code>java.util</code> : les interfaces qui définissent les contrats, les implémentations qui les réalisent, leur coût réel, et les règles (égalité, ordre, immuabilité, concurrence) qui font la différence entre un code correct et un code qui marche par hasard.</p>
+  <div class="meta">
+    <span>Référence : <a href="https://docs.oracle.com/en/java/javase/27/docs/api/java.base/java/util/package-summary.html" target="_blank" rel="noopener">API Java SE 27, java.util</a></span>
+    <span>Liens avec la JLS : <b>§4.5, §14.14.2, §8.9.3</b></span>
+  </div>
+
+  <h2 id="s20-1"><span class="sec">20.1</span>La hiérarchie des interfaces</h2>
+  <p>Le framework sépare les <b>contrats</b> (interfaces) des <b>implémentations</b> (classes). Déclarez vos variables et paramètres avec l'interface la plus générale qui suffit (<code>List</code>, <code>Map</code>, voire <code>Collection</code>), et choisissez l'implémentation à un seul endroit : la création.</p>
+</div>
+
+<div class="wide">
+  <figure>
+    <p class="fig-title">Figure 20.1 · Les interfaces de collections</p>
+    <p class="fig-hint">Cliquez une interface. En orange, les interfaces « séquencées » ajoutées en Java 21 ; en violet, la famille <code>Map</code>, qui n'étend pas <code>Collection</code>.</p>
+    <div data-w="collhier"></div>
+  </figure>
+</div>
+
+<div class="col">
+  <div class="rule"><span class="lbl">À retenir</span>
+    <p><code>Map</code> n'est <b>pas</b> une <code>Collection</code> : elle associe des clés à des valeurs. On la parcourt par ses vues <code>keySet()</code>, <code>values()</code> et <code>entrySet()</code>, qui sont des collections reliées à la map (les modifier modifie la map).</p>
+  </div>
+
+  <h2 id="s20-2"><span class="sec">20.2</span>Les collections séquencées (Java 21)</h2>
+  <p>Avant Java 21, obtenir le premier ou le dernier élément dépendait du type : <code>list.get(0)</code>, <code>deque.getFirst()</code>, <code>sortedSet.first()</code>, <code>linkedHashSet.iterator().next()</code>… Les interfaces <code>SequencedCollection</code>, <code>SequencedSet</code> et <code>SequencedMap</code> unifient tout ça pour les collections qui ont un <b>ordre de rencontre</b> défini.</p>
+  <div class="code"><div class="bar"><span>Java 21+</span></div><pre><code class="java">List&lt;String&gt; l = new ArrayList&lt;&gt;(List.of("a", "b", "c"));
+l.getFirst();       // "a"
+l.getLast();        // "c"
+l.addFirst("z");    // [z, a, b, c]
+l.reversed();       // vue inversée [c, b, a, z] : pas de copie
+
+LinkedHashMap&lt;String, Integer&gt; m = new LinkedHashMap&lt;&gt;();
+m.put("un", 1); m.put("deux", 2);
+m.firstEntry();     // un=1
+m.pollLastEntry();  // retire et renvoie deux=2
+m.putFirst("zéro", 0);   // insère en tête
+
+List.of(1, 2).addFirst(0);   // UnsupportedOperationException : liste immuable</code></pre></div>
+
+  <h2 id="s20-3"><span class="sec">20.3</span>Les implémentations et leur coût</h2>
+  <div class="tbl"><table>
+    <thead><tr><th>Implémentation</th><th>Structure</th><th>Accès / recherche</th><th>Ajout / retrait</th><th>Ordre</th><th>null ?</th></tr></thead>
+    <tbody>
+      <tr><td><code>ArrayList</code></td><td>tableau redimensionnable</td><td class="num">get O(1) · contains O(n)</td><td class="num">fin O(1) amorti · milieu O(n)</td><td>insertion</td><td>oui</td></tr>
+      <tr><td><code>LinkedList</code></td><td>liste doublement chaînée</td><td class="num">get O(n)</td><td class="num">extrémités O(1)</td><td>insertion</td><td>oui</td></tr>
+      <tr><td><code>ArrayDeque</code></td><td>tableau circulaire</td><td class="num">extrémités O(1)</td><td class="num">extrémités O(1) amorti</td><td>insertion</td><td><b>non</b></td></tr>
+      <tr><td><code>HashMap</code> / <code>HashSet</code></td><td>table de hachage</td><td class="num">O(1) moyen · O(log n) pire</td><td class="num">O(1) moyen</td><td>aucun</td><td>oui (une clé)</td></tr>
+      <tr><td><code>LinkedHashMap</code> / <code>LinkedHashSet</code></td><td>hachage + liste chaînée</td><td class="num">O(1) moyen</td><td class="num">O(1) moyen</td><td>insertion (ou accès)</td><td>oui</td></tr>
+      <tr><td><code>TreeMap</code> / <code>TreeSet</code></td><td>arbre rouge-noir</td><td class="num">O(log n)</td><td class="num">O(log n)</td><td>trié</td><td>non (par défaut)</td></tr>
+      <tr><td><code>PriorityQueue</code></td><td>tas binaire</td><td class="num">peek O(1) · contains O(n)</td><td class="num">offer / poll O(log n)</td><td>priorité (tête seulement)</td><td>non</td></tr>
+      <tr><td><code>EnumMap</code> / <code>EnumSet</code></td><td>tableau / bits indexés par ordinal</td><td class="num">O(1)</td><td class="num">O(1)</td><td>ordre de déclaration</td><td>clés non</td></tr>
+      <tr><td><code>List.of</code>, <code>Set.of</code>, <code>Map.of</code></td><td>immuables compactes</td><td class="num">comme ArrayList / HashMap</td><td>interdit</td><td>List : oui ; Set/Map : non spécifié</td><td><b>non</b></td></tr>
+    </tbody>
+  </table></div>
+  <div class="trap"><span class="lbl">Pièges classiques</span>
+    <p><b>LinkedList</b> est rarement le bon choix : son accès indexé est en O(n), et même ses insertions « O(1) » sont souvent plus lentes qu'un <code>ArrayList</code> à cause de la mémoire dispersée. Pour une file ou une pile, prenez <code>ArrayDeque</code> (et jamais la vieille classe <code>Stack</code>).</p>
+    <p><b>list.remove(1)</b> sur une <code>List&lt;Integer&gt;</code> retire l'élément d'<b>index</b> 1, pas la valeur 1 : la surcharge <code>remove(int)</code> est choisie en phase stricte (§15.12.2). Pour la valeur : <code>list.remove(Integer.valueOf(1))</code>.</p>
+  </div>
+  <p>Pas sûr de l'implémentation à prendre ? Répondez à ces questions :</p>
+</div>
+
+<div class="wide">
+  <figure>
+    <p class="fig-title">Figure 20.2 · Choisir une collection</p>
+    <div data-w="collchooser"></div>
+  </figure>
+</div>
+
+<div class="col">
+  <h2 id="s20-4"><span class="sec">20.4</span>HashMap de l'intérieur</h2>
+  <p>Une <code>HashMap</code> est un tableau de <b>compartiments</b> (buckets). Pour placer une clé :</p>
+  <ol>
+    <li>calculer <code>h = key.hashCode()</code> ;</li>
+    <li>mélanger les bits de poids fort dans les bits faibles : <code>h ^ (h &gt;&gt;&gt; 16)</code> ;</li>
+    <li>prendre l'index <code>(n - 1) &amp; h</code>, où n (la capacité) est une puissance de 2 ;</li>
+    <li>dans ce compartiment, chercher une clé <code>equals</code> : la remplacer, sinon l'ajouter.</li>
+  </ol>
+  <p>Quand le nombre d'entrées dépasse <code>capacité × 0,75</code> (le facteur de charge), le tableau double et toutes les entrées sont redistribuées. Si un compartiment contient trop de collisions (8 entrées, dans une table d'au moins 64 cases), sa liste devient un arbre équilibré : le pire cas passe de O(n) à O(log n).</p>
+</div>
+
+<div class="wide">
+  <figure>
+    <p class="fig-title">Figure 20.3 · Simulateur de HashMap</p>
+    <p class="fig-hint">Saisissez des clés String séparées par des virgules. Le calcul utilise le vrai <code>String.hashCode()</code> de Java. <code>"Aa"</code> et <code>"BB"</code> ont le même hashCode : essayez-les.</p>
+    <div data-w="hashsim"></div>
+  </figure>
+</div>
+
+<div class="col">
+  <h2 id="s20-5"><span class="sec">20.5</span>Le contrat equals / hashCode</h2>
+  <div class="rule"><span class="lbl">Contrat de Object</span>
+    <p>Si <code>a.equals(b)</code>, alors <code>a.hashCode() == b.hashCode()</code>. L'inverse n'est pas exigé (les collisions sont permises). <code>equals</code> doit être réflexif, symétrique, transitif et cohérent, et <code>x.equals(null)</code> doit renvoyer <code>false</code>.</p>
+  </div>
+  <div class="code"><div class="bar"><span>Java</span></div><pre><code class="java">class Point {
+    final int x, y;
+    Point(int x, int y) { this.x = x; this.y = y; }
+    @Override public boolean equals(Object o) {
+        return o instanceof Point p &amp;&amp; x == p.x &amp;&amp; y == p.y;
+    }
+    // hashCode oublié !
+}
+Set&lt;Point&gt; s = new HashSet&lt;&gt;();
+s.add(new Point(1, 2));
+s.contains(new Point(1, 2));   // false (presque toujours) : les deux objets ont des hashCode différents
+
+record PointR(int x, int y) { }  // equals ET hashCode générés correctement (§8.10.3)</code></pre></div>
+  <div class="trap"><span class="lbl">Clés mutables</span>
+    <p>Ne modifiez jamais un champ utilisé par <code>hashCode</code> pendant qu'un objet est clé d'une <code>HashMap</code> ou élément d'un <code>HashSet</code> : il reste rangé dans l'ancien compartiment et devient introuvable, même par <code>contains</code> sur lui-même.</p>
+  </div>
+
+  <h2 id="s20-6"><span class="sec">20.6</span>Ordre : Comparable et Comparator</h2>
+  <p><code>Comparable&lt;T&gt;</code> définit l'ordre <b>naturel</b> d'une classe (<code>String</code>, <code>Integer</code>, <code>LocalDate</code>…). <code>Comparator&lt;T&gt;</code> définit un ordre externe, composable :</p>
+  <div class="code"><div class="bar"><span>Java</span></div><pre><code class="java">record Personne(String nom, String prenom, int age) { }
+
+Comparator&lt;Personne&gt; ordre = Comparator
+    .comparing(Personne::nom)
+    .thenComparing(Personne::prenom, String.CASE_INSENSITIVE_ORDER)
+    .thenComparingInt(Personne::age)
+    .reversed();
+
+personnes.sort(ordre);
+TreeSet&lt;Personne&gt; tries = new TreeSet&lt;&gt;(ordre);
+Comparator.nullsFirst(Comparator.&lt;String&gt;naturalOrder());   // gérer les null
+
+(a, b) -&gt; a.age() - b.age();       // piège : débordement si les valeurs sont grandes et de signes opposés
+Integer.compare(a.age(), b.age()); // correct</code></pre></div>
+  <div class="trap"><span class="lbl">Cohérence avec equals</span>
+    <p>Un <code>TreeSet</code> ou une <code>TreeMap</code> considère deux éléments égaux si le comparateur renvoie 0, sans appeler <code>equals</code>. Un comparateur qui ne compare que le nom fera disparaître les homonymes. <code>new BigDecimal("1.0")</code> et <code>new BigDecimal("1.00")</code> : égaux pour <code>compareTo</code>, différents pour <code>equals</code>, donc un élément dans un <code>TreeSet</code>, deux dans un <code>HashSet</code>.</p>
+  </div>
+
+  <h2 id="s20-7"><span class="sec">20.7</span>Immuabilité : trois notions différentes</h2>
+  <div class="tbl"><table>
+    <thead><tr><th>Forme</th><th>Modifiable par vous ?</th><th>Reflète les changements de la source ?</th><th>null permis ?</th></tr></thead>
+    <tbody>
+      <tr><td><code>List.of(a, b)</code>, <code>Set.of</code>, <code>Map.of</code></td><td class="n">non</td><td>pas de source</td><td class="n">non (NPE)</td></tr>
+      <tr><td><code>List.copyOf(source)</code></td><td class="n">non</td><td class="n">non : copie</td><td class="n">non</td></tr>
+      <tr><td><code>Collections.unmodifiableList(source)</code></td><td class="n">non</td><td class="w">oui : c'est une <b>vue</b></td><td class="y">oui</td></tr>
+      <tr><td><code>stream.toList()</code> (Java 16)</td><td class="n">non</td><td>pas de source</td><td class="y">oui</td></tr>
+      <tr><td><code>Collectors.toList()</code></td><td class="y">en pratique oui (non garanti)</td><td>pas de source</td><td class="y">oui</td></tr>
+      <tr><td><code>Arrays.asList(tab)</code></td><td class="w">set oui, add/remove non</td><td class="w">oui : adossée au tableau</td><td class="y">oui</td></tr>
+    </tbody>
+  </table></div>
+  <div class="code"><div class="bar"><span>Java</span></div><pre><code class="java">List&lt;String&gt; source = new ArrayList&lt;&gt;(List.of("a"));
+List&lt;String&gt; vue = Collections.unmodifiableList(source);
+List&lt;String&gt; copie = List.copyOf(source);
+source.add("b");
+vue.size();      // 2 : la vue voit la modification
+copie.size();    // 1
+List.of("a", null);   // NullPointerException
+Map.of("k", 1, "k", 2);   // IllegalArgumentException : clé dupliquée</code></pre></div>
+
+  <h2 id="s20-8"><span class="sec">20.8</span>Itération et modification</h2>
+  <p>Les itérateurs de <code>ArrayList</code>, <code>HashMap</code>… sont <b>fail-fast</b> : si la collection est modifiée structurellement pendant l'itération autrement que par l'itérateur, la prochaine opération lève <code>ConcurrentModificationException</code> (au mieux : ce n'est pas garanti).</p>
+  <div class="code"><div class="bar"><span>Java</span></div><pre><code class="java">for (String s : liste) if (s.isBlank()) liste.remove(s);   // ConcurrentModificationException
+liste.removeIf(String::isBlank);                           // correct
+
+Iterator&lt;String&gt; it = liste.iterator();
+while (it.hasNext()) if (it.next().isBlank()) it.remove();   // correct aussi
+
+map.entrySet().removeIf(e -&gt; e.getValue() == 0);
+map.replaceAll((k, v) -&gt; v * 2);
+map.computeIfAbsent(cle, k -&gt; new ArrayList&lt;&gt;()).add(valeur);   // regroupement en une ligne
+map.merge(mot, 1, Integer::sum);                                  // compteur de fréquences</code></pre></div>
+
+  <h2 id="s20-9"><span class="sec">20.9</span>Utilitaires et collections spéciales</h2>
+  <div class="grid2">
+    <div class="card"><b class="h">Collections</b><code>sort</code>, <code>shuffle</code>, <code>reverse</code>, <code>frequency</code>, <code>nCopies</code>, <code>emptyList</code>, <code>synchronizedList</code> (verrou global : préférer les collections concurrentes, section 22).</div>
+    <div class="card"><b class="h">Arrays</b><code>asList</code>, <code>sort</code> (tri parallèle : <code>parallelSort</code>), <code>binarySearch</code>, <code>fill</code>, <code>copyOf</code>, <code>equals</code>, <code>hashCode</code>, <code>toString</code>, <code>stream</code>.</div>
+    <div class="card"><b class="h">Références faibles</b><code>WeakHashMap</code> : une entrée disparaît quand sa clé n'est plus référencée ailleurs. Utile pour des caches associés à des objets ; à manier avec prudence.</div>
+    <div class="card"><b class="h">Identité</b><code>IdentityHashMap</code> compare les clés avec <code>==</code> au lieu de <code>equals</code> : utile pour les graphes d'objets (copie profonde, sérialisation).</div>
+    <div class="card"><b class="h">Cache LRU en 5 lignes</b><code>new LinkedHashMap&lt;&gt;(16, 0.75f, true)</code> (ordre d'accès) + redéfinition de <code>removeEldestEntry</code> pour limiter la taille.</div>
+    <div class="card"><b class="h">Paresseuses (preview Java 27)</b><code>List.ofLazy</code>, <code>Set.ofLazy</code>, <code>Map.ofLazy</code> : éléments calculés à la première lecture (section 27.3).</div>
+  </div>
+
+  <h2 id="s20-quiz">Vérifier ses acquis</h2>
+  <div data-w="quiz"><script type="application/json">[
+    {"q":"<code>Map</code> étend-elle <code>Collection</code> ?","o":["Oui","Non"],"a":1,"e":"Elle se parcourt via ses vues keySet, values et entrySet."},
+    {"q":"Que retire <code>list.remove(1)</code> sur une <code>List&lt;Integer&gt;</code> [5, 1, 7] ?","o":["La valeur 1","L'élément d'index 1, donc aussi la valeur 1 ici","Rien"],"a":1,"e":"remove(int index) est choisie en phase stricte ; ici l'index 1 contient justement la valeur 1. Avec [1, 5, 7], c'est 5 qui serait retiré."},
+    {"q":"Quel est le coût de <code>get(i)</code> sur une <code>LinkedList</code> ?","o":["O(1)","O(log n)","O(n)"],"a":2,"e":"Il faut parcourir la chaîne depuis l'extrémité la plus proche."},
+    {"q":"Une classe redéfinit <code>equals</code> mais pas <code>hashCode</code>. Dans un HashSet…","o":["tout fonctionne","contains échoue presque toujours pour un objet égal mais distinct","erreur de compilation"],"a":1,"e":"Les deux objets atterrissent dans des compartiments différents."},
+    {"q":"<code>Collections.unmodifiableList(source)</code> voit-elle les ajouts faits ensuite à source ?","o":["Oui, c'est une vue","Non, c'est une copie"],"a":0,"e":"Pour une copie figée : List.copyOf."},
+    {"q":"À partir de quel remplissage une HashMap de capacité 16 se redimensionne-t-elle (facteur 0,75) ?","o":["16 entrées","Au-delà de 12 entrées","8 entrées"],"a":1,"e":"Seuil = 16 × 0,75 = 12 ; la 13ᵉ entrée provoque le doublement."},
+    {"q":"Que faut-il utiliser pour une pile ou une file en Java moderne ?","o":["Stack","LinkedList","ArrayDeque"],"a":2,"e":"Stack est synchronisée et héritée de Vector ; ArrayDeque est plus rapide."}
+  ]</script></div>
+</div>
+
+<script>
+ATLAS.w.collhier = function(el){
+  el.classList.add('hier');
+  const N = {
+    Iterable:[300,20,'','Tout ce qui peut être parcouru par un for amélioré (§14.14.2).','iterator(), forEach(action), spliterator()',[]],
+    Collection:[300,80,'','Un groupe d\'éléments. Contrat de base de toutes les collections sauf Map.','size, isEmpty, contains, add, remove, addAll, removeIf, retainAll, clear, stream, toArray',[]],
+    SequencedCollection:[300,140,'seq','Collection avec un ordre de rencontre défini (Java 21).','getFirst, getLast, addFirst, addLast, removeFirst, removeLast, reversed',[]],
+    List:[90,200,'','Séquence indexée, doublons permis.','get(i), set(i, e), add(i, e), indexOf, subList, sort, replaceAll, listIterator',['ArrayList','LinkedList','CopyOnWriteArrayList','List.of / List.copyOf']],
+    Deque:[300,200,'','File à double extrémité : pile et file à la fois.','offerFirst, offerLast, pollFirst, pollLast, peekFirst, push, pop',['ArrayDeque','LinkedList','ConcurrentLinkedDeque','LinkedBlockingDeque']],
+    SequencedSet:[510,200,'seq','Ensemble ordonné sans doublons (Java 21).','reversed() renvoie un SequencedSet',['LinkedHashSet']],
+    Set:[620,140,'','Ensemble sans doublons (au sens de equals).','add renvoie false si l\'élément existe déjà',['HashSet','LinkedHashSet','EnumSet','Set.of','CopyOnWriteArraySet']],
+    Queue:[90,140,'','File : on insère d\'un côté, on retire de l\'autre (ou par priorité).','offer, poll, peek (ne lèvent pas d\'exception) ; add, remove, element (en lèvent)',['ArrayDeque','PriorityQueue','LinkedList','ConcurrentLinkedQueue','ArrayBlockingQueue']],
+    SortedSet:[510,260,'','Ensemble trié par ordre naturel ou par un Comparator.','first, last, headSet, tailSet, subSet, comparator',[]],
+    NavigableSet:[510,320,'','Ensemble trié avec recherches de voisinage.','floor, ceiling, lower, higher, pollFirst, descendingSet',['TreeSet','ConcurrentSkipListSet']],
+    Map:[780,20,'map','Associe des clés uniques à des valeurs.','get, put, remove, containsKey, getOrDefault, putIfAbsent, computeIfAbsent, merge, entrySet, keySet, values',['HashMap','LinkedHashMap','TreeMap','EnumMap','IdentityHashMap','WeakHashMap','ConcurrentHashMap','Map.of']],
+    SequencedMap:[780,80,'seq map','Map ordonnée (Java 21).','firstEntry, lastEntry, pollFirstEntry, putFirst, putLast, reversed, sequencedKeySet',['LinkedHashMap']],
+    SortedMap:[780,140,'map','Map triée par clé.','firstKey, lastKey, headMap, tailMap, subMap',[]],
+    NavigableMap:[780,200,'map','Map triée avec recherches de voisinage.','floorKey, ceilingEntry, higherKey, descendingMap, navigableKeySet',['TreeMap','ConcurrentSkipListMap']]
+  };
+  const E=[['Collection','Iterable'],['SequencedCollection','Collection'],['Queue','Collection'],['Set','Collection'],['List','SequencedCollection'],['Deque','SequencedCollection'],['Deque','Queue'],['SequencedSet','SequencedCollection'],['SequencedSet','Set'],['SortedSet','SequencedSet'],['NavigableSet','SortedSet'],['SequencedMap','Map'],['SortedMap','SequencedMap'],['NavigableMap','SortedMap']];
+  const W=150,H=30;
+  let sel='List';
+  el.innerHTML='<div class="svgwrap"><svg viewBox="0 0 950 360" width="950" role="group" aria-label="Hiérarchie des collections"></svg></div><div class="det verdict" aria-live="polite"></div>';
+  const svg=el.querySelector('svg'), det=el.querySelector('.det');
+  function draw(){
+    let h=E.map(([a,b])=>{ const A=N[a],B=N[b]; return '<path class="d-line" d="M'+(A[0]+W/2)+','+A[1]+' L'+(B[0]+W/2)+','+(B[1]+H+2)+'" marker-end="url(#arr)"/>'; }).join('');
+    h+=Object.entries(N).map(([k,v])=>'<g class="nd '+v[2]+(k===sel?' sel':'')+'" data-k="'+k+'" tabindex="0" role="button" aria-label="'+k+'"><rect x="'+v[0]+'" y="'+v[1]+'" width="'+W+'" height="'+H+'" rx="6"/><text x="'+(v[0]+W/2)+'" y="'+(v[1]+19)+'" text-anchor="middle">'+k+'</text></g>').join('');
+    svg.innerHTML=h;
+    svg.querySelectorAll('.nd').forEach(g=>{ const f=()=>{ sel=g.dataset.k; draw(); }; g.onclick=f; g.onkeydown=e=>{ if(e.key==='Enter'||e.key===' '){ e.preventDefault(); f(); } }; });
+    const v=N[sel];
+    det.className='det verdict';
+    det.innerHTML='<div class="v" style="font-size:1.1rem">'+sel+'</div><p>'+v[3]+'</p><p><b>Méthodes clés :</b> <code>'+v[4]+'</code></p>'+(v[5].length?'<p><b>Implémentations :</b></p><div class="impls">'+v[5].map(i=>'<code>'+i+'</code>').join('')+'</div>':'<p>Interface intermédiaire : pas d\'implémentation directe courante.</p>');
+  }
+  draw();
+};
+
+ATLAS.w.collchooser = function(el){
+  el.classList.add('chooser');
+  const Q=[
+    ['k','Que stockez-vous ?',[['val','des valeurs'],['map','des paires clé → valeur']]],
+    ['dup','Doublons ?',[['oui','permis'],['non','interdits']],s=>s.k==='val'],
+    ['acc','Comment y accédez-vous surtout ?',[['idx','par index ou dans l\'ordre'],['ext','aux deux extrémités (pile, file)'],['prio','par priorité (le plus petit d\'abord)']],s=>s.k==='val'&&s.dup==='oui'],
+    ['ord','Quel ordre ?',[['aucun','aucun'],['ins','ordre d\'insertion'],['tri','trié']]],
+    ['enum','Les clés / éléments sont-ils des constantes d\'enum ?',[['non','non'],['oui','oui']],s=>s.k==='map'||s.dup==='non'],
+    ['conc','Accès par plusieurs threads ?',[['non','non'],['oui','oui']]],
+    ['mut','Faut-il la modifier après création ?',[['oui','oui'],['non','non']]]
+  ];
+  const st={k:'val',dup:'oui',acc:'idx',ord:'aucun',enum:'non',conc:'non',mut:'oui'};
+  function rec(){
+    const s=st, why=[];
+    if(s.mut==='non' && s.conc==='non'){
+      if(s.k==='map') return ['Map.of(…) / Map.copyOf(…)', 'Immuable, compacte, sûre à partager entre threads. Ordre non spécifié ; pas de null.'];
+      if(s.dup==='non') return ['Set.of(…) / Set.copyOf(…)', 'Immuable, sans doublons ; ordre non spécifié ; pas de null.'];
+      return ['List.of(…) / List.copyOf(…) / stream.toList()', 'Immuable, garde l\'ordre ; List.of refuse null.'];
+    }
+    if(s.k==='map'){
+      if(s.enum==='oui') return [s.conc==='oui'?'Collections.synchronizedMap(new EnumMap<>(…)) ou ConcurrentHashMap':'EnumMap', 'Indexée par ordinal : la plus rapide et la plus compacte pour des clés enum.'];
+      if(s.conc==='oui') return [s.ord==='tri'?'ConcurrentSkipListMap':'ConcurrentHashMap', s.ord==='tri'?'Triée et concurrente, sans verrou global.':'Concurrente à grain fin ; computeIfAbsent et merge sont atomiques. '+(s.ord==='ins'?'Aucune map concurrente standard ne garde l\'ordre d\'insertion.':'')];
+      return [s.ord==='tri'?'TreeMap':s.ord==='ins'?'LinkedHashMap':'HashMap', s.ord==='tri'?'O(log n), recherches de voisinage (floorKey, ceilingKey…).':s.ord==='ins'?'O(1) et ordre d\'insertion ; possible ordre d\'accès pour un cache LRU.':'O(1) en moyenne : le choix par défaut.'];
+    }
+    if(s.dup==='non'){
+      if(s.enum==='oui') return ['EnumSet', 'Un ensemble de bits : opérations en O(1), itération dans l\'ordre de déclaration.'];
+      if(s.conc==='oui') return [s.ord==='tri'?'ConcurrentSkipListSet':'ConcurrentHashMap.newKeySet()', 'Ensemble concurrent sans verrou global.'];
+      return [s.ord==='tri'?'TreeSet':s.ord==='ins'?'LinkedHashSet':'HashSet', s.ord==='tri'?'Trié, O(log n).':s.ord==='ins'?'Ordre d\'insertion, O(1).':'O(1) en moyenne : le choix par défaut.'];
+    }
+    if(s.acc==='prio') return [s.conc==='oui'?'PriorityBlockingQueue':'PriorityQueue', 'Tas binaire : poll renvoie toujours le plus petit élément selon l\'ordre ; l\'itération n\'est PAS triée.'];
+    if(s.acc==='ext') return [s.conc==='oui'?'ConcurrentLinkedDeque ou LinkedBlockingDeque':'ArrayDeque', 'O(1) aux deux extrémités ; remplace Stack et LinkedList.'];
+    if(s.conc==='oui') return ['CopyOnWriteArrayList', 'Lectures sans verrou, écritures coûteuses (copie) : idéal pour de nombreuses lectures et de rares écritures (écouteurs). Sinon, protégez une ArrayList par un verrou.'];
+    return ['ArrayList', 'Le choix par défaut pour une liste : accès indexé O(1), excellente localité mémoire.'];
+  }
+  const box=document.createElement('div'); el.appendChild(box);
+  const out=document.createElement('div'); out.className='verdict ok'; out.setAttribute('aria-live','polite'); el.appendChild(out);
+  function draw(){
+    box.innerHTML=Q.filter(q=>!q[3]||q[3](st)).map(([k,t,opts])=>'<div class="q"><span class="lbl" style="color:var(--muted)">'+t+'</span><div class="btnrow">'+opts.map(([v,l])=>'<button type="button" class="btn'+(st[k]===v?' on':'')+'" data-k="'+k+'" data-v="'+v+'">'+l+'</button>').join('')+'</div></div>').join('');
+    box.querySelectorAll('.btn').forEach(b=>b.onclick=()=>{ st[b.dataset.k]=b.dataset.v; draw(); });
+    const [n,w]=rec(); out.innerHTML='<div class="v">'+ATLAS.esc(n)+'</div><p>'+w+'</p>';
+  }
+  draw();
+};
+
+ATLAS.w.hashsim = function(el){
+  el.classList.add('hm');
+  el.innerHTML='<div class="row"><input type="text" value="pomme, poire, kiwi, Aa, BB, banane, cerise, fraise" aria-label="Clés"></div><div class="btnrow"><button type="button" class="btn p" data-v="Aa, BB, AaAa, BBBB, AaBB, BBAa">collisions</button><button type="button" class="btn p" data-v="a, b, c, d, e, f, g, h, i, j, k, l, m">13 clés : redimensionnement</button><button type="button" class="btn p" data-v="lundi, mardi, mercredi, jeudi, vendredi, samedi, dimanche">jours</button></div><div class="stats"></div><div class="buckets"></div>';
+  const inp=el.querySelector('input'), st=el.querySelector('.stats'), bx=el.querySelector('.buckets');
+  el.querySelectorAll('.p').forEach(b=>b.onclick=()=>{ inp.value=b.dataset.v; run(); });
+  function sh(s){ let h=0; for(const c of s) { for(let i=0;i<c.length;i++) h=(Math.imul(h,31)+c.charCodeAt(i))|0; } return h; }
+  function run(){
+    const keys=[...new Set(inp.value.split(',').map(x=>x.trim()).filter(Boolean))];
+    let cap=16, resizes=[];
+    for(let i=1;i<=keys.length;i++){ if(i>cap*0.75){ resizes.push(cap+' → '+cap*2+' à la '+i+'ᵉ clé'); cap*=2; } }
+    const B=Array.from({length:cap},()=>[]);
+    const info=keys.map(k=>{ const h=sh(k), sp=h^(h>>>16), idx=sp&(cap-1); B[idx].push(k); return {k,h,idx}; });
+    const coll=B.filter(b=>b.length>1).length;
+    st.innerHTML='Capacité <b>'+cap+'</b> · '+keys.length+' clé(s) · seuil '+(cap*0.75)+' · '+coll+' compartiment(s) en collision'+(resizes.length?' · redimensionnements : '+resizes.join(', '):'');
+    bx.innerHTML=B.map((b,i)=>'<div class="b'+(b.length>1?' col':'')+(b.length?'':' empty')+'"><i>['+i+']'+(b.length?' · hash '+info.find(x=>x.k===b[0]).h:'')+'</i>'+b.map(k=>'<span title="hashCode '+sh(k)+'">'+ATLAS.esc(k)+'</span>').join('')+'</div>').join('');
+  }
+  inp.oninput=run; run();
+};
+</script>

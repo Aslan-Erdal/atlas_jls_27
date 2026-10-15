@@ -1,0 +1,217 @@
+<style>
+.cs{display:flex; flex-direction:column-reverse; gap:4px; font-family:var(--f-mono); font-size:.8rem}
+.cs div{border:1px solid var(--rule); border-radius:6px; padding:5px 10px; background:var(--sheet)}
+.cs div.top{border-color:var(--ember); background:var(--ember-soft)}
+.cs div.gone{opacity:.4; text-decoration:line-through}
+.out{font-family:var(--f-mono); font-size:.8rem; background:var(--code-bg); color:var(--code-fg); border-radius:6px; padding:8px 10px; margin-top:8px; white-space:pre-wrap}
+</style>
+
+<div class="col">
+  <div class="eyebrow">Chapitre 11 · Java SE 27 Edition</div>
+  <h1>Exceptions</h1>
+  <p class="lede">Quand un programme viole la sémantique du langage ou rencontre une situation anormale, le contrôle est transféré du point où l'exception est levée vers un point qui peut la traiter. Java vérifie à la compilation que les exceptions dites « vérifiées » sont toujours prises en charge.</p>
+  <div class="meta">
+    <span>Source : <a href="https://docs.oracle.com/javase/specs/jls/se27/html/jls-11.html" target="_blank" rel="noopener">JLS SE 27, chapitre 11</a></span>
+    <span>Sections : <b>11.1 à 11.3</b></span>
+  </div>
+
+  <h2 id="s11-0"><span class="sec">§11</span>Le modèle</h2>
+  <p>Une exception est un objet, instance de <code>Throwable</code> ou d'une sous-classe. Lever une exception provoque une <b>terminaison abrupte</b> des instructions et expressions en cours, jusqu'à trouver une clause <code>catch</code> qui l'accepte. Le modèle est <b>sans reprise</b> (non-resuming) : on ne revient jamais au point où l'exception a été levée.</p>
+  <p>Ce mécanisme est intégré au reste du langage : les blocs <code>finally</code> s'exécutent pendant la remontée, les verrous de <code>synchronized</code> sont relâchés, et les ressources d'un try-with-resources sont fermées.</p>
+
+  <h2 id="s11-1"><span class="sec">§11.1</span>Sortes et causes des exceptions</h2>
+  <h3 id="s11-1-1"><span class="sec">§11.1.1</span>Les sortes d'exceptions</h3>
+</div>
+
+<div class="wide">
+  <figure>
+    <p class="fig-title">Figure 11.1 · La hiérarchie de Throwable</p>
+    <div class="svgwrap"><svg viewBox="0 0 890 340" width="890" role="img" aria-label="Hiérarchie des exceptions : Error et RuntimeException non vérifiées, le reste de Exception vérifié">
+      <rect class="d-box" x="370" y="10" width="120" height="34" rx="7"/><text class="d-txt d-b" x="430" y="32" text-anchor="middle">Throwable</text>
+      <rect class="d-vio" x="80" y="80" width="120" height="34" rx="7"/><text class="d-txt d-b" x="140" y="102" text-anchor="middle">Error</text>
+      <rect class="d-emb" x="540" y="80" width="130" height="34" rx="7"/><text class="d-txt d-b" x="605" y="102" text-anchor="middle">Exception</text>
+      <path class="d-line" d="M140,80 L400,46" marker-end="url(#arr)"/><path class="d-line" d="M605,80 L460,46" marker-end="url(#arr)"/>
+      <g class="d-txt">
+        <rect class="d-vio" x="10" y="160" width="165" height="30" rx="6"/><text x="92" y="180" text-anchor="middle">VirtualMachineError</text>
+        <rect class="d-vio" x="10" y="220" width="165" height="30" rx="6"/><text x="92" y="240" text-anchor="middle">OutOfMemoryError</text>
+        <rect class="d-vio" x="10" y="260" width="165" height="30" rx="6"/><text x="92" y="280" text-anchor="middle">StackOverflowError</text>
+        <rect class="d-vio" x="190" y="160" width="130" height="30" rx="6"/><text x="255" y="180" text-anchor="middle">AssertionError</text>
+        <rect class="d-vio" x="190" y="220" width="130" height="30" rx="6"/><text x="255" y="240" text-anchor="middle">LinkageError</text>
+        <rect class="d-emb" x="350" y="160" width="130" height="30" rx="6"/><text x="415" y="180" text-anchor="middle">IOException</text>
+        <rect class="d-emb" x="350" y="220" width="160" height="30" rx="6"/><text x="430" y="240" text-anchor="middle">FileNotFoundException</text>
+        <rect class="d-emb" x="350" y="270" width="160" height="30" rx="6"/><text x="430" y="290" text-anchor="middle">InterruptedException</text>
+        <rect class="d-ok" x="640" y="160" width="160" height="30" rx="6"/><text class="d-b" x="720" y="180" text-anchor="middle">RuntimeException</text>
+        <rect class="d-ok" x="540" y="220" width="150" height="30" rx="6"/><text x="615" y="240" text-anchor="middle">NullPointerException</text>
+        <rect class="d-ok" x="700" y="220" width="180" height="30" rx="6"/><text x="790" y="240" text-anchor="middle">IllegalArgumentException</text>
+        <rect class="d-ok" x="540" y="270" width="150" height="30" rx="6"/><text x="615" y="290" text-anchor="middle">ClassCastException</text>
+        <rect class="d-ok" x="700" y="270" width="180" height="30" rx="6"/><text x="790" y="290" text-anchor="middle">ArithmeticException</text>
+      </g>
+      <g class="d-line">
+        <path d="M92,160 L130,116" marker-end="url(#arr)"/><path d="M255,160 L160,116" marker-end="url(#arr)"/><path d="M92,220 L92,192" marker-end="url(#arr)"/>
+        <path d="M92,260 Q40,225 70,192" marker-end="url(#arr)"/><path d="M310,230 Q345,160 195,116" marker-end="url(#arr)"/>
+        <path d="M415,160 L570,116" marker-end="url(#arr)"/><path d="M430,220 L425,192" marker-end="url(#arr)"/><path d="M510,285 Q560,200 585,116" marker-end="url(#arr)"/>
+        <path d="M720,160 L630,116" marker-end="url(#arr)"/><path d="M615,220 L690,192" marker-end="url(#arr)"/><path d="M777,220 L740,192" marker-end="url(#arr)"/>
+        <path d="M690,280 Q720,230 700,192" marker-end="url(#arr)"/><path d="M800,270 Q830,230 780,192" marker-end="url(#arr)"/>
+      </g>
+      <rect class="d-emb" x="420" y="318" width="12" height="12"/><text class="d-mut" x="438" y="328">vérifiée</text>
+      <rect class="d-ok" x="520" y="318" width="12" height="12"/><text class="d-mut" x="538" y="328">non vérifiée (runtime)</text>
+      <rect class="d-vio" x="690" y="318" width="12" height="12"/><text class="d-mut" x="708" y="328">erreur (non vérifiée)</text>
+    </svg></div>
+    <figcaption><b>Lecture :</b> sont <b>non vérifiées</b> les classes <code>RuntimeException</code>, <code>Error</code> et toutes leurs sous-classes. <b>Toutes les autres</b> sous-classes de <code>Throwable</code> sont vérifiées, y compris <code>Throwable</code> et <code>Exception</code> elles-mêmes.</figcaption>
+  </figure>
+</div>
+
+<div class="col">
+  <div class="tbl"><table>
+    <thead><tr><th>Sorte</th><th>Signification</th><th>Faut-il la traiter ?</th></tr></thead>
+    <tbody>
+      <tr><td><b>Exception vérifiée</b></td><td>situation anormale prévisible, hors du contrôle du programme : fichier absent, réseau coupé, interruption</td><td>Oui : <code>catch</code> ou <code>throws</code>, vérifié par le compilateur</td></tr>
+      <tr><td><b>Exception d'exécution</b></td><td>en général un bogue de programmation : <code>null</code> inattendu, index faux, argument invalide</td><td>Non exigé ; on corrige plutôt le code</td></tr>
+      <tr><td><b>Erreur</b></td><td>problème grave de la JVM ou de l'environnement : mémoire, pile, chargement de classes</td><td>Non ; la plupart des programmes ne doivent pas tenter de les attraper</td></tr>
+    </tbody>
+  </table></div>
+
+  <h3 id="s11-1-2"><span class="sec">§11.1.2</span>Les causes des exceptions</h3>
+  <p>Une exception est levée pour l'une de trois raisons :</p>
+  <ol>
+    <li>une instruction <code>throw</code> a été exécutée (§14.18) ;</li>
+    <li>la JVM a détecté une condition d'exécution anormale :
+      <ul>
+        <li>une opération viole la sémantique du langage : division entière par zéro, accès via <code>null</code>, index hors bornes, cast invalide, stockage incompatible dans un tableau, taille de tableau négative… ;</li>
+        <li>une erreur de chargement ou de liaison (§12.2, §12.3) ;</li>
+        <li>une ressource manque, comme la mémoire.</li>
+      </ul>
+    </li>
+    <li>une exception <b>asynchrone</b> s'est produite (§11.1.3).</li>
+  </ol>
+  <h3 id="s11-1-3"><span class="sec">§11.1.3</span>Exceptions asynchrones</h3>
+  <p>La plupart des exceptions sont <b>synchrones</b> : elles surviennent à un point précis, comme effet d'une instruction. Une exception asynchrone peut survenir à n'importe quel point : une erreur interne de la JVM (<code>VirtualMachineError</code>). La spec autorise un léger délai pour qu'une implémentation la livre à un point bien défini. Historiquement, <code>Thread.stop</code> en provoquait aussi ; elle lève <code>UnsupportedOperationException</code> depuis Java 20, et l'interruption coopérative (<code>interrupt()</code>, §17.2.3) est la seule façon d'arrêter un thread.</p>
+
+  <h2 id="s11-2"><span class="sec">§11.2</span>Vérification des exceptions à la compilation</h2>
+  <p>Le compilateur vérifie qu'un programme contient des gestionnaires pour les exceptions <b>vérifiées</b>. Pour cela, il calcule pour chaque expression et instruction l'ensemble des classes d'exceptions qu'elle <b>peut lever</b>.</p>
+  <h3 id="s11-2-1"><span class="sec">§11.2.1</span>Analyse des expressions</h3>
+  <ul>
+    <li>Un appel de méthode ou une création d'instance peut lever les exceptions de la clause <code>throws</code> de la méthode ou du constructeur choisi (après substitution des variables de type).</li>
+    <li>Une <b>lambda</b> ne lève rien en tant qu'expression : son corps est vérifié séparément, contre le type de fonction de sa cible (§9.9).</li>
+    <li>Une <code>switch</code> expression peut lever ce que ses expressions et ses <code>throw</code> peuvent lever.</li>
+    <li>Toute autre expression peut lever ce que ses sous-expressions peuvent lever.</li>
+  </ul>
+  <h3 id="s11-2-2"><span class="sec">§11.2.2</span>Analyse des instructions</h3>
+  <p>Une instruction <code>throw e</code> peut lever le type statique de <code>e</code>, avec une exception importante : le <b>relancement précis</b> (precise rethrow).</p>
+  <div class="rule"><span class="lbl">Règle · relancement précis</span>
+    <p>Si <code>e</code> est un paramètre de <code>catch</code> <code>final</code> ou effectivement final, <code>throw e</code> ne peut lever que les exceptions que le bloc <code>try</code> pouvait lever <b>et</b> que ce <code>catch</code> peut attraper, pas tout le type déclaré du paramètre.</p>
+  </div>
+  <div class="code"><div class="bar"><span>Java</span></div><pre><code class="java">void f() throws IOException, SQLException {
+    try {
+        lireFichier();      // throws IOException
+        requete();          // throws SQLException
+    } catch (Exception e) {
+        log(e);
+        throw e;            // OK : le compilateur sait que e est une IOException ou une SQLException
+    }
+}</code></pre></div>
+  <p>Une instruction <code>try</code> peut lever : ce que le bloc <code>try</code> peut lever et qu'aucun <code>catch</code> n'attrape, plus ce que les <code>catch</code> et le <code>finally</code> peuvent lever. Si le <code>finally</code> peut se terminer abruptement, il peut <b>masquer</b> tout le reste. Un try-with-resources ajoute les exceptions des méthodes <code>close()</code> de ses ressources.</p>
+
+  <h3 id="s11-2-3"><span class="sec">§11.2.3</span>Vérification des exceptions</h3>
+  <div class="rule"><span class="lbl">Règles</span>
+    <p>Un corps de méthode ou de constructeur qui peut lever une exception vérifiée E doit la déclarer (E ou un supertype dans <code>throws</code>). Un initialiseur statique ou d'initialisation de champ statique ne peut lever <b>aucune</b> exception vérifiée. Un initialiseur d'instance ne peut lever une exception vérifiée que si tous les constructeurs la déclarent (et, pour une classe anonyme, elle peut lever n'importe quoi).</p>
+    <p>Une clause <code>catch</code> d'une exception vérifiée E1 est une <b>erreur</b> si le bloc <code>try</code> ne peut lever aucune exception vérifiée compatible avec E1, sauf si E1 est <code>Exception</code> ou une de ses superclasses. Un <code>catch</code> qui ne pourrait jamais rien attraper parce qu'un <code>catch</code> précédent couvre déjà son type est aussi une erreur.</p>
+  </div>
+</div>
+
+<div class="wide">
+  <figure>
+    <p class="fig-title">Figure 11.2 · Compile ou pas ?</p>
+    <div data-w="explorer"><script type="application/json">{"items":[
+      {"k":"catch (IOException e) sur un try qui ne lève rien","sub":"catch inutile","d":"<p><span class=\"pill r\">erreur</span> <code>exception IOException is never thrown in body of corresponding try statement</code>. Le compilateur sait que le bloc try ne peut pas lever IOException.</p>","code":"try { int x = 1; } catch (IOException e) { }"},
+      {"k":"catch (Exception e) sur un try qui ne lève rien","sub":"exception admise","d":"<p><span class=\"pill o\">compile</span> Exception et Throwable sont exemptés : elles peuvent attraper des exceptions non vérifiées, toujours possibles.</p>"},
+      {"k":"catch (Exception) puis catch (IOException)","sub":"ordre des catch","d":"<p><span class=\"pill r\">erreur</span> Le second catch est inaccessible : toute IOException est déjà attrapée par le premier. Mettez le plus spécifique en premier.</p>","code":"try { lire(); }\ncatch (Exception e) { }\ncatch (IOException e) { }   // ERREUR"},
+      {"k":"Multi-catch de deux types liés","sub":"catch (IOException | FileNotFoundException e)","d":"<p><span class=\"pill r\">erreur</span> Les alternatives d'un multi-catch ne peuvent pas être sous-types l'une de l'autre (FileNotFoundException étend IOException). Le paramètre d'un multi-catch est implicitement <code>final</code>.</p>"},
+      {"k":"Lambda qui lève une exception vérifiée","sub":"Function + IOException","d":"<p><span class=\"pill r\">erreur</span> Le corps de la lambda est vérifié contre le type de fonction de <code>Function.apply</code>, qui ne déclare rien. Il faut attraper l'exception dans la lambda, ou utiliser une interface fonctionnelle qui la déclare.</p>","code":"List<Path> p = ...;\np.stream().map(f -> Files.readString(f));   // ERREUR : IOException non gérée"},
+      {"k":"static { new FileReader(\"x\"); }","sub":"initialiseur statique","d":"<p><span class=\"pill r\">erreur</span> Un initialiseur statique ne peut lever aucune exception vérifiée : il n'existe aucun endroit où la déclarer.</p>"},
+      {"k":"Redéfinition qui ajoute throws Exception","sub":"héritage","d":"<p><span class=\"pill r\">erreur</span> Une redéfinition ne peut pas lever de nouvelles exceptions vérifiées (§8.4.8.3). Elle peut en lever moins, ou des sous-classes.</p>"},
+      {"k":"throw new RuntimeException() sans throws","sub":"non vérifiée","d":"<p><span class=\"pill o\">compile</span> Les exceptions non vérifiées n'ont pas à être déclarées.</p>"},
+      {"k":"Méthode générique throws X","sub":"<X extends Exception>","d":"<p><span class=\"pill o\">compile</span> Une variable de type peut apparaître dans throws ; l'appelant doit gérer le type inféré pour X. Si l'inférence n'a pas d'autre contrainte, X est inféré à <code>RuntimeException</code> (§18.1.3).</p>","code":"static <X extends Exception> void exec(Action<X> a) throws X { a.run(); }\nexec(() -> {});                          // X = RuntimeException : rien à gérer\nexec(() -> { throw new IOException(); }); // X = IOException : à gérer"}
+    ]}</script></div>
+  </figure>
+</div>
+
+<div class="col">
+  <h2 id="s11-3"><span class="sec">§11.3</span>Traitement d'une exception à l'exécution</h2>
+  <p>Quand une exception est levée, le contrôle quitte l'instruction en cours et remonte : expressions, instructions, appels de méthodes, initialiseurs, jusqu'à la première clause <code>catch</code> <b>dynamiquement englobante</b> dont le paramètre peut recevoir l'exception (la classe de l'exception est la classe du paramètre ou une sous-classe). Pendant la remontée :</p>
+  <ul>
+    <li>chaque <code>finally</code> traversé est exécuté ;</li>
+    <li>chaque moniteur d'une instruction ou méthode <code>synchronized</code> traversée est libéré ;</li>
+    <li>les ressources d'un try-with-resources sont fermées, dans l'ordre inverse de leur ouverture.</li>
+  </ul>
+  <p>Si aucun gestionnaire n'est trouvé, le thread courant se termine : son <code>UncaughtExceptionHandler</code> (ou celui de son groupe, ou le gestionnaire par défaut) est appelé, et affiche par défaut la trace de pile.</p>
+</div>
+
+<div class="wide">
+  <figure>
+    <p class="fig-title">Figure 11.3 · Remontée d'une exception à travers la pile d'appels</p>
+    <div data-w="stepper">
+<pre class="src">void main() {
+    try {
+        traiter("abc");
+    } catch (NumberFormatException e) {
+        IO.println("main attrape : " + e.getMessage());
+    } finally {
+        IO.println("finally de main");
+    }
+}
+void traiter(String s) {
+    try {
+        int n = convertir(s);
+        IO.println("jamais affiché");
+    } finally {
+        IO.println("finally de traiter");
+    }
+}
+int convertir(String s) {
+    return Integer.parseInt(s);
+}</pre>
+<script type="application/json">[
+ {"t":"La pile d'appels se construit","d":"<p>main appelle traiter, qui appelle convertir, qui appelle <code>Integer.parseInt(\"abc\")</code>.</p>","hl":[3,12,19],"p":"<div class=\"cs\"><div>main()</div><div>traiter(\"abc\")</div><div>convertir(\"abc\")</div><div class=\"top\">Integer.parseInt(\"abc\")</div></div>"},
+ {"t":"parseInt lève l'exception","d":"<p>À l'intérieur de l'API, <code>throw new NumberFormatException(…)</code> s'exécute. L'instruction <code>return</code> de convertir se termine <b>abruptement</b> : aucune valeur n'est renvoyée.</p>","hl":[19],"p":"<div class=\"cs\"><div>main()</div><div>traiter(\"abc\")</div><div>convertir(\"abc\")</div><div class=\"top\">parseInt : throw NumberFormatException</div></div>"},
+ {"t":"convertir n'a pas de try","d":"<p>Aucun gestionnaire dans convertir : son cadre de pile est dépilé, l'exception continue vers l'appelant.</p>","hl":[18,19,20],"p":"<div class=\"cs\"><div>main()</div><div class=\"top\">traiter(\"abc\")</div><div class=\"gone\">convertir(\"abc\")</div></div>"},
+ {"t":"traiter : pas de catch, mais un finally","d":"<p>L'affectation <code>int n = …</code> se termine abruptement, l'affichage suivant est sauté. Le try de traiter n'a pas de catch : son <b>finally</b> s'exécute, puis l'exception reprend sa remontée (§14.20.2).</p>","hl":[12,13,15],"p":"<div class=\"cs\"><div>main()</div><div class=\"top\">traiter(\"abc\") : finally</div></div><div class=\"out\">finally de traiter</div>"},
+ {"t":"main : un catch compatible","d":"<p>Le try de main a un catch <code>NumberFormatException</code> : la classe de l'exception correspond. Le paramètre <code>e</code> reçoit l'objet exception et le bloc s'exécute. La remontée s'arrête ici.</p>","hl":[4,5],"p":"<div class=\"cs\"><div class=\"top\">main() : catch</div></div><div class=\"out\">finally de traiter\nmain attrape : For input string: \"abc\"</div>"},
+ {"t":"finally de main","d":"<p>Le finally s'exécute toujours, que le try se termine normalement, par une exception attrapée ou non. Puis main se termine normalement.</p>","hl":[6,7],"p":"<div class=\"cs\"><div class=\"top\">main() : finally</div></div><div class=\"out\">finally de traiter\nmain attrape : For input string: \"abc\"\nfinally de main</div>"}
+]</script></div>
+  </figure>
+</div>
+
+<div class="col">
+  <h3>Ce que la remontée ne fait pas</h3>
+  <div class="trap"><span class="lbl">Pièges</span>
+    <p><b>Un finally qui fait return avale l'exception.</b> Si le <code>finally</code> se termine abruptement (<code>return</code>, <code>throw</code>, <code>break</code>), l'exception en cours est <b>perdue</b>. Ne mettez jamais de <code>return</code> dans un <code>finally</code>.</p>
+    <p><b>Exception dans close().</b> Avec un try-with-resources, si le bloc et <code>close()</code> lèvent tous deux, l'exception de <code>close()</code> est ajoutée comme exception <b>supprimée</b> (<code>getSuppressed()</code>) à celle du bloc, au lieu de la remplacer.</p>
+  </div>
+  <div class="code"><div class="bar"><span>Java</span></div><pre><code class="java">int f() {
+    try { throw new IllegalStateException("perdue"); }
+    finally { return 42; }          // f() renvoie 42, l'exception disparaît sans trace
+}
+
+try (var in = Files.newInputStream(p)) {
+    throw new IOException("bloc");
+} catch (IOException e) {
+    e.getMessage();                 // "bloc"
+    e.getSuppressed();              // contient l'éventuelle exception de close()
+}
+
+// chaîner les causes en convertissant une exception
+try { … } catch (SQLException e) {
+    throw new DonneesIndisponibles("lecture du client " + id, e);   // e devient getCause()
+}</code></pre></div>
+
+  <h2 id="s11-quiz">Vérifier ses acquis</h2>
+  <div data-w="quiz"><script type="application/json">[
+    {"q":"<code>Exception</code> elle-même est-elle une exception vérifiée ?","o":["Non","Oui : seules RuntimeException, Error et leurs sous-classes sont non vérifiées","Seulement si elle est levée explicitement"],"a":1,"e":"Toute sous-classe de Throwable hors RuntimeException et Error est vérifiée, y compris Throwable et Exception (§11.1.1)."},
+    {"q":"Un <code>catch (IOException e)</code> sur un bloc try qui ne peut pas lever IOException…","o":["compile","erreur de compilation","avertissement"],"a":1,"e":"Un catch d'exception vérifiée qui ne peut rien attraper est une erreur (§11.2.3)."},
+    {"q":"Que renvoie <code>try { throw new RuntimeException(); } finally { return 1; }</code> ?","o":["Lève l'exception","Renvoie 1, l'exception est perdue","Erreur de compilation"],"a":1,"e":"La terminaison abrupte du finally remplace celle du try (§14.20.2)."},
+    {"q":"<code>catch (Exception e) { throw e; }</code> dans une méthode qui ne déclare que <code>throws IOException</code>, le try ne pouvant lever qu'IOException…","o":["Erreur : Exception non déclarée","Compile grâce au relancement précis","Compile avec avertissement"],"a":1,"e":"e est effectivement final : throw e ne peut lever que ce que le try peut lever (§11.2.2)."},
+    {"q":"Une lambda passée à <code>map</code> appelle une méthode qui lève IOException…","o":["compile","erreur : Function.apply ne déclare pas IOException","IOException est convertie automatiquement"],"a":1,"e":"Le corps d'une lambda est vérifié contre le type de fonction de sa cible (§11.2.1, §9.9)."},
+    {"q":"Comment arrêter proprement un thread en Java 27 ?","o":["Thread.stop()","Par interruption coopérative : interrupt() et vérification de isInterrupted()","System.exit()"],"a":1,"e":"Thread.stop lève UnsupportedOperationException depuis Java 20 ; l'interruption est coopérative (§17.2.3)."}
+  ]</script></div>
+</div>

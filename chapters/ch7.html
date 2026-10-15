@@ -1,0 +1,287 @@
+<style>
+.mg svg .m{cursor:pointer}
+.mg svg .m rect{fill:var(--sheet); stroke:var(--plate-edge); stroke-width:1.5}
+.mg svg .m text{font-family:var(--f-mono); font-size:12px; fill:var(--ink); font-weight:600}
+.mg svg .m.sel rect{fill:var(--ink); stroke:var(--ink)} .mg svg .m.sel text{fill:var(--paper)}
+.mg svg .m.rd rect{fill:var(--ok-soft); stroke:var(--ok)}
+.mg svg .m.dim{opacity:.45}
+.mg svg .e{fill:none; stroke:var(--muted); stroke-width:1.4}
+.mg svg .e.tr{stroke:var(--violet); stroke-width:2.6}
+.mg svg .e.st{stroke-dasharray:5 4}
+.mg .info{display:grid; grid-template-columns:minmax(0,1fr) minmax(0,1fr); gap:16px; margin-top:12px; font-size:.9rem}
+.mg .info ul{margin:.3em 0; padding-left:1.1em}
+.mg .info code{font-size:.8rem}
+.mg .mi{font-family:var(--f-mono); font-size:.78rem; white-space:pre; background:var(--code-bg); color:var(--code-fg); border-radius:8px; padding:10px 12px; overflow-x:auto; margin-top:6px}
+@media (max-width:640px){ .mg .info{grid-template-columns:minmax(0,1fr)} }
+</style>
+
+<div class="col">
+  <div class="eyebrow">Chapitre 7 · Java SE 27 Edition</div>
+  <h1>Paquetages et modules</h1>
+  <p class="lede">Un programme Java est un ensemble de paquetages, regroupés en modules. Ce chapitre décrit les unités de compilation, les déclarations de paquetage, les cinq formes d'import, et les déclarations de modules qui contrôlent dépendances, encapsulation et services.</p>
+  <div class="meta">
+    <span>Source : <a href="https://docs.oracle.com/javase/specs/jls/se27/html/jls-7.html" target="_blank" rel="noopener">JLS SE 27, chapitre 7</a></span>
+    <span>Sections : <b>7.1 à 7.7</b></span>
+  </div>
+
+  <h2 id="s7-1"><span class="sec">§7.1</span>Membres d'un paquetage</h2>
+  <p>Les membres d'un paquetage sont ses <b>sous-paquetages</b> et toutes les <b>classes et interfaces de plus haut niveau</b> déclarées dans ses unités de compilation. Un paquetage ne peut pas contenir deux membres de même nom : une classe <code>a.b</code> et un sous-paquetage <code>a.b</code> sont incompatibles.</p>
+  <div class="rule"><span class="lbl">Règle</span>
+    <p>La hiérarchie des noms de paquetages n'a <b>aucune signification</b> pour l'accès. <code>java.util</code> et <code>java.util.concurrent</code> sont deux paquetages indépendants ; importer l'un n'importe pas l'autre, et les membres à accès paquetage de l'un ne sont pas visibles dans l'autre.</p>
+  </div>
+  <p>Les paquetages de la plateforme commencent par <code>java.</code> ou <code>javax.</code>. Un programme ordinaire ne peut pas déclarer de paquetage <code>java.*</code> : le module <code>java.base</code> les possède déjà, et un paquetage ne peut appartenir qu'à un module.</p>
+
+  <h2 id="s7-2"><span class="sec">§7.2</span>Le système hôte</h2>
+  <p>La spec ne dit pas <b>où</b> sont stockés les modules, paquetages et unités de compilation : c'est l'affaire du <b>système hôte</b>. En pratique, avec le JDK, on utilise le système de fichiers : un paquetage correspond à un répertoire, une unité de compilation à un fichier <code>.java</code>, un module à un répertoire contenant <code>module-info.java</code> ou à un JAR modulaire.</p>
+  <div class="code"><div class="bar"><span>Arborescence typique</span></div><pre><code class="sh">src/
+└── com.exemple.app/                 # module (convention : nom du module)
+    ├── module-info.java
+    └── com/exemple/app/             # paquetage com.exemple.app
+        ├── Main.java
+        └── internal/                # paquetage com.exemple.app.internal (indépendant)
+            └── Outil.java</code></pre></div>
+  <p>Un hôte peut imposer des règles supplémentaires ; javac impose qu'une classe <code>public</code> (ou référencée depuis d'autres fichiers) soit dans un fichier qui porte son nom (§7.6).</p>
+
+  <h2 id="s7-3"><span class="sec">§7.3</span>Unités de compilation</h2>
+  <p>Une unité de compilation est le symbole but de la grammaire syntaxique (§2.3). Il en existe trois formes :</p>
+  <div class="tbl"><table>
+    <thead><tr><th>Forme</th><th>Contenu</th><th>Exemple</th></tr></thead>
+    <tbody>
+      <tr><td><b>Ordinaire</b></td><td>déclaration de paquetage facultative, imports, déclarations de classes et interfaces de plus haut niveau</td><td><code>Main.java</code></td></tr>
+      <tr><td><b>Modulaire</b></td><td>imports, puis une déclaration de module</td><td><code>module-info.java</code></td></tr>
+      <tr><td><b>Compacte</b></td><td>imports et déclarations de champs et de méthodes au niveau le plus haut, qui forment une <b>classe implicitement déclarée</b> (§8.1.8)</td><td><code>Hello.java</code> avec <code>void main()</code></td></tr>
+    </tbody>
+  </table></div>
+  <div class="rule"><span class="lbl">Règles · imports implicites</span>
+    <p>Toute unité de compilation importe implicitement les types publics de <code>java.lang</code> (comme <code>import java.lang.*;</code>).</p>
+    <p>Une unité de compilation <b>compacte</b> importe en plus, implicitement, le module <code>java.base</code> tout entier (comme <code>import module java.base;</code>, §7.5.5) : <code>List</code>, <code>Map</code>, <code>Path</code>… sont disponibles sans import. La classe <code>java.lang.IO</code> fournit <code>IO.println</code> et <code>IO.readln</code>.</p>
+  </div>
+  <div class="code"><div class="bar"><span>Notes.java · unité compacte (Java 25+)</span></div><pre><code class="java">List&lt;String&gt; notes = new ArrayList&lt;&gt;();     // List et ArrayList : import module java.base implicite
+
+void main() {
+    String n = IO.readln("Note : ");
+    notes.add(n);
+    IO.println(notes);
+}</code></pre></div>
+
+  <h2 id="s7-4"><span class="sec">§7.4</span>Déclarations de paquetage</h2>
+  <h3 id="s7-4-1"><span class="sec">§7.4.1</span>Paquetages nommés</h3>
+  <p>La déclaration <code>package a.b.c;</code> en tête d'une unité ordinaire indique le paquetage de ses types. Des annotations ne peuvent être placées sur une déclaration de paquetage que dans un fichier dédié, <code>package-info.java</code>, qui sert aussi à porter la Javadoc du paquetage.</p>
+  <div class="code"><div class="bar"><span>package-info.java</span></div><pre><code class="java">/** Calcul des factures et des taxes. */
+@NullMarked
+package com.exemple.facturation;
+
+import org.jspecify.annotations.NullMarked;</code></pre></div>
+
+  <h3 id="s7-4-2"><span class="sec">§7.4.2</span>Le paquetage sans nom</h3>
+  <p>Une unité sans déclaration de paquetage appartient à un <b>paquetage sans nom</b>. Il est prévu pour les petits programmes et les essais. Ses types ne peuvent pas être importés depuis un paquetage nommé, ce qui les rend inutilisables comme bibliothèque.</p>
+
+  <h3 id="s7-4-3"><span class="sec">§7.4.3</span>Observabilité et visibilité</h3>
+  <p>Une unité de compilation est <b>observable</b> si le système hôte la fournit au compilateur. Un paquetage est observable si au moins une unité qui le déclare est observable, ou si un de ses sous-paquetages l'est. Un paquetage est <b>visible</b> dans un module M s'il est déclaré dans M ou dans un module que M lit et qui l'exporte vers M. Il doit être <b>uniquement visible</b> : deux modules lus par M qui contiennent le même paquetage sont une erreur (« split package »).</p>
+
+  <h2 id="s7-5"><span class="sec">§7.5</span>Déclarations d'import</h2>
+  <p>Un import permet de désigner un type ou un membre statique par son <b>nom simple</b> au lieu de son nom qualifié. Il ne charge rien et n'a aucun coût à l'exécution : c'est un raccourci de nommage valable dans <b>une</b> unité de compilation.</p>
+  <div class="tbl"><table>
+    <thead><tr><th>Forme</th><th>Syntaxe</th><th>Importe</th><th>Section</th></tr></thead>
+    <tbody>
+      <tr><td>Type simple</td><td><code>import java.util.List;</code></td><td>un type</td><td>§7.5.1</td></tr>
+      <tr><td>Types à la demande</td><td><code>import java.util.*;</code></td><td>les types accessibles d'un paquetage ou d'un type</td><td>§7.5.2</td></tr>
+      <tr><td>Statique simple</td><td><code>import static java.lang.Math.max;</code></td><td>un membre statique (toutes les surcharges de ce nom)</td><td>§7.5.3</td></tr>
+      <tr><td>Statique à la demande</td><td><code>import static java.lang.Math.*;</code></td><td>tous les membres statiques accessibles</td><td>§7.5.4</td></tr>
+      <tr><td>Module</td><td><code>import module java.sql;</code></td><td>les types publics des paquetages exportés par le module et ses dépendances transitives</td><td>§7.5.5</td></tr>
+    </tbody>
+  </table></div>
+
+  <h3 id="s7-5-1"><span class="sec">§7.5.1</span>Import de type simple</h3>
+  <div class="rule"><span class="lbl">Règles</span>
+    <p>Le type doit exister et être accessible. Deux imports simples de types différents de même nom simple sont une erreur ; un import simple d'un type qui a le même nom qu'un type déclaré dans l'unité aussi. Un import simple <b>masque</b> les types de même nom importés à la demande et ceux du paquetage courant.</p>
+  </div>
+  <div class="code"><div class="bar"><span>Java</span></div><pre><code class="java">import java.util.Date;
+import java.sql.Date;       // ERREUR : deux imports simples nommés Date
+import java.util.*;         // n'importe PAS java.util.concurrent.*
+import java.util.Map.Entry; // import d'un type membre : permis
+class Date { }              // ERREUR si java.util.Date est importé simplement</code></pre></div>
+
+  <h3 id="s7-5-2"><span class="sec">§7.5.2</span>Import de types à la demande</h3>
+  <p><code>import p.*;</code> rend disponibles tous les types accessibles de <code>p</code>, mais <b>seulement</b> s'ils ne sont pas masqués par un type de même nom déclaré dans l'unité, importé simplement, ou membre du paquetage courant. Deux imports à la demande qui fournissent le même nom ne sont une erreur que si ce nom est <b>utilisé</b>.</p>
+
+  <h3 id="s7-5-3"><span class="sec">§7.5.3</span>Import statique simple</h3>
+  <p><code>import static T.n;</code> importe <b>tous</b> les membres statiques accessibles nommés <code>n</code> de <code>T</code> : champs, méthodes (toutes les surcharges), types membres. Une méthode importée statiquement est masquée par une méthode de même nom déclarée ou héritée dans la classe courante, quel que soit le nombre de paramètres.</p>
+  <h3 id="s7-5-4"><span class="sec">§7.5.4</span>Import statique à la demande</h3>
+  <p><code>import static T.*;</code> importe tous les membres statiques accessibles de <code>T</code>. Pratique pour les constantes et les méthodes utilitaires (<code>org.junit.jupiter.api.Assertions.*</code>), mais à utiliser avec parcimonie : le lecteur ne sait plus d'où viennent les noms.</p>
+  <div class="code"><div class="bar"><span>Java</span></div><pre><code class="java">import static java.lang.Math.*;
+import static java.util.stream.Collectors.toList;
+
+double r = sqrt(pow(3, 2) + pow(4, 2));   // 5.0
+class Calcul {
+    static int max(int[] t) { ... }
+    void f() { max(1, 2); }               // ERREUR : max(int[]) de la classe masque Math.max
+}</code></pre></div>
+
+  <h3 id="s7-5-5"><span class="sec">§7.5.5</span>Import de module</h3>
+  <p>Finalisé en Java 25 (JEP 511), <code>import module M;</code> importe à la demande toutes les classes et interfaces <b>publiques de plus haut niveau</b> de tous les paquetages que M exporte vers le module courant, ainsi que de ceux exportés par les modules que M exige <b>transitivement</b> (<code>requires transitive</code>).</p>
+  <div class="rule"><span class="lbl">Règles · priorités</span>
+    <p>Un import de module est le plus faible : il est masqué par les types déclarés dans l'unité, par les imports simples, par les types du paquetage courant <b>et par les imports de paquetage à la demande</b>. Si deux imports de modules fournissent le même nom simple et que ce nom est utilisé, c'est une erreur d'ambiguïté, que l'on résout par un import simple.</p>
+  </div>
+  <div class="code"><div class="bar"><span>Java</span></div><pre><code class="java">import module java.base;      // java.util, java.io, java.nio.file, java.time…
+import module java.desktop;   // java.awt, javax.swing…
+
+List&lt;String&gt; l;               // ERREUR : java.util.List et java.awt.List sont ambigus
+// Correction :
+import java.util.List;        // un import simple masque les imports de modules
+
+import module java.sql;       // java.sql requires transitive java.xml et java.logging :
+                              // org.w3c.dom.Document et java.util.logging.Logger sont aussi importés</code></pre></div>
+  <div class="nn"><span class="lbl">Note non normative</span>
+    <p>Dans le même mouvement, Java 25 a permis <code>requires transitive java.base</code> afin que le module agrégateur <code>java.se</code> l'exige transitivement : <code>import module java.se;</code> importe ainsi toute l'API publique de la plateforme, <code>java.base</code> compris.</p>
+  </div>
+  <p>Récapitulatif des priorités quand un nom simple de type est utilisé :</p>
+</div>
+
+<div class="wide">
+  <figure>
+    <p class="fig-title">Figure 7.1 · Quel <code>List</code> ?</p>
+    <p class="fig-hint">Pour chaque situation, le nom simple <code>List</code> est utilisé dans le corps de la classe.</p>
+    <div data-w="explorer"><script type="application/json">{"items":[
+      {"k":"1. Type déclaré dans l'unité","sub":"priorité la plus forte","d":"<p>Une classe ou interface <code>List</code> déclarée dans le fichier masque tout le reste. Un import simple d'un autre <code>List</code> serait même une erreur.</p>"},
+      {"k":"2. Import de type simple","sub":"import java.util.List;","d":"<p>Masque les types du paquetage courant, les imports à la demande et les imports de modules.</p>"},
+      {"k":"3. Type du paquetage courant","sub":"autre fichier, même paquetage","d":"<p>Une classe <code>List</code> déclarée dans une autre unité du même paquetage masque les imports à la demande et de modules.</p>"},
+      {"k":"4. Import à la demande","sub":"import java.awt.*;","d":"<p>Si rien de plus fort ne fournit <code>List</code>, il vient de là. Deux imports à la demande qui fournissent <code>List</code> donnent une erreur d'ambiguïté à l'usage.</p>"},
+      {"k":"5. Import de module","sub":"import module java.base;","d":"<p>Le plus faible : <code>import java.awt.*;</code> + <code>import module java.base;</code> donne <code>java.awt.List</code>, sans ambiguïté, car l'import à la demande masque l'import de module.</p>"},
+      {"k":"6. java.lang implicite","sub":"import java.lang.*;","d":"<p>Les types de <code>java.lang</code> sont importés à la demande implicitement : un <code>String</code> déclaré dans votre paquetage les masque, ce qui est une source de confusion à éviter.</p>"}
+    ]}</script></div>
+  </figure>
+</div>
+
+<div class="col">
+  <h2 id="s7-6"><span class="sec">§7.6</span>Classes et interfaces de plus haut niveau</h2>
+  <p>Leur portée est l'ensemble des unités du paquetage (§6.3). Deux types de plus haut niveau de même nom dans le même paquetage sont une erreur. Une déclaration de plus haut niveau peut être <code>public</code> ou sans modificateur d'accès ; <code>protected</code>, <code>private</code> et <code>static</code> sont interdits à ce niveau. Des <code>;</code> supplémentaires entre les déclarations sont tolérés.</p>
+  <div class="rule"><span class="lbl">Règle d'hôte (javac)</span>
+    <p>Si un type est <code>public</code>, ou s'il est référencé depuis d'autres unités du paquetage, et que le système stocke les paquetages dans des fichiers, alors le type doit être déclaré dans un fichier nommé <code>Nom.java</code>. Il y a donc au plus une classe publique par fichier.</p>
+  </div>
+
+  <h2 id="s7-7"><span class="sec">§7.7</span>Déclarations de modules</h2>
+  <p>Un module est un ensemble nommé de paquetages, décrit par <code>module-info.java</code>. Sa déclaration exprime cinq choses : ce qu'il <b>exige</b>, ce qu'il <b>exporte</b>, ce qu'il <b>ouvre</b> à la réflexion, les services qu'il <b>utilise</b> et ceux qu'il <b>fournit</b>.</p>
+  <div class="code"><div class="bar"><span>module-info.java</span></div><pre><code class="java">open module com.exemple.app {          // open : tous les paquetages ouverts à la réflexion
+    requires com.exemple.lib;           // dépendance
+    requires transitive java.sql;       // dépendance relayée aux modules qui exigent app
+    requires static lombok;             // obligatoire à la compilation, facultative à l'exécution
+
+    exports com.exemple.app.api;                     // accessible à tous les modules qui lisent app
+    exports com.exemple.app.spi to com.exemple.plug; // export qualifié
+
+    uses com.exemple.lib.Codec;                       // consomme un service
+    provides com.exemple.lib.Codec
+        with com.exemple.app.Base64Codec;            // fournit une implémentation
+}</code></pre></div>
+  <p>Les mots <code>module</code>, <code>open</code>, <code>requires</code>, <code>transitive</code>, <code>exports</code>, <code>opens</code>, <code>to</code>, <code>uses</code>, <code>provides</code> et <code>with</code> sont des mots-clés <b>contextuels</b> (§3.9) : ils restent utilisables comme identifiants ailleurs.</p>
+
+  <h3 id="s7-7-1"><span class="sec">§7.7.1</span>Dépendances</h3>
+  <div class="tbl"><table>
+    <thead><tr><th>Directive</th><th>Compilation</th><th>Exécution</th><th>Lisibilité relayée ?</th></tr></thead>
+    <tbody>
+      <tr><td><code>requires M</code></td><td>M doit être présent</td><td>M doit être présent</td><td>non</td></tr>
+      <tr><td><code>requires transitive M</code></td><td>M doit être présent</td><td>M doit être présent</td><td><b>oui</b> : tout module qui lit le module courant lit aussi M</td></tr>
+      <tr><td><code>requires static M</code></td><td>M doit être présent</td><td>facultatif</td><td>non</td></tr>
+    </tbody>
+  </table></div>
+  <div class="rule"><span class="lbl">Règles</span>
+    <p>Tout module dépend implicitement de <code>java.base</code>. Exiger deux fois le même module, ou créer un <b>cycle</b> de <code>requires</code>, est une erreur de compilation.</p>
+    <p>Utilisez <code>requires transitive</code> quand votre API publique expose des types d'un autre module : si une méthode exportée renvoie un <code>java.sql.Connection</code>, vos clients doivent lire <code>java.sql</code>.</p>
+  </div>
+</div>
+
+<div class="wide">
+  <figure>
+    <p class="fig-title">Figure 7.2 · Graphe de modules et lisibilité</p>
+    <p class="fig-hint">Cliquez un module : en vert, les modules qu'il <b>lit</b> (dépendances directes, plus celles relayées par <code>requires transitive</code>, en violet épais). Le panneau liste les paquetages accessibles et l'effet d'un <code>import module</code>.</p>
+    <div data-w="modgraph"></div>
+  </figure>
+</div>
+
+<div class="col">
+  <h3 id="s7-7-2"><span class="sec">§7.7.2</span>Paquetages exportés et ouverts</h3>
+  <div class="tbl"><table>
+    <thead><tr><th>Directive</th><th>Accès à la compilation aux types public</th><th>Réflexion sur les membres public à l'exécution</th><th>Réflexion profonde (private, setAccessible)</th></tr></thead>
+    <tbody>
+      <tr><td>rien</td><td class="n">non</td><td class="n">non</td><td class="n">non</td></tr>
+      <tr><td><code>exports p</code></td><td class="y">oui</td><td class="y">oui</td><td class="n">non</td></tr>
+      <tr><td><code>opens p</code></td><td class="n">non</td><td class="y">oui</td><td class="y">oui</td></tr>
+      <tr><td><code>exports p</code> + <code>opens p</code></td><td class="y">oui</td><td class="y">oui</td><td class="y">oui</td></tr>
+      <tr><td><code>open module</code></td><td>selon les exports</td><td class="y">oui (tous)</td><td class="y">oui (tous)</td></tr>
+    </tbody>
+  </table></div>
+  <p>Les formes qualifiées <code>exports p to M1, M2;</code> et <code>opens p to M;</code> restreignent l'accès aux modules nommés. <code>opens</code> sert typiquement aux frameworks (JPA, Jackson, Spring) qui doivent lire des champs privés par réflexion sans que le code client y ait accès à la compilation. Un <code>open module</code> ne peut pas contenir de directive <code>opens</code>.</p>
+
+  <h3 id="s7-7-3"><span class="sec">§7.7.3</span>Consommation de services</h3>
+  <p><code>uses S;</code> déclare que le module cherche des implémentations du service S, une interface ou classe abstraite, via <code>java.util.ServiceLoader</code>. Le type S doit être accessible.</p>
+  <h3 id="s7-7-4"><span class="sec">§7.7.4</span>Fourniture de services</h3>
+  <p><code>provides S with I1, I2;</code> déclare des implémentations. Chaque fournisseur doit être dans le module, et soit déclarer une méthode <code>public static</code> sans paramètre nommée <code>provider</code> qui renvoie un sous-type de S, soit être une classe publique concrète, sous-type de S, avec un constructeur public sans paramètre. Le paquetage du fournisseur n'a <b>pas</b> besoin d'être exporté.</p>
+  <div class="code"><div class="bar"><span>Java · côté consommateur</span></div><pre><code class="java">ServiceLoader&lt;Codec&gt; loader = ServiceLoader.load(Codec.class);
+for (Codec c : loader) System.out.println(c.nom());   // instancie les fournisseurs trouvés
+Optional&lt;Codec&gt; premier = loader.findFirst();</code></pre></div>
+
+  <h3 id="s7-7-5"><span class="sec">§7.7.5</span>Modules sans nom</h3>
+  <p>Le code chargé depuis le <b>classpath</b> appartient au <b>module sans nom</b> de son chargeur de classes. Ce module lit tous les autres modules et exporte tous ses paquetages. Une unité ordinaire hors de tout module y appartient. Un module nommé, lui, ne peut pas exiger le module sans nom : il n'a pas de nom.</p>
+  <div class="nn"><span class="lbl">Note non normative</span>
+    <p>Entre les deux, la plateforme propose les <b>modules automatiques</b> : un JAR non modulaire placé sur le <i>module path</i> devient un module nommé d'après le JAR (ou l'entrée <code>Automatic-Module-Name</code> de son manifeste), qui lit tout et exporte tout. C'est la voie de migration progressive vers les modules.</p>
+  </div>
+
+  <h3 id="s7-7-6"><span class="sec">§7.7.6</span>Observabilité d'un module</h3>
+  <p>Un module est observable si sa déclaration (ou un module automatique équivalent) est fournie par le système hôte. Deux modules observables de même nom ne peuvent pas être utilisés ensemble, et un même paquetage ne peut pas être dans deux modules lus par un même module.</p>
+
+  <h2 id="s7-quiz">Vérifier ses acquis</h2>
+  <div data-w="quiz"><script type="application/json">[
+    {"q":"<code>import java.util.*;</code> importe-t-il <code>java.util.concurrent.ExecutorService</code> ?","o":["Oui","Non, les sous-paquetages sont indépendants","Oui, si ExecutorService est public"],"a":1,"e":"La hiérarchie des noms de paquetages n'a pas de sens pour les imports ni pour l'accès (§7.1)."},
+    {"q":"Avec <code>import java.awt.*;</code> et <code>import module java.base;</code>, que désigne <code>List</code> ?","o":["Erreur d'ambiguïté","java.awt.List","java.util.List"],"a":1,"e":"Un import à la demande de paquetage masque un import de module (§7.5.5)."},
+    {"q":"Que faut-il pour qu'un framework accède par réflexion aux champs <code>private</code> d'un paquetage ?","o":["exports","opens (ou open module)","requires transitive"],"a":1,"e":"exports ne permet pas la réflexion profonde ; opens oui (§7.7.2)."},
+    {"q":"A <code>requires transitive</code> B. C <code>requires</code> A. C lit-il B ?","o":["Oui","Non","Seulement à l'exécution"],"a":0,"e":"requires transitive relaie la lisibilité aux modules qui lisent A (§7.7.1)."},
+    {"q":"Une unité compacte (<code>void main()</code> seul) peut-elle utiliser <code>List</code> sans import ?","o":["Non","Oui : elle importe implicitement le module java.base","Oui, car List est dans java.lang"],"a":1,"e":"Les unités compactes ont un import module java.base implicite (§7.3)."},
+    {"q":"Un paquetage exporté vers personne mais contenant une classe <code>public</code> : la classe est-elle utilisable depuis un autre module ?","o":["Oui, elle est public","Non, le paquetage n'est pas exporté","Oui, par import module"],"a":1,"e":"public ne suffit pas : l'encapsulation forte des modules s'applique d'abord."}
+  ]</script></div>
+</div>
+
+<script>
+ATLAS.w.modgraph = function(el){
+  el.classList.add('mg');
+  const M = {
+    'com.exemple.app':  {x:330, y:30,  req:[['com.exemple.lib',''],['java.sql',''],['lombok','static']], ex:['com.exemple.app.api'], decl:'module com.exemple.app {\n    requires com.exemple.lib;\n    requires java.sql;\n    requires static lombok;\n    exports com.exemple.app.api;\n}'},
+    'com.exemple.lib':  {x:150, y:125, req:[['com.exemple.util','transitive']], ex:['com.exemple.lib.api',['com.exemple.lib.spi','com.exemple.app']], op:['com.exemple.lib.model'], decl:'module com.exemple.lib {\n    requires transitive com.exemple.util;\n    exports com.exemple.lib.api;\n    exports com.exemple.lib.spi to com.exemple.app;\n    opens com.exemple.lib.model;\n}'},
+    'com.exemple.util': {x:40,  y:220, req:[], ex:['com.exemple.util'], decl:'module com.exemple.util {\n    exports com.exemple.util;\n}'},
+    'java.sql':         {x:420, y:125, req:[['java.logging','transitive'],['java.xml','transitive']], ex:['java.sql','javax.sql'], decl:'module java.sql {\n    requires transitive java.logging;\n    requires transitive java.xml;\n    exports java.sql;\n    exports javax.sql;\n    …\n}'},
+    'java.logging':     {x:330, y:220, req:[], ex:['java.util.logging'], decl:'module java.logging {\n    exports java.util.logging;\n    …\n}'},
+    'java.xml':         {x:520, y:220, req:[], ex:['javax.xml.parsers','org.w3c.dom','org.xml.sax','…'], decl:'module java.xml {\n    exports javax.xml.parsers;\n    exports org.w3c.dom;\n    …\n}'},
+    'lombok':           {x:540, y:30,  req:[], ex:['lombok'], decl:'module lombok { … }'},
+    'java.base':        {x:250, y:310, req:[], ex:['java.lang','java.util','java.io','java.nio.file','java.time','…'], decl:'module java.base {\n    exports java.lang;\n    exports java.util;\n    …\n}'}
+  };
+  const W=150,H=30;
+  function reads(m){ // lisibilité de m
+    const out=new Set(['java.base']);
+    function addT(r){ if(out.has(r)&&r!=='java.base') return; out.add(r); M[r].req.filter(x=>x[1]==='transitive').forEach(x=>addT(x[0])); }
+    M[m].req.forEach(([r])=>addT(r));
+    out.delete(m); return out;
+  }
+  function importMod(m){ // paquetages importés par import module m
+    const mods=[m]; const seen=new Set([m]);
+    (function rec(x){ M[x].req.filter(r=>r[1]==='transitive').forEach(([r])=>{ if(!seen.has(r)){ seen.add(r); mods.push(r); rec(r);} }); })(m);
+    return mods;
+  }
+  let sel='com.exemple.app';
+  el.innerHTML='<div class="svgwrap"><svg viewBox="0 0 700 350" width="700" role="group" aria-label="Graphe de modules"></svg></div><div class="leg" style="display:flex;gap:14px;flex-wrap:wrap;font-family:var(--f-display);font-size:.75rem;color:var(--muted)"><span>— requires</span><span style="color:var(--violet)">━ requires transitive</span><span>- - requires static</span><span>java.base : requis implicitement par tous</span></div><div class="info" aria-live="polite"></div>';
+  const svg=el.querySelector('svg'), info=el.querySelector('.info');
+  function draw(){
+    const R=reads(sel);
+    let h='';
+    Object.entries(M).forEach(([n,m])=>m.req.forEach(([r,k])=>{ const a=m, b=M[r]; const x1=a.x+W/2, y1=a.y+H, x2=b.x+W/2, y2=b.y; h+='<path class="e'+(k==='transitive'?' tr':'')+(k==='static'?' st':'')+'" d="M'+x1+','+y1+' C'+x1+','+(y1+35)+' '+x2+','+(y2-35)+' '+x2+','+(y2-2)+'" marker-end="url(#arr)"/>'; }));
+    Object.entries(M).forEach(([n,m])=>{ const c = n===sel?'sel':R.has(n)?'rd':'dim'; h+='<g class="m '+c+'" data-m="'+n+'" tabindex="0" role="button" aria-label="'+n+'"><rect x="'+m.x+'" y="'+m.y+'" width="'+W+'" height="'+H+'" rx="6"/><text x="'+(m.x+W/2)+'" y="'+(m.y+19)+'" text-anchor="middle">'+n+'</text></g>'; });
+    svg.innerHTML=h;
+    svg.querySelectorAll('.m').forEach(g=>{ g.onclick=()=>{ sel=g.dataset.m; draw(); }; g.onkeydown=e=>{ if(e.key==='Enter'||e.key===' '){ e.preventDefault(); sel=g.dataset.m; draw(); } }; });
+    const acc=[]; R.forEach(r=>M[r].ex.forEach(p=>{ if(Array.isArray(p)){ if(p[1]===sel) acc.push(p[0]+' (export qualifié vers '+sel+')'); } else acc.push(p); }));
+    const im=importMod(sel), imp=[]; im.forEach(x=>M[x].ex.forEach(p=>{ if(!Array.isArray(p)) imp.push(p); }));
+    const opened = Object.entries(M).filter(([n,m])=>m.op&&R.has(n)).map(([n,m])=>m.op.join(', ')+' ('+n+')');
+    info.innerHTML='<div><b>'+sel+'</b> lit :<ul>'+[...R].map(r=>'<li><code>'+r+'</code>'+(M[sel].req.some(x=>x[0]===r)?'':r==='java.base'?' (implicite)':' (relayé par transitive)')+'</li>').join('')+'</ul><b>Paquetages utilisables à la compilation :</b><ul>'+acc.map(p=>'<li><code>'+p+'</code></li>').join('')+'</ul>'+(opened.length?'<p>Ouverts à la réflexion profonde : '+opened.map(o=>'<code>'+o+'</code>').join(', ')+'</p>':'')+'</div>'+
+      '<div><b>Déclaration</b><div class="mi">'+ATLAS.esc(M[sel].decl)+'</div><p><b><code>import module '+sel+';</code></b> importe les types publics de : '+imp.map(p=>'<code>'+p+'</code>').join(', ')+(im.length>1?' — y compris via '+im.slice(1).map(x=>'<code>'+x+'</code>').join(', ')+' (transitive)':'')+'</p></div>';
+  }
+  draw();
+};
+</script>

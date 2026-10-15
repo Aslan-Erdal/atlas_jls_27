@@ -1,0 +1,270 @@
+<style>
+.ptree-ctl{display:flex; gap:8px; flex-wrap:wrap; align-items:center; margin-bottom:12px}
+.ptree-ctl input[type=text]{flex:1 1 220px; min-width:0}
+.ptree{overflow:auto; max-height:560px; border:1px solid var(--rule); border-radius:8px; background:var(--paper)}
+.ptree svg{display:block}
+.ptree .nt rect{fill:var(--sheet); stroke:var(--plate-edge); stroke-width:1.2}
+.ptree .nt.hot rect{fill:var(--accent-soft); stroke:var(--accent)}
+.ptree .tm rect{fill:var(--ember-soft); stroke:var(--ember); stroke-width:1.2}
+.ptree text{font-family:var(--f-mono); font-size:11px; fill:var(--ink)}
+.ptree .tm text{font-weight:600}
+.ptree .ed{stroke:var(--plate-edge); stroke-width:1.2; fill:none}
+.ptree-msg{font-family:var(--f-display); font-size:var(--s-1); color:var(--muted); margin-top:8px}
+.ptree-msg.bad{color:var(--err)}
+.deriv{font-family:var(--f-mono); font-size:.8rem; line-height:1.7; background:var(--paper); border:1px solid var(--rule); border-radius:8px; padding:10px 12px; overflow-x:auto; white-space:pre; margin-top:10px; max-height:260px}
+</style>
+
+<div class="col">
+  <div class="eyebrow">Chapitre 2 · Java SE 27 Edition</div>
+  <h1>Grammaires</h1>
+  <p class="lede">La spec décrit Java avec deux grammaires hors contexte empilées : l'une fabrique des jetons à partir de caractères, l'autre fabrique des programmes à partir de jetons. Savoir lire leur notation est indispensable pour tous les chapitres suivants.</p>
+  <div class="meta">
+    <span>Source : <a href="https://docs.oracle.com/javase/specs/jls/se27/html/jls-2.html" target="_blank" rel="noopener">JLS SE 27, chapitre 2</a></span>
+    <span>Sections : <b>2.1 à 2.4</b></span>
+  </div>
+
+  <h2 id="s2-1"><span class="sec">§2.1</span>Grammaires hors contexte</h2>
+  <p>Une grammaire hors contexte est un ensemble de <b>productions</b>. Chaque production a un <b>côté gauche</b>, un seul symbole <b>non terminal</b>, et un <b>côté droit</b>, une suite de symboles terminaux et non terminaux. Pour chaque grammaire, les terminaux sont tirés d'un <b>alphabet</b> fixé.</p>
+  <p>On part d'un symbole particulier, le <b>symbole but</b> (goal symbol), puis on remplace de façon répétée un non-terminal par le côté droit d'une de ses productions. Le <b>langage</b> défini par la grammaire est l'ensemble de toutes les suites de terminaux qu'on peut obtenir ainsi.</p>
+  <div class="tbl"><table>
+    <thead><tr><th>Terme</th><th>Définition</th><th>Exemple Java</th></tr></thead>
+    <tbody>
+      <tr><td>Terminal</td><td>Symbole de l'alphabet ; n'est jamais remplacé</td><td><code>while</code>, <code>(</code>, un caractère <code>a</code></td></tr>
+      <tr><td>Non terminal</td><td>Variable de la grammaire, remplacée par des productions</td><td><i>WhileStatement</i>, <i>Expression</i></td></tr>
+      <tr><td>Production</td><td>Règle « gauche → droite »</td><td><i>WhileStatement</i> → <code>while ( </code><i>Expression</i><code> ) </code><i>Statement</i></td></tr>
+      <tr><td>Symbole but</td><td>Point de départ des dérivations</td><td><i>Input</i> (lexical), <i>CompilationUnit</i> (syntaxique)</td></tr>
+      <tr><td>Dérivation</td><td>Suite de remplacements jusqu'à n'avoir que des terminaux</td><td>voir la figure 2.2</td></tr>
+    </tbody>
+  </table></div>
+  <div class="nn"><span class="lbl">Note non normative</span>
+    <p>« Hors contexte » signifie qu'un non terminal se remplace de la même façon quel que soit ce qui l'entoure. C'est pour ça que certaines règles de Java ne peuvent pas être dans la grammaire : « une variable doit être déclarée avant usage » dépend du contexte, et c'est le rôle des chapitres 6, 15 ou 16, pas de la grammaire.</p>
+  </div>
+
+  <h2 id="s2-2"><span class="sec">§2.2</span>La grammaire lexicale</h2>
+  <p>La grammaire lexicale, présentée au chapitre 3, a pour terminaux les <b>caractères Unicode</b> (§3.1). Ses productions décrivent comment une suite de caractères se découpe en <b>éléments d'entrée</b> : espaces, commentaires et <b>jetons</b> (§3.5). Les jetons sont les identifiants, mots-clés, littéraux, séparateurs et opérateurs.</p>
+  <p>Son symbole but est <i>Input</i> (§3.5). Dans la spec, une production lexicale se reconnaît à ses <b>deux deux-points</b> <code>::</code> entre le nom et sa définition.</p>
+  <div class="code"><div class="bar"><span>Production lexicale (forme simplifiée)</span></div><pre><code class="gram">DecimalNumeral ::
+    0
+    NonZeroDigit [Digits]
+    NonZeroDigit Underscores Digits</code></pre></div>
+
+  <h2 id="s2-3"><span class="sec">§2.3</span>La grammaire syntaxique</h2>
+  <p>La grammaire syntaxique a pour terminaux les <b>jetons</b> produits par la grammaire lexicale. Elle décrit comment une suite de jetons forme un programme syntaxiquement correct. Son symbole but est <i>CompilationUnit</i> (§7.3). Ses productions utilisent <b>un seul deux-points</b> <code>:</code>.</p>
+  <div class="code"><div class="bar"><span>Production syntaxique</span></div><pre><code class="gram">IfThenElseStatement:
+    if ( Expression ) StatementNoShortIf else Statement</code></pre></div>
+  <p>Elle est présentée morceau par morceau aux chapitres 4, 6 à 10, 14 et 15, puis rassemblée au chapitre 19.</p>
+  <div class="rule"><span class="lbl">Règle · la grammaire ne suffit pas</span>
+    <p>Une suite de jetons acceptée par la grammaire syntaxique n'est pas forcément un programme correct. Des règles supplémentaires, écrites en prose dans les autres chapitres, la restreignent encore. La grammaire accepte <code>int x = "a";</code> ; c'est le §5.2 qui le rejette.</p>
+  </div>
+
+  <h3>Une grammaire pensée pour l'exposé</h3>
+  <p>Les productions des chapitres 4 à 15 servent à expliquer, pas à construire un analyseur : elles ne sont pas conçues pour un algorithme d'analyse particulier (LL, LALR…). Un compilateur réel réécrit souvent la grammaire et doit gérer plusieurs ambiguïtés que la spec traite à part.</p>
+  <div class="grid2">
+    <div class="card"><b class="h">Le « else pendant »</b>Dans <code>if (a) if (b) x(); else y();</code>, à quel <code>if</code> appartient le <code>else</code> ? Java le résout <em>dans la grammaire</em> avec le non terminal <i>StatementNoShortIf</i> (§14.5) : le <code>else</code> se rattache au <code>if</code> le plus proche.</div>
+    <div class="card"><b class="h">Le chevron double</b>Dans <code>List&lt;List&lt;String&gt;&gt;</code>, le lexique voit le jeton <code>&gt;&gt;</code> (décalage). La spec précise qu'en contexte de type, ces caractères se lisent comme deux <code>&gt;</code> (§3.2).</div>
+    <div class="card"><b class="h">Cast ou expression ?</b><code>(a) - b</code> est-il un cast de <code>-b</code> vers le type <code>a</code>, ou une soustraction ? La grammaire du cast (§15.16) n'accepte après <code>(Type)</code> qu'une <i>UnaryExpressionNotPlusMinus</i> pour les types référence : c'est donc une soustraction.</div>
+    <div class="card"><b class="h">Comparaison ou génériques ?</b><code>f(a &lt; b, c &gt; (d))</code> pourrait se lire comme un appel générique <code>a&lt;b,c&gt;(d)</code>. Java exige le point dans un appel générique explicite (<code>X.&lt;T&gt;m()</code>), ce qui lève l'ambiguïté.</div>
+  </div>
+
+  <h2 id="s2-4"><span class="sec">§2.4</span>La notation de la grammaire</h2>
+  <p>La spec utilise une notation compacte, variante de la forme de Backus-Naur. Les terminaux sont en <code>chasse fixe</code>, les non terminaux en <i>italique</i>. Une définition commence par le nom du non terminal suivi de <code>:</code> (ou <code>::</code>), et chaque ligne en retrait qui suit est une alternative. Explorez chaque élément de notation :</p>
+</div>
+
+<div class="wide">
+  <figure>
+    <p class="fig-title">Figure 2.1 · Les éléments de notation</p>
+    <p class="fig-hint">Choisissez un élément pour voir sa signification et son équivalent sans abréviation.</p>
+    <div data-w="explorer"><script type="application/json">{"items":[
+      {"k":"Alternatives sur plusieurs lignes","sub":"une ligne = un choix","d":"<p>Chaque ligne en retrait sous le nom est une production possible pour ce non terminal. Les lignes sont des alternatives, pas une suite.</p><pre class=\"src\"><code class=\"gram\">ArgumentList:\n    Expression {, Expression}\n\nClassType:\n    TypeIdentifier [TypeArguments]\n    PackageName . {Annotation} TypeIdentifier [TypeArguments]\n    ClassOrInterfaceType . {Annotation} TypeIdentifier [TypeArguments]</code></pre><p>Un <i>ClassType</i> peut donc s'écrire de trois façons : simple (<code>List</code>), qualifié par un paquetage (<code>java.util.List</code>), ou imbriqué dans un autre type (<code>Map.Entry</code>).</p>"},
+      {"k":"{ x } — zéro ou plusieurs","sub":"répétition","d":"<p>Les accolades indiquent que <i>x</i> peut apparaître zéro, une ou plusieurs fois.</p><pre class=\"src\"><code class=\"gram\">ArgumentList:\n    Expression {, Expression}</code></pre><p>équivaut à une production récursive :</p><pre class=\"src\"><code class=\"gram\">ArgumentList:\n    Expression\n    ArgumentList , Expression</code></pre><p>C'est ce qui autorise <code>f(a)</code>, <code>f(a, b)</code>, <code>f(a, b, c)</code>…</p>"},
+      {"k":"[ x ] — optionnel","sub":"zéro ou une fois","d":"<p>Les crochets indiquent que <i>x</i> peut être présent ou non. La spec précise qu'une production avec <i>[x]</i> est un raccourci pour <b>deux</b> productions, l'une avec x, l'autre sans.</p><pre class=\"src\"><code class=\"gram\">BreakStatement:\n    break [Identifier] ;</code></pre><p>équivaut à :</p><pre class=\"src\"><code class=\"gram\">BreakStatement:\n    break ;\n    break Identifier ;</code></pre><p>Avec plusieurs éléments optionnels, le nombre d'alternatives double à chaque fois : trois <i>[x]</i> donnent huit productions.</p>"},
+      {"k":"one of — liste de terminaux","sub":"un seul parmi plusieurs","d":"<p>Quand un non terminal se définit comme un choix parmi de nombreux terminaux d'un seul symbole, la spec les écrit sur une ligne après <code>one of</code>.</p><pre class=\"src\"><code class=\"gram\">ZeroToThree:\n    (one of)\n    0 1 2 3</code></pre><p>équivaut à quatre productions : <code>0</code>, <code>1</code>, <code>2</code>, <code>3</code>. On la retrouve pour les opérateurs d'affectation, les chiffres ou les séparateurs.</p>"},
+      {"k":"but not — exclusion","sub":"soustraction d'ensembles","d":"<p>Le côté droit peut exclure certaines expansions avec <code>but not</code>. C'est ainsi que la spec interdit qu'un identifiant soit un mot-clé :</p><pre class=\"src\"><code class=\"gram\">Identifier:\n    IdentifierChars but not a ReservedKeyword or BooleanLiteral or NullLiteral</code></pre><p>et qu'un nom de type ne soit pas <code>var</code>, <code>yield</code>, <code>record</code>, <code>sealed</code> ou <code>permits</code> :</p><pre class=\"src\"><code class=\"gram\">TypeIdentifier:\n    Identifier but not permits, record, sealed, var, or yield</code></pre>"},
+      {"k":"Phrase descriptive","sub":"quand l'énumération serait trop longue","d":"<p>Parfois un côté droit est une phrase en langue naturelle, quand lister les terminaux serait impraticable :</p><pre class=\"src\"><code class=\"gram\">RawInputCharacter:\n    any Unicode character\n\nJavaLetter:\n    any Unicode character that is a \"Java letter\"</code></pre><p>La définition exacte renvoie alors à l'API (<code>Character.isJavaIdentifierStart</code>, §3.8).</p>"},
+      {"k":": ou :: — quelle grammaire ?","sub":"syntaxique ou lexicale","d":"<p>Un seul deux-points marque une production de la grammaire <b>syntaxique</b> (terminaux = jetons). Deux deux-points marquent une production <b>lexicale</b> (terminaux = caractères).</p><pre class=\"src\"><code class=\"gram\">WhileStatement:\n    while ( Expression ) Statement\n\nHexDigit::\n    (one of)\n    0 1 2 3 4 5 6 7 8 9 a b c d e f A B C D E F</code></pre><p>Le chapitre 3 contient presque toutes les productions <code>::</code> ; le reste de la spec utilise <code>:</code>.</p>"},
+      {"k":"Lignes trop longues","sub":"continuation","d":"<p>Quand une alternative ne tient pas sur une ligne, elle continue sur la ligne suivante avec un retrait plus marqué. Ce n'est pas une nouvelle alternative.</p><pre class=\"src\"><code class=\"gram\">BasicForStatement:\n    for ( [ForInit] ; [Expression] ; [ForUpdate] )\n        Statement</code></pre>"}
+    ]}</script></div>
+  </figure>
+</div>
+
+<div class="col">
+  <h3>Comment la grammaire encode la priorité des opérateurs</h3>
+  <p>Java n'a pas de « table de priorité » normative : la priorité découle de la structure des productions d'expression (§15.2 et suivants). Chaque niveau de priorité est un non terminal qui se décompose en éléments du niveau immédiatement supérieur :</p>
+  <div class="code"><div class="bar"><span>Chaîne des expressions (extrait, §15)</span></div><pre><code class="gram">AdditiveExpression:
+    MultiplicativeExpression
+    AdditiveExpression + MultiplicativeExpression
+    AdditiveExpression - MultiplicativeExpression
+
+MultiplicativeExpression:
+    UnaryExpression
+    MultiplicativeExpression * UnaryExpression
+    MultiplicativeExpression / UnaryExpression
+    MultiplicativeExpression % UnaryExpression</code></pre></div>
+  <p>Deux conséquences se lisent directement dans ces lignes. <code>*</code> lie plus fort que <code>+</code>, car un opérande de <code>+</code> peut contenir un <code>*</code>, jamais l'inverse sans parenthèses. Et la <b>récursivité à gauche</b> (<i>AdditiveExpression</i> apparaît à gauche de <code>+</code>) rend l'opérateur associatif à gauche : <code>a - b - c</code> vaut <code>(a - b) - c</code>. L'affectation, elle, est récursive à droite : <code>a = b = c</code> vaut <code>a = (b = c)</code>.</p>
+  <p>Tapez une expression ci-dessous pour voir l'arbre que produit la grammaire de la spec.</p>
+</div>
+
+<div class="wide">
+  <figure>
+    <p class="fig-title">Figure 2.2 · Arbre de dérivation d'une expression</p>
+    <p class="fig-hint">Opérateurs reconnus : <code>= += -= || &amp;&amp; | ^ &amp; == != &lt; &gt; &lt;= &gt;= &lt;&lt; &gt;&gt; + - * / %</code>, unaires <code>- ! ~</code>, parenthèses, identifiants et entiers. Décochez « Compacter » pour voir toutes les productions traversées.</p>
+    <div data-w="ptree"></div>
+    <figcaption><b>Lecture :</b> les cases orange sont les jetons (terminaux), les cases blanches les non terminaux. En mode complet, un simple identifiant traverse 17 niveaux de productions avant d'atteindre <i>ExpressionName</i> : c'est le prix d'une priorité encodée par la grammaire.</figcaption>
+  </figure>
+</div>
+
+<div class="col">
+  <div class="trap"><span class="lbl">Piège classique</span>
+    <p>Parce que la priorité vient de la grammaire, des opérateurs « voisins » peuvent surprendre. <code>a &amp; b == c</code> se lit <code>a &amp; (b == c)</code> : l'égalité est <em>plus haut</em> dans la chaîne que le <code>&amp;</code> binaire, héritage du C. Utilisez la figure pour le vérifier, puis mettez des parenthèses dans votre code.</p>
+  </div>
+
+  <h3>Récapitulatif : lire une production de la spec</h3>
+  <div class="code"><div class="bar"><span>Exemple réel (§14.14.2, simplifié)</span></div><pre><code class="gram">EnhancedForStatement:
+    for ( LocalVariableDeclaration : Expression ) Statement</code></pre></div>
+  <ol>
+    <li>Le nom avant <code>:</code> est le non terminal défini : <i>EnhancedForStatement</i>.</li>
+    <li>Un seul <code>:</code> : c'est une production syntaxique, ses terminaux sont des jetons.</li>
+    <li><code>for</code>, <code>(</code>, <code>:</code> et <code>)</code> sont des terminaux : ils apparaissent tels quels dans le code.</li>
+    <li><i>LocalVariableDeclaration</i>, <i>Expression</i> et <i>Statement</i> sont définis ailleurs (§14.4, §15.2, §14.5).</li>
+    <li>La grammaire autorise <code>for (int x : 42) ;</code>. C'est la prose du §14.14.2 qui exige que l'expression soit un <code>Iterable</code> ou un tableau.</li>
+  </ol>
+
+  <h2 id="s2-quiz">Vérifier ses acquis</h2>
+  <div data-w="quiz"><script type="application/json">[
+    {"q":"Quels sont les terminaux de la grammaire syntaxique ?","o":["Les caractères Unicode","Les jetons produits par la grammaire lexicale","Les non terminaux du chapitre 19"],"a":1,"e":"La grammaire lexicale transforme des caractères en jetons ; la grammaire syntaxique assemble ces jetons (§2.3)."},
+    {"q":"Une production s'écrit <code>HexDigit::</code>. À quelle grammaire appartient-elle ?","o":["Syntaxique","Lexicale","Aucune, c'est une erreur typographique"],"a":1,"e":"Les productions lexicales utilisent deux deux-points (§2.2)."},
+    {"q":"Combien de productions représente <code>A: [B] c [D]</code> ?","o":["1","2","4"],"a":2,"e":"Chaque élément optionnel double le nombre d'alternatives : avec ou sans B, avec ou sans D, soit 4 (§2.4)."},
+    {"q":"Comment la grammaire rend-elle <code>-</code> associatif à gauche ?","o":["Par une table de priorité annexe","Par la récursivité à gauche de AdditiveExpression","Par une règle en prose du §15.7"],"a":1,"e":"AdditiveExpression - MultiplicativeExpression : la partie gauche peut elle-même contenir un -, donc a - b - c se regroupe en (a - b) - c."},
+    {"q":"<code>a &amp; b == c</code> se lit comme…","o":["(a &amp; b) == c","a &amp; (b == c)","Erreur de syntaxe"],"a":1,"e":"EqualityExpression est plus profond que AndExpression dans la chaîne : == lie plus fort que le &amp; binaire."},
+    {"q":"La grammaire accepte <code>int x = \"a\";</code>. Qui le rejette ?","o":["La grammaire lexicale","Les règles de typage en prose (§5.2)","Personne, c'est valide"],"a":1,"e":"Une phrase grammaticalement correcte doit encore respecter les règles de contexte décrites ailleurs."}
+  ]</script></div>
+</div>
+
+<script>
+ATLAS.w.ptree = function(el){
+  el.innerHTML = '<div class="ptree-ctl"><input type="text" id="pt-in" value="x = a + b * 2" aria-label="Expression à analyser">'+
+    '<label class="opt" style="margin:0"><input type="checkbox" id="pt-cmp" checked><span>Compacter les chaînes</span></label></div>'+
+    '<div class="btnrow">'+['a - b - c','a = b = c','a &amp; b == c','-(a + 1) * 2','x += y << 2 | z','a || b && !c'].map(e=>'<button class="btn pt-ex" type="button">'+e+'</button>').join('')+'</div>'+
+    '<div class="ptree" tabindex="0" aria-label="Arbre de dérivation"></div><div class="ptree-msg" aria-live="polite"></div>';
+  const inp = el.querySelector('#pt-in'), cmp = el.querySelector('#pt-cmp'), box = el.querySelector('.ptree'), msg = el.querySelector('.ptree-msg');
+  el.querySelectorAll('.pt-ex').forEach(b=>b.onclick=()=>{ inp.value=b.textContent; draw(); });
+
+  function lex(s){
+    const ops = ['>>=','<<=','<<','>>','<=','>=','==','!=','&&','||','+=','-=','*=','/=','%=','&=','|=','^=','+','-','*','/','%','<','>','=','!','~','&','|','^','(',')'];
+    const t=[]; let i=0;
+    while(i<s.length){
+      const c=s[i];
+      if(/\s/.test(c)){ i++; continue; }
+      let m;
+      if((m=/^[A-Za-z_$][A-Za-z0-9_$]*/.exec(s.slice(i)))){ const w=m[0]; t.push({k: (w==='true'||w==='false')?'bool':'id', v:w}); i+=w.length; continue; }
+      if((m=/^\d[\d_]*/.exec(s.slice(i)))){ t.push({k:'num',v:m[0]}); i+=m[0].length; continue; }
+      const o=ops.find(o=>s.startsWith(o,i));
+      if(o){ t.push({k:'op',v:o}); i+=o.length; continue; }
+      throw new Error('Caractère inattendu « '+c+' » en position '+(i+1));
+    }
+    return t;
+  }
+  function parse(src){
+    const T=lex(src); let p=0;
+    const peek=()=>T[p], eat=v=>{ if(T[p]&&T[p].v===v){ return {n:T[p++].v, tm:true}; } throw new Error('« '+v+' » attendu'+(T[p]?' avant « '+T[p].v+' »':' en fin d\'expression')); };
+    const N=(n,ch)=>({n,ch});
+    const levels = [
+      ['ConditionalOrExpression',['||'],'ConditionalAndExpression'],
+      ['ConditionalAndExpression',['&&'],'InclusiveOrExpression'],
+      ['InclusiveOrExpression',['|'],'ExclusiveOrExpression'],
+      ['ExclusiveOrExpression',['^'],'AndExpression'],
+      ['AndExpression',['&'],'EqualityExpression'],
+      ['EqualityExpression',['==','!='],'RelationalExpression'],
+      ['RelationalExpression',['<','>','<=','>='],'ShiftExpression'],
+      ['ShiftExpression',['<<','>>'],'AdditiveExpression'],
+      ['AdditiveExpression',['+','-'],'MultiplicativeExpression'],
+      ['MultiplicativeExpression',['*','/','%'],'UnaryExpression']
+    ];
+    function level(i){
+      if(i===levels.length) return unary();
+      const [name, ops] = levels[i];
+      let left = N(name,[level(i+1)]);
+      while(peek() && peek().k==='op' && ops.includes(peek().v)){
+        const op={n:T[p++].v, tm:true};
+        left = N(name,[left, op, level(i+1)]);
+      }
+      return left;
+    }
+    function unary(){
+      const t=peek();
+      if(t && t.k==='op' && (t.v==='-'||t.v==='+')){ p++; return N('UnaryExpression',[{n:t.v,tm:true}, unary()]); }
+      if(t && t.k==='op' && (t.v==='!'||t.v==='~')){ p++; return N('UnaryExpression',[N('UnaryExpressionNotPlusMinus',[{n:t.v,tm:true}, unary()])]); }
+      return N('UnaryExpression',[N('UnaryExpressionNotPlusMinus',[N('PostfixExpression',[primary()])])]);
+    }
+    function primary(){
+      const t=peek();
+      if(!t) throw new Error('Expression incomplète');
+      if(t.k==='id'){ p++; return N('ExpressionName',[{n:t.v,tm:true}]); }
+      if(t.k==='num'){ p++; return N('Primary',[N('PrimaryNoNewArray',[N('Literal',[N('IntegerLiteral',[{n:t.v,tm:true}])])])]); }
+      if(t.k==='bool'){ p++; return N('Primary',[N('PrimaryNoNewArray',[N('Literal',[N('BooleanLiteral',[{n:t.v,tm:true}])])])]); }
+      if(t.v==='('){ p++; const e=expression(); const r=eat(')'); return N('Primary',[N('PrimaryNoNewArray',[{n:'(',tm:true}, e, r])]); }
+      throw new Error('Opérande attendu avant « '+t.v+' »');
+    }
+    function assignmentExpr(){
+      const save=p;
+      const t=peek(), t2=T[p+1];
+      if(t && t.k==='id' && t2 && t2.k==='op' && ['=','+=','-=','*=','/=','%=','&=','|=','^=','<<=','>>='].includes(t2.v)){
+        p+=2;
+        const rhs = expression();
+        return N('AssignmentExpression',[N('Assignment',[N('LeftHandSide',[N('ExpressionName',[{n:t.v,tm:true}])]), N('AssignmentOperator',[{n:t2.v,tm:true}]), rhs])]);
+      }
+      p=save;
+      return N('AssignmentExpression',[N('ConditionalExpression',[level(0)])]);
+    }
+    function expression(){ return N('Expression',[assignmentExpr()]); }
+    const root = expression();
+    if(p<T.length) throw new Error('Jeton en trop : « '+T[p].v+' »');
+    return root;
+  }
+  function compact(n){
+    if(n.tm) return n;
+    let chain=[n.n], cur=n;
+    while(cur.ch && cur.ch.length===1 && !cur.ch[0].tm){ cur=cur.ch[0]; chain.push(cur.n); }
+    return {n:cur.n, ch:cur.ch.map(compact), chain:chain.length>1?chain:null};
+  }
+  function count(n){ return n.tm?0:1+n.ch.reduce((a,c)=>a+count(c),0); }
+  function depth(n){ return n.tm?0:1+Math.max(...n.ch.map(depth)); }
+  function draw(){
+    let tree;
+    try{ tree=parse(inp.value); msg.className='ptree-msg'; }
+    catch(e){ msg.className='ptree-msg bad'; msg.textContent='Erreur de syntaxe : '+e.message; box.innerHTML=''; return; }
+    const full = tree, shown = cmp.checked ? compact(tree) : tree;
+    msg.textContent = count(full)+' nœuds non terminaux dans l\'arbre complet, profondeur '+depth(full)+'.'+(cmp.checked?' Chaînes compactées : le nombre après × indique combien de productions sont regroupées dans la case.':'');
+    // mise en page : feuilles de gauche à droite
+    const CW=7, PAD=10, VY=50, GAP=10;
+    const lab = n => n.tm ? n.n : n.n + (n.chain ? ' ×'+n.chain.length : '');
+    function measure(n,d){
+      n.d=d; n.w = lab(n).length*CW + PAD*2;
+      if(n.tm || !n.ch.length){ n.sw=n.w; return; }
+      n.ch.forEach(c=>measure(c,d+1));
+      const cw = n.ch.reduce((a,c)=>a+c.sw,0) + GAP*(n.ch.length-1);
+      n.sw = Math.max(n.w, cw);
+    }
+    function layout(n,left){
+      n.x = left + n.sw/2;
+      if(n.tm || !n.ch.length) return;
+      const cw = n.ch.reduce((a,c)=>a+c.sw,0) + GAP*(n.ch.length-1);
+      let cx = left + (n.sw-cw)/2;
+      n.ch.forEach(c=>{ layout(c,cx); cx += c.sw + GAP; });
+    }
+    measure(shown,0); layout(shown,12);
+    let maxD=0, maxX=0; (function walk(n){ maxD=Math.max(maxD,n.d); maxX=Math.max(maxX,n.x+n.w/2); if(!n.tm) n.ch.forEach(walk); })(shown);
+    const W=maxX+16, H=(maxD+1)*VY+20;
+    let edges='', nodes='';
+    (function walk(n){
+      const y=14+n.d*VY;
+      if(!n.tm) n.ch.forEach(c=>{ const cy=14+c.d*VY; edges+='<path class="ed" d="M'+n.x+','+(y+22)+' C'+n.x+','+(y+36)+' '+c.x+','+(cy-14)+' '+c.x+','+cy+'"/>'; walk(c); });
+      const t = n.chain ? '<title>'+n.chain.join(' → ')+'</title>' : '';
+      nodes+='<g class="'+(n.tm?'tm':'nt'+(n.chain?' hot':''))+'">'+t+'<rect x="'+(n.x-n.w/2)+'" y="'+y+'" width="'+n.w+'" height="22" rx="5"/><text x="'+n.x+'" y="'+(y+15)+'" text-anchor="middle">'+ATLAS.esc(lab(n))+'</text></g>';
+    })(shown);
+    box.innerHTML='<svg width="'+W+'" height="'+H+'" viewBox="0 0 '+W+' '+H+'" role="img" aria-label="Arbre de dérivation de '+ATLAS.esc(inp.value)+'">'+edges+nodes+'</svg>';
+  }
+  inp.addEventListener('input', draw); cmp.addEventListener('change', draw);
+  draw();
+};
+</script>

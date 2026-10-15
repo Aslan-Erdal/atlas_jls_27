@@ -1,0 +1,187 @@
+<style>
+.cmp table tr{cursor:pointer}
+.cmp table tr.sel td{background:var(--accent-soft)}
+.cmp .pill{white-space:nowrap}
+.cmp .det{margin-top:12px}
+</style>
+
+<div class="col">
+  <div class="eyebrow">Chapitre 13 · Java SE 27 Edition</div>
+  <h1>Compatibilité binaire</h1>
+  <p class="lede">Quand une bibliothèque évolue, les programmes qui l'utilisent ne sont pas toujours recompilés. Ce chapitre dit précisément quels changements laissent fonctionner les anciens binaires, et lesquels les cassent à l'édition de liens.</p>
+  <div class="meta">
+    <span>Source : <a href="https://docs.oracle.com/javase/specs/jls/se27/html/jls-13.html" target="_blank" rel="noopener">JLS SE 27, chapitre 13</a></span>
+    <span>Sections : <b>13.1 à 13.5</b></span>
+  </div>
+
+  <h2 id="s13-0"><span class="sec">§13</span>Pourquoi ce chapitre existe</h2>
+  <p>Les outils de développement recompilent en général tout ce qui dépend d'une classe modifiée. Mais quand une bibliothèque est <b>distribuée</b> (Maven Central, le JDK lui-même), ses utilisateurs ne recompilent pas : un JAR compilé contre la version 1 tourne avec la version 2. Ce chapitre est donc essentiel pour quiconque publie une API.</p>
+  <div class="tbl"><table>
+    <thead><tr><th>Notion</th><th>Question posée</th><th>Couvert ici ?</th></tr></thead>
+    <tbody>
+      <tr><td><b>Compatibilité binaire</b></td><td>Un binaire client compilé contre l'ancienne version se lie-t-il encore sans erreur ?</td><td class="y">oui</td></tr>
+      <tr><td>Compatibilité source</td><td>Le code client recompile-t-il sans erreur ?</td><td class="w">en passant</td></tr>
+      <tr><td>Compatibilité de comportement</td><td>Le programme fait-il toujours la même chose ?</td><td class="w">en passant</td></tr>
+    </tbody>
+  </table></div>
+
+  <h2 id="s13-1"><span class="sec">§13.1</span>La forme d'un binaire</h2>
+  <p>La spec ne fixe pas le format <code>.class</code> (c'est la JVMS), mais elle impose des propriétés au binaire produit par un compilateur. Les plus importantes :</p>
+  <ul>
+    <li><b>Noms binaires.</b> Une classe de plus haut niveau a pour nom binaire son nom canonique. Une classe membre : <code>Externe$Membre</code>. Une classe locale : <code>Externe$1Locale</code> (un nombre, puis le nom). Une classe anonyme : <code>Externe$1</code>.</li>
+    <li><b>Références symboliques.</b> Un accès à un champ ou un appel de méthode est compilé avec le <b>nom</b> du membre et un <b>type qualifiant</b> : le type statique de l'expression qualifiante (ou la classe courante), pas forcément la classe qui déclare le membre. Une méthode est identifiée par son nom et son <b>descripteur</b> (types effacés des paramètres <b>et du retour</b>).</li>
+    <li><b>Constantes recopiées.</b> Une référence à une <b>variable constante</b> (§4.12.4) est remplacée par sa valeur : le binaire client ne référence pas le champ.</li>
+    <li>Le binaire doit conserver assez d'information pour les génériques (signatures), les classes imbriquées, les records, les classes scellées (liste des sous-classes autorisées) et les paramètres de méthodes.</li>
+  </ul>
+
+  <h2 id="s13-2"><span class="sec">§13.2</span>Ce que la compatibilité binaire est, et n'est pas</h2>
+  <div class="rule"><span class="lbl">Définition</span>
+    <p>Un changement d'un type est <b>compatible binaire</b> avec des binaires préexistants si ceux-ci, qui se liaient sans erreur avant le changement, continuent à se lier sans erreur après.</p>
+  </div>
+  <p>Les deux autres compatibilités sont indépendantes. Exemples typiques :</p>
+  <div class="two">
+    <div class="card"><b class="h">Compatible binaire, pas source</b>Ajouter une méthode surchargée <code>f(Integer)</code> à côté de <code>f(Object)</code> : les anciens binaires appellent toujours <code>f(Object)</code> (descripteur figé), mais un client recompilé appellera <code>f(Integer)</code>, ou ne compilera plus en cas d'ambiguïté.</div>
+    <div class="card"><b class="h">Compatible source, pas binaire</b>Changer <code>int taille()</code> en <code>long taille()</code> : un client recompilé fonctionne (<code>long t = x.taille();</code> s'il faisait <code>var</code>), mais un ancien binaire lève <code>NoSuchMethodError</code>, car le retour fait partie du descripteur.</div>
+  </div>
+
+  <h2 id="s13-3"><span class="sec">§13.3</span>Évolution des paquetages et modules</h2>
+  <p>Ajouter une classe ou un paquetage est compatible, sauf conflit de nom avec un type existant. Supprimer une classe utilisée provoque <code>NoClassDefFoundError</code>. Pour les modules, retirer un <code>exports</code> ou un <code>requires transitive</code> casse les clients qui en dépendaient ; renommer un module casse tous ses <code>requires</code>.</p>
+
+  <h2 id="s13-4"><span class="sec">§13.4</span>Évolution des classes</h2>
+  <p>Les §13.4 (classes) et §13.5 (interfaces, plus bas) passent en revue chaque sorte de modification. Le tableau ci-dessous les rassemble : filtrez par catégorie, puis cliquez une ligne pour le détail et l'erreur produite.</p>
+</div>
+
+<div class="wide">
+  <figure>
+    <p class="fig-title">Figure 13.1 · Quels changements cassent les anciens binaires ?</p>
+    <div data-w="compat"></div>
+  </figure>
+</div>
+
+<div class="col">
+  <h3 id="s13-4-9"><span class="sec">§13.4.9</span>Le piège des constantes recopiées</h3>
+  <p>C'est la règle la plus surprenante du chapitre, et la source d'innombrables bogues de déploiement. Suivez-la :</p>
+</div>
+
+<div class="wide">
+  <figure>
+    <p class="fig-title">Figure 13.2 · Une constante qui ne se met pas à jour</p>
+    <div data-w="stepper">
+<pre class="src">// Bibliotheque.jar, version 1
+public class Limites {
+    public static final int MAX = 100;            // variable constante
+    public static final Integer MAX_OBJ = 100;    // pas constante (Integer)
+}
+
+// Client.jar, compilé contre la version 1
+class Client {
+    void verifier(int n) {
+        if (n &gt; Limites.MAX) throw new IllegalArgumentException();
+        if (n &gt; Limites.MAX_OBJ) throw new IllegalArgumentException();
+    }
+}</pre>
+<script type="application/json">[
+ {"t":"Compilation du client","d":"<p>Le compilateur voit que <code>Limites.MAX</code> est une variable constante. Il remplace l'expression par <b>100</b> dans le bytecode de Client. Le binaire du client ne mentionne même pas le champ MAX.</p><p><code>MAX_OBJ</code> n'est pas une constante (type <code>Integer</code>) : le client contient une vraie lecture du champ (<code>getstatic Limites.MAX_OBJ</code>).</p>","hl":[3,10,11]},
+ {"t":"La bibliothèque passe en version 2","d":"<p>On publie <code>MAX = 500</code> et <code>MAX_OBJ = 500</code>, sans recompiler Client. Ce changement est <b>compatible binaire</b> : rien ne casse à l'édition de liens.</p>","hl":[3,4],"p":"<div class=\"code\"><pre><code class=\"java\">public static final int MAX = 500;\npublic static final Integer MAX_OBJ = 500;</code></pre></div>"},
+ {"t":"Exécution avec la version 2","d":"<p>Le premier test compare toujours à <b>100</b> : la valeur est figée dans Client. Le second lit le champ et compare à 500. Le client se comporte de façon incohérente, sans aucune erreur.</p>","hl":[10,11]},
+ {"t":"Les remèdes","d":"<ul><li>Recompiler tous les clients quand une constante publique change.</li><li>Ne déclarer comme constante publique qu'une valeur qui ne changera <b>jamais</b> (<code>Math.PI</code>, des tailles d'en-tête de protocole).</li><li>Sinon, exposer une méthode <code>static int max()</code>, ou un champ non constant.</li></ul><p>La spec souligne que cette recopie est voulue : elle permet la compilation conditionnelle (§14.22) et les étiquettes de <code>switch</code>.</p>"}
+]</script></div>
+  </figure>
+</div>
+
+<div class="col">
+  <h2 id="s13-5"><span class="sec">§13.5</span>Évolution des interfaces</h2>
+  <p>Les règles sont les mêmes que pour les classes, avec trois particularités, toutes visibles dans la catégorie « Interfaces » de la figure 13.1 :</p>
+  <ul>
+    <li><b>Ajouter une méthode abstraite</b> ne casse pas l'édition de liens, mais un appel sur une ancienne implémentation lève <code>AbstractMethodError</code> (§13.5.4). C'est la raison d'être des méthodes <code>default</code> : faire évoluer <code>Collection</code> en Java 8 (<code>stream()</code>, <code>removeIf</code>) sans casser les implémentations existantes.</li>
+    <li><b>Ajouter une méthode default</b> peut créer, à l'exécution, un conflit entre deux defaults hérités par une classe compilée avant : l'appel lève alors <code>IncompatibleClassChangeError</code> (§13.5.7).</li>
+    <li><b>Interfaces d'annotation</b> : ajouter un élément avec une valeur par défaut est sûr ; sans valeur par défaut, lire cet élément sur une annotation compilée avant lève <code>IncompleteAnnotationException</code> (§13.5.8).</li>
+  </ul>
+  <p>Rendre une interface <code>sealed</code> (§13.5.2), retirer <code>public</code> (§13.5.1) ou une superinterface (§13.5.3) casse les clients comme pour les classes. Changer ses paramètres de type (§13.5.5) ou ses champs (§13.5.6) suit les règles des §13.4.5 et §13.4.8.</p>
+
+  <h3>Les autres règles à retenir</h3>
+  <div class="grid2">
+    <div class="card"><b class="h">Ajouter est presque toujours sûr</b>Nouvelles classes, méthodes, champs, constructeurs, constantes d'enum, méthodes default : compatibles binaires. Les risques sont surtout source (ambiguïtés) ou comportementaux.</div>
+    <div class="card"><b class="h">Retirer casse toujours</b>Supprimer un élément public ou protégé utilisé produit <code>NoSuchMethodError</code>, <code>NoSuchFieldError</code> ou <code>NoClassDefFoundError</code> chez les clients.</div>
+    <div class="card"><b class="h">Changer une signature = retirer + ajouter</b>Type d'un paramètre, type de retour, nombre de paramètres, ordre des composants d'un record : l'ancien descripteur disparaît.</div>
+    <div class="card"><b class="h">Restreindre casse</b>Rendre une classe <code>final</code>, <code>abstract</code> ou <code>sealed</code>, réduire l'accès, rendre une méthode <code>final</code>, changer <code>static</code> en instance ou l'inverse.</div>
+  </div>
+  <div class="nn"><span class="lbl">Note non normative</span>
+    <p>Des outils automatisent ces vérifications avant publication : <code>japicmp</code>, <code>revapi</code>, ou le plugin <i>animal-sniffer</i>. Le JDK lui-même suit ces règles pour garantir que les binaires anciens tournent sur les nouvelles versions.</p>
+  </div>
+
+  <h2 id="s13-quiz">Vérifier ses acquis</h2>
+  <div data-w="quiz"><script type="application/json">[
+    {"q":"Changer le type de retour d'une méthode publique de <code>int</code> à <code>long</code> est-il compatible binaire ?","o":["Oui","Non : NoSuchMethodError chez les anciens clients","Oui, avec élargissement automatique"],"a":1,"e":"Le type de retour fait partie du descripteur de méthode (§13.4.15)."},
+    {"q":"Ajouter une méthode abstraite à une interface publique…","o":["casse l'édition de liens des anciennes implémentations","est compatible binaire, mais l'appeler sur une ancienne implémentation lève AbstractMethodError","est interdit"],"a":1,"e":"Les anciens binaires se lient toujours ; l'erreur survient à l'appel (§13.5.4). Préférez une méthode default."},
+    {"q":"On change <code>public static final int MAX = 100</code> en 500 sans recompiler les clients. Ils voient…","o":["500","100","Une erreur de liaison"],"a":1,"e":"Les variables constantes sont recopiées dans le binaire client (§13.4.9)."},
+    {"q":"Rendre une classe <code>final</code> alors qu'un ancien binaire l'étend…","o":["est compatible","provoque une erreur (VerifyError / IncompatibleClassChangeError) au chargement de la sous-classe","n'a d'effet qu'à la recompilation"],"a":1,"e":"§13.4.2.3 : la sous-classe existante ne peut plus se lier."},
+    {"q":"Ajouter une constante à un enum, avec un ancien client qui fait un switch expression exhaustif dessus…","o":["Erreur de liaison","Compatible binaire ; le switch lève MatchException s'il reçoit la nouvelle constante","Le switch prend la première branche"],"a":1,"e":"Les switch exhaustifs compilés contiennent un cas par défaut synthétique qui lève une exception (§13.4.26, §15.28.2)."},
+    {"q":"Réordonner les composants d'un record <code>record P(int x, int y)</code> en <code>(int y, int x)</code>…","o":["Incompatible : NoSuchMethodError","Compatible binaire (descripteur (II) identique), mais les anciens clients passent les valeurs dans le mauvais ordre","Impossible : un record ne peut pas évoluer"],"a":1,"e":"Le descripteur reste (II) : pas d'erreur de liaison, mais les anciens clients passent les valeurs dans le mauvais ordre. Avec des types différents, ce serait NoSuchMethodError (§13.4.27)."}
+  ]</script></div>
+</div>
+
+<script>
+ATLAS.w.compat = function(el){
+  el.classList.add('cmp');
+  const R = [
+    ['Classes','Rendre une classe abstract','n','Les anciens clients qui créent des instances échouent : InstantiationError à l\'exécution de new.','13.4.1'],
+    ['Classes','Retirer abstract','y','Compatible.','13.4.1'],
+    ['Classes','Rendre une classe final','n','Une sous-classe existante ne se charge plus (VerifyError / IncompatibleClassChangeError).','13.4.2.3'],
+    ['Classes','Retirer final','y','Compatible.','13.4.2.3'],
+    ['Classes','Rendre une classe sealed','n','Les sous-classes existantes non listées dans permits échouent au chargement (IncompatibleClassChangeError).','13.4.2.1'],
+    ['Classes','Ajouter une sous-classe autorisée à une classe sealed','w','Compatible binaire, mais un switch exhaustif compilé avant lèvera MatchException s\'il reçoit une instance de la nouvelle sous-classe.','13.4.2.1'],
+    ['Classes','Retirer public d\'une classe','n','IllegalAccessError chez les clients d\'autres paquetages.','13.4.3'],
+    ['Classes','Retirer une superclasse ou une superinterface','n','Les casts, affectations et appels qui comptaient sur le sous-typage échouent (VerifyError, ClassCastException, IncompatibleClassChangeError).','13.4.4'],
+    ['Classes','Ajouter une superinterface','y','Compatible.','13.4.4'],
+    ['Classes','Changer les paramètres de type d\'une classe','w','Compatible binaire si l\'effacement ne change pas ; peut provoquer de la pollution du tas et des ClassCastException.','13.4.5'],
+    ['Classes','Supprimer un membre utilisé','n','NoSuchFieldError / NoSuchMethodError.','13.4.6'],
+    ['Classes','Réduire l\'accès d\'un membre (public → protected…)','n','IllegalAccessError.','13.4.7'],
+    ['Classes','Élargir l\'accès d\'un membre','y','Compatible.','13.4.7'],
+    ['Champs','Ajouter un champ','y','Compatible ; peut masquer un champ de même nom d\'une superclasse pour les clients recompilés seulement.','13.4.8'],
+    ['Champs','Changer la valeur d\'une variable constante','w','Compatible binaire, mais les clients gardent l\'ancienne valeur recopiée (figure 13.2).','13.4.9'],
+    ['Champs','Rendre final un champ non final','n','IllegalAccessError pour les clients qui l\'affectent.','13.4.9'],
+    ['Champs','Passer un champ static en instance (ou l\'inverse)','n','IncompatibleClassChangeError.','13.4.10'],
+    ['Champs','Ajouter ou retirer transient','y','Aucun effet sur la liaison (seulement sur la sérialisation).','13.4.11'],
+    ['Méthodes','Ajouter une méthode ou un constructeur','y','Compatible ; peut changer la résolution de surcharge à la recompilation.','13.4.12'],
+    ['Méthodes','Changer le type d\'un paramètre','n','Équivaut à supprimer l\'ancienne méthode : NoSuchMethodError.','13.4.14'],
+    ['Méthodes','Changer le type de retour','n','Le retour fait partie du descripteur : NoSuchMethodError.','13.4.15'],
+    ['Méthodes','Rendre une méthode abstract','n','AbstractMethodError quand un ancien client l\'appelle sur une sous-classe qui ne l\'implémente pas.','13.4.16'],
+    ['Méthodes','Rendre une méthode final','n','Une sous-classe qui la redéfinit ne se charge plus.','13.4.17'],
+    ['Méthodes','Ajouter ou retirer native, synchronized','y','Aucun effet sur la liaison.','13.4.18'],
+    ['Méthodes','Passer static ↔ instance','n','IncompatibleClassChangeError.','13.4.19'],
+    ['Méthodes','Changer la clause throws','y','Compatible binaire ; les exceptions vérifiées n\'existent qu\'à la compilation. Peut casser la compilation des clients.','13.4.21'],
+    ['Méthodes','Changer le corps d\'une méthode','y','Compatible binaire (le comportement peut changer).','13.4.22'],
+    ['Méthodes','Ajouter une surcharge','y','Les anciens binaires gardent leur descripteur ; la recompilation peut choisir la nouvelle.','13.4.23'],
+    ['Méthodes','Modifier un initialiseur statique','y','Compatible binaire.','13.4.25'],
+    ['Enums et records','Ajouter une constante d\'enum','w','Compatible binaire ; un switch exhaustif compilé avant lève MatchException sur la nouvelle constante.','13.4.26'],
+    ['Enums et records','Réordonner les constantes d\'enum','y','Compatible : les switch compilés passent par le nom, pas l\'ordinal. Les valeurs ordinal() persistées, elles, deviennent fausses.','13.4.26'],
+    ['Enums et records','Retirer une constante d\'enum','n','NoSuchFieldError.','13.4.26'],
+    ['Enums et records','Ajouter, retirer ou changer le type d\'un composant de record','n','Le constructeur canonique et les accesseurs changent : NoSuchMethodError.','13.4.27'],
+    ['Interfaces','Ajouter une méthode abstraite','w','Compatible binaire ; l\'appeler sur une ancienne implémentation lève AbstractMethodError.','13.5.4'],
+    ['Interfaces','Ajouter une méthode default','w','Compatible ; peut créer un conflit entre deux defaults à l\'exécution, qui lève IncompatibleClassChangeError à l\'appel.','13.5.7'],
+    ['Interfaces','Ajouter une méthode static ou private','y','Compatible.','13.5.7'],
+    ['Interfaces','Supprimer un membre','n','NoSuchMethodError / NoSuchFieldError.','13.5.4'],
+    ['Interfaces','Retirer une superinterface','n','Comme pour les classes.','13.5.3'],
+    ['Interfaces','Ajouter un élément sans défaut à une interface d\'annotation','w','Compatible binaire ; lire l\'élément sur une ancienne annotation lève IncompleteAnnotationException.','13.5.8']
+  ];
+  const cats=['Tout','Classes','Champs','Méthodes','Enums et records','Interfaces'];
+  const lab={y:['compatible','o'],n:['incompatible','r'],w:['compatible, avec réserve','e']};
+  el.innerHTML='<div class="btnrow">'+cats.map((c,i)=>'<button type="button" class="btn'+(i===0?' on':'')+'" data-c="'+c+'">'+c+'</button>').join('')+'</div><div class="tbl"><table><thead><tr><th>Changement</th><th>Binaire</th><th>Section</th></tr></thead><tbody></tbody></table></div><div class="det verdict" aria-live="polite"></div>';
+  const tb=el.querySelector('tbody'), det=el.querySelector('.det');
+  let cur='Tout';
+  function draw(){
+    const rows=R.map((r,i)=>[r,i]).filter(([r])=>cur==='Tout'||r[0]===cur);
+    tb.innerHTML=rows.map(([r,i])=>'<tr data-i="'+i+'" tabindex="0"><td>'+r[1]+'</td><td><span class="pill '+lab[r[2]][1]+'">'+lab[r[2]][0]+'</span></td><td class="num">§'+r[4]+'</td></tr>').join('');
+    tb.querySelectorAll('tr').forEach(tr=>{ const f=()=>pick(+tr.dataset.i); tr.onclick=f; tr.onkeydown=e=>{ if(e.key==='Enter'){ f(); } }; });
+    pick(rows[0][1]);
+  }
+  function pick(i){
+    tb.querySelectorAll('tr').forEach(tr=>tr.classList.toggle('sel',+tr.dataset.i===i));
+    const r=R[i]; det.className='det verdict '+(r[2]==='y'?'ok':r[2]==='n'?'err':'warn');
+    det.innerHTML='<div class="v" style="font-size:1.05rem">'+r[1]+'</div><p>'+r[3]+'</p><div class="why">§'+r[4]+'</div>';
+  }
+  el.querySelectorAll('.btnrow .btn').forEach(b=>b.onclick=()=>{ cur=b.dataset.c; el.querySelectorAll('.btnrow .btn').forEach(x=>x.classList.toggle('on',x===b)); draw(); });
+  draw();
+};
+</script>

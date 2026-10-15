@@ -1,0 +1,292 @@
+<style>
+.vt .ctl{display:grid; grid-template-columns:repeat(auto-fit,minmax(180px,1fr)); gap:10px 18px; margin-bottom:12px}
+.vt label{font-family:var(--f-display); font-size:var(--s-1); color:var(--muted); display:flex; flex-direction:column; gap:4px}
+.vt label b{color:var(--ink); font-variant-numeric:tabular-nums}
+.vt input[type=range]{width:100%; accent-color:var(--accent)}
+.vt .bars{display:flex; flex-direction:column; gap:10px}
+.vt .br{display:grid; grid-template-columns:12em minmax(0,1fr); gap:10px; align-items:center; font-family:var(--f-display); font-size:.85rem}
+.vt .track{background:var(--paper); border:1px solid var(--rule); border-radius:6px; height:30px; position:relative; overflow:hidden}
+.vt .fill{position:absolute; inset:0 auto 0 0; border-radius:5px 0 0 5px}
+.vt .lab{position:absolute; left:8px; top:0; bottom:0; display:flex; align-items:center; font-family:var(--f-mono); font-size:.78rem; color:var(--ink); background:var(--paper); padding:0 4px; margin:5px 0; border-radius:3px}
+.vt label span{display:flex; justify-content:space-between}
+.vt .f1{background:var(--ember-soft); border-right:2px solid var(--ember)}
+.vt .f2{background:var(--accent-soft); border-right:2px solid var(--accent)}
+.vt .f3{background:var(--ok-soft); border-right:2px solid var(--ok)}
+.vt .note{font-size:.9rem; margin-top:10px}
+@media (max-width:560px){ .vt .br{grid-template-columns:minmax(0,1fr)} }
+</style>
+
+<div class="col">
+  <div class="eyebrow">Section 22 · Bibliothèque Java SE</div>
+  <h1>Concurrence</h1>
+  <p class="lede">Le chapitre 17 définit les fondations : threads, moniteurs, modèle mémoire. Le paquetage <code>java.util.concurrent</code> construit dessus les outils du quotidien : exécuteurs, threads virtuels, <code>CompletableFuture</code>, verrous, variables atomiques, collections concurrentes et synchroniseurs.</p>
+  <div class="meta">
+    <span>Référence : <a href="https://docs.oracle.com/en/java/javase/27/docs/api/java.base/java/util/concurrent/package-summary.html" target="_blank" rel="noopener">API Java SE 27, java.util.concurrent</a></span>
+    <span>Liens avec la JLS : <b>ch. 17, §14.19</b></span>
+  </div>
+
+  <h2 id="s22-1"><span class="sec">22.1</span>Le problème : les opérations non atomiques</h2>
+  <p>La plupart des bogues de concurrence viennent d'une opération qui <em>semble</em> unique mais se compose de plusieurs étapes. <code>compteur++</code> en est l'exemple type : lire, ajouter, écrire. Deux threads peuvent s'entrelacer et perdre une mise à jour :</p>
+</div>
+
+<div class="wide">
+  <figure>
+    <p class="fig-title">Figure 22.1 · Une mise à jour perdue</p>
+    <div data-w="stepper">
+<pre class="src">class Compteur {
+    int valeur = 0;
+    void incrementer() {
+        valeur++;   // lire, +1, écrire
+    }
+}
+// A et B appellent incrementer()</pre>
+<script type="application/json">[
+ {"t":"État initial","d":"<p>valeur vaut 0. Deux threads vont chacun l'incrémenter une fois : on attend 2.</p>","hl":[2],"p":"<div class=\"state\"><span>valeur = 0</span></div>"},
+ {"t":"A lit valeur","d":"<p>Le thread A charge 0 dans un registre.</p>","hl":[4],"p":"<div class=\"state\"><span>valeur = 0</span><span class=\"new\">A : registre = 0</span></div>"},
+ {"t":"B lit valeur","d":"<p>Avant que A n'écrive, B charge aussi 0.</p>","hl":[4],"p":"<div class=\"state\"><span>valeur = 0</span><span>A : 0</span><span class=\"new\">B : registre = 0</span></div>"},
+ {"t":"A écrit 1","d":"<p>A calcule 0 + 1 et écrit 1.</p>","hl":[4],"p":"<div class=\"state\"><span class=\"new\">valeur = 1</span><span>B : 0</span></div>"},
+ {"t":"B écrit 1","d":"<p>B calcule aussi 0 + 1 et écrit 1. L'incrément de A est <b>perdu</b>. Et sans synchronisation, le modèle mémoire (§17.4) autorise même pire : B pourrait ne jamais voir l'écriture de A.</p>","hl":[4],"p":"<div class=\"state\"><span class=\"new\">valeur = 1 (attendu : 2)</span></div>"},
+ {"t":"Trois corrections","d":"<ul><li><code>synchronized void incrementer()</code> : exclusion mutuelle (§17.1) ;</li><li><code>AtomicInteger valeur; valeur.incrementAndGet()</code> : instruction atomique du processeur (CAS) ;</li><li><code>LongAdder</code> : compteur réparti, le plus rapide sous forte contention.</li></ul><p><code>volatile</code> ne suffit <b>pas</b> : il rend chaque lecture et écriture visible, mais ne rend pas la séquence lire-modifier-écrire atomique.</p>","hl":[4]}
+]</script></div>
+  </figure>
+</div>
+
+<div class="col">
+  <h2 id="s22-2"><span class="sec">22.2</span>Threads de plateforme et threads virtuels</h2>
+  <p>Depuis Java 21 (JEP 444), il existe deux sortes de threads. Un <b>thread de plateforme</b> est une enveloppe autour d'un thread du système d'exploitation : coûteux (une pile de l'ordre du mégaoctet, une création lente), donc limité à quelques milliers. Un <b>thread virtuel</b> est géré par la JVM : il est <b>monté</b> sur un thread porteur (carrier) quand il calcule, et <b>démonté</b> quand il bloque sur une entrée-sortie, libérant le porteur pour un autre.</p>
+  <div class="svgwrap"><svg viewBox="0 0 760 228" width="760" role="img" aria-label="Des milliers de threads virtuels partagent quelques threads porteurs">
+    <text class="d-txt d-b" x="20" y="22">Threads virtuels (des millions possibles)</text>
+    <g class="d-txt">
+      <rect class="d-ok" x="20" y="34" width="70" height="26" rx="5"/><text class="d-mut" x="55" y="51" text-anchor="middle">V1 calcule</text>
+      <rect class="d-box" x="100" y="34" width="70" height="26" rx="5"/><text class="d-mut" x="135" y="51" text-anchor="middle">V2 attend</text>
+      <rect class="d-ok" x="180" y="34" width="70" height="26" rx="5"/><text class="d-mut" x="215" y="51" text-anchor="middle">V3 calcule</text>
+      <rect class="d-box" x="260" y="34" width="70" height="26" rx="5"/><text class="d-mut" x="295" y="51" text-anchor="middle">V4 attend</text>
+      <rect class="d-box" x="340" y="34" width="70" height="26" rx="5"/><text class="d-mut" x="375" y="51" text-anchor="middle">V5 attend</text>
+      <rect class="d-box" x="420" y="34" width="70" height="26" rx="5"/><text class="d-mut" x="455" y="51" text-anchor="middle">…</text>
+      <rect class="d-ok" x="500" y="34" width="80" height="26" rx="5"/><text class="d-mut" x="540" y="51" text-anchor="middle">V9999 calcule</text>
+    </g>
+    <text class="d-txt d-b" x="20" y="118">Threads porteurs (un par cœur, ForkJoinPool)</text>
+    <rect class="d-acc" x="40" y="130" width="140" height="34" rx="6"/><text class="d-mono" x="110" y="152" text-anchor="middle">porteur 1 : V1</text>
+    <rect class="d-acc" x="200" y="130" width="140" height="34" rx="6"/><text class="d-mono" x="270" y="152" text-anchor="middle">porteur 2 : V3</text>
+    <rect class="d-acc" x="520" y="130" width="140" height="34" rx="6"/><text class="d-mono" x="590" y="152" text-anchor="middle">porteur n : V9999</text>
+    <path class="d-line" d="M55,60 L100,128" marker-end="url(#arr)"/><path class="d-line" d="M215,60 L260,128" marker-end="url(#arr)"/><path class="d-line" d="M540,60 L580,128" marker-end="url(#arr)"/>
+    
+    <text class="d-mut" x="380" y="192" text-anchor="middle">V2, V4, V5… attendent une E/S : ils sont démontés et leur pile est rangée sur le tas ;</text><text class="d-mut" x="380" y="212" text-anchor="middle">quand V2 reçoit sa réponse réseau, il est remonté sur un porteur libre et reprend</text>
+  </svg></div>
+  <div class="code"><div class="bar"><span>Java 21+</span></div><pre><code class="java">Thread v = Thread.ofVirtual().name("worker-", 0).start(() -&gt; traiter());
+Thread p = Thread.ofPlatform().daemon(true).start(() -&gt; surveiller());
+
+try (var ex = Executors.newVirtualThreadPerTaskExecutor()) {   // un thread virtuel par tâche
+    List&lt;Future&lt;String&gt;&gt; fs = urls.stream().map(u -&gt; ex.submit(() -&gt; telecharger(u))).toList();
+    for (var f : fs) afficher(f.get());
+}   // close() attend la fin de toutes les tâches</code></pre></div>
+  <p>Comparez le temps total pour un lot de tâches qui attendent surtout des entrées-sorties :</p>
+</div>
+
+<div class="wide">
+  <figure>
+    <p class="fig-title">Figure 22.2 · Pool fixe contre threads virtuels (modèle simplifié)</p>
+    <p class="fig-hint">Chaque tâche attend une réponse (E/S), puis calcule. Le modèle ignore les coûts de commutation : il montre l'ordre de grandeur.</p>
+    <div data-w="vthreads"></div>
+  </figure>
+</div>
+
+<div class="col">
+  <div class="rule"><span class="lbl">Règles d'usage des threads virtuels</span>
+    <ul style="margin:0">
+      <li>Ils accélèrent les tâches qui <b>attendent</b> (réseau, base de données, fichiers), pas le calcul pur : pour celui-ci, le nombre de cœurs reste la limite.</li>
+      <li>Ne les mettez <b>jamais en pool</b> : créez-en un par tâche. Pour limiter l'accès à une ressource rare (connexions), utilisez un <code>Semaphore</code>.</li>
+      <li>Méfiez-vous de <code>ThreadLocal</code> avec des millions de threads : préférez <code>ScopedValue</code> (24.9).</li>
+      <li>Depuis Java 24 (JEP 491), bloquer dans un <code>synchronized</code> ne monopolise plus le porteur. Un appel natif ou une méthode <code>native</code> sur la pile peut encore « épingler » le thread virtuel.</li>
+    </ul>
+  </div>
+
+  <h2 id="s22-3"><span class="sec">22.3</span>Exécuteurs</h2>
+  <p>Un <code>ExecutorService</code> découple la soumission d'une tâche de son exécution. Depuis Java 19, il est <code>AutoCloseable</code> : le try-with-resources attend la fin des tâches.</p>
+  <div class="tbl"><table>
+    <thead><tr><th>Fabrique (<code>Executors.</code>)</th><th>Comportement</th><th>Usage</th></tr></thead>
+    <tbody>
+      <tr><td><code>newVirtualThreadPerTaskExecutor()</code></td><td>un nouveau thread virtuel par tâche</td><td>tâches d'E/S, serveurs, le défaut moderne</td></tr>
+      <tr><td><code>newFixedThreadPool(n)</code></td><td>n threads, file <b>non bornée</b></td><td>calcul limité au nombre de cœurs</td></tr>
+      <tr><td><code>newCachedThreadPool()</code></td><td>crée des threads à la demande, les recycle</td><td>courtes tâches ; peut exploser en nombre de threads</td></tr>
+      <tr><td><code>newSingleThreadExecutor()</code></td><td>un seul thread, ordre FIFO</td><td>sérialiser des actions</td></tr>
+      <tr><td><code>newScheduledThreadPool(n)</code></td><td>exécution différée ou périodique</td><td>tâches planifiées</td></tr>
+      <tr><td><code>newWorkStealingPool()</code></td><td>un <code>ForkJoinPool</code> par vol de tâches</td><td>calcul récursif</td></tr>
+    </tbody>
+  </table></div>
+  <div class="trap"><span class="lbl">Piège</span>
+    <p>La file non bornée de <code>newFixedThreadPool</code> peut accumuler des millions de tâches et épuiser la mémoire. En production, construisez un <code>ThreadPoolExecutor</code> avec une file bornée (<code>ArrayBlockingQueue</code>) et une politique de rejet explicite (<code>CallerRunsPolicy</code>…).</p>
+  </div>
+  <div class="code"><div class="bar"><span>Java</span></div><pre><code class="java">ExecutorService ex = new ThreadPoolExecutor(
+    4, 8,                                    // cœur, maximum
+    30, TimeUnit.SECONDS,                    // durée de vie des threads en surplus
+    new ArrayBlockingQueue&lt;&gt;(1_000),         // file bornée
+    Thread.ofPlatform().name("calcul-", 0).factory(),
+    new ThreadPoolExecutor.CallerRunsPolicy());   // si plein : l'appelant exécute (régulation)
+
+Future&lt;Integer&gt; f = ex.submit(() -&gt; calculer());
+f.get(2, TimeUnit.SECONDS);    // attend au plus 2 s : TimeoutException sinon
+f.cancel(true);                // interrompt le thread qui l'exécute
+ex.shutdown();                 // n'accepte plus de tâches
+ex.awaitTermination(1, TimeUnit.MINUTES);</code></pre></div>
+
+  <h2 id="s22-4"><span class="sec">22.4</span>CompletableFuture</h2>
+  <p><code>CompletableFuture&lt;T&gt;</code> représente un résultat futur sur lequel on enchaîne des traitements sans bloquer. C'est un <code>Future</code> qu'on peut compléter soi-même et composer :</p>
+</div>
+
+<div class="wide">
+  <figure>
+    <p class="fig-title">Figure 22.3 · Les combinateurs de CompletableFuture</p>
+    <div data-w="explorer"><script type="application/json">{"items":[
+      {"k":"supplyAsync / runAsync","sub":"démarrer","d":"<p>Lance un calcul asynchrone. Sans exécuteur explicite, il tourne sur le <code>ForkJoinPool</code> commun : à éviter pour des appels bloquants. Passez un exécuteur.</p>","code":"var ex = Executors.newVirtualThreadPerTaskExecutor();\nCompletableFuture<Client> cf = CompletableFuture.supplyAsync(() -> api.client(id), ex);"},
+      {"k":"thenApply","sub":"transformer (map)","d":"<p>Applique une fonction au résultat, quand il arrive.</p>","code":"CompletableFuture<String> nom = cf.thenApply(Client::nom);"},
+      {"k":"thenCompose","sub":"enchaîner (flatMap)","d":"<p>Quand la fonction renvoie elle-même un CompletableFuture : évite un <code>CompletableFuture&lt;CompletableFuture&lt;T&gt;&gt;</code>.</p>","code":"CompletableFuture<List<Commande>> cmds = cf.thenCompose(c -> api.commandesAsync(c.id()));"},
+      {"k":"thenCombine","sub":"deux résultats indépendants","d":"<p>Attend deux calculs lancés en parallèle et combine leurs résultats.</p>","code":"var prix = CompletableFuture.supplyAsync(() -> tarif(p), ex);\nvar stock = CompletableFuture.supplyAsync(() -> stock(p), ex);\nCompletableFuture<Offre> o = prix.thenCombine(stock, Offre::new);"},
+      {"k":"allOf / anyOf","sub":"plusieurs futurs","d":"<p><code>allOf</code> se termine quand tous sont terminés (résultat <code>Void</code> : relisez chaque futur avec <code>join()</code>). <code>anyOf</code>, dès le premier.</p>","code":"List<CompletableFuture<Page>> fs = urls.stream().map(u -> charger(u, ex)).toList();\nCompletableFuture.allOf(fs.toArray(CompletableFuture[]::new)).join();\nList<Page> pages = fs.stream().map(CompletableFuture::join).toList();"},
+      {"k":"exceptionally / handle / whenComplete","sub":"erreurs","d":"<p><code>exceptionally</code> fournit une valeur de secours ; <code>handle</code> reçoit le résultat ou l'exception ; <code>whenComplete</code> observe sans modifier. Les exceptions arrivent enveloppées dans une <code>CompletionException</code>.</p>","code":"cf.thenApply(Client::nom)\n  .exceptionally(e -> \"inconnu\")\n  .whenComplete((v, e) -> log(v, e));"},
+      {"k":"orTimeout / completeOnTimeout","sub":"délais (Java 9)","d":"<p>Termine en erreur (<code>TimeoutException</code>) ou avec une valeur par défaut après un délai.</p>","code":"cf.orTimeout(2, TimeUnit.SECONDS);\ncf.completeOnTimeout(Client.ANONYME, 500, TimeUnit.MILLISECONDS);"},
+      {"k":"join / get","sub":"bloquer","d":"<p>Attendre le résultat. <code>join()</code> lève des exceptions non vérifiées (<code>CompletionException</code>) ; <code>get()</code> des exceptions vérifiées. Avec des threads virtuels, bloquer redevient acceptable : souvent, du code séquentiel simple remplace avantageusement une longue chaîne de combinateurs.</p>"}
+    ]}</script></div>
+  </figure>
+</div>
+
+<div class="col">
+  <h2 id="s22-5"><span class="sec">22.5</span>Verrous explicites</h2>
+  <div class="tbl"><table>
+    <thead><tr><th>Outil</th><th>Ce qu'il ajoute à synchronized</th></tr></thead>
+    <tbody>
+      <tr><td><code>ReentrantLock</code></td><td><code>tryLock()</code> (essai, avec délai), <code>lockInterruptibly()</code>, équité optionnelle, plusieurs <code>Condition</code> par verrou</td></tr>
+      <tr><td><code>ReentrantReadWriteLock</code></td><td>plusieurs lecteurs simultanés, un seul écrivain</td></tr>
+      <tr><td><code>StampedLock</code></td><td>lecture <b>optimiste</b> sans verrou, validée après coup ; non réentrant</td></tr>
+    </tbody>
+  </table></div>
+  <div class="code"><div class="bar"><span>Java</span></div><pre><code class="java">private final ReentrantLock verrou = new ReentrantLock();
+private final Condition nonVide = verrou.newCondition();
+
+void deposer(T x) {
+    verrou.lock();
+    try { file.add(x); nonVide.signal(); }
+    finally { verrou.unlock(); }          // TOUJOURS dans un finally
+}
+T retirer() throws InterruptedException {
+    verrou.lock();
+    try {
+        while (file.isEmpty()) nonVide.await();   // boucle, comme wait (§17.2.1)
+        return file.remove();
+    } finally { verrou.unlock(); }
+}</code></pre></div>
+
+  <h2 id="s22-6"><span class="sec">22.6</span>Variables atomiques</h2>
+  <p>Les classes de <code>java.util.concurrent.atomic</code> exposent les instructions atomiques du processeur, sans verrou. Leur opération de base est le <b>compare-and-set</b> (CAS) : « remplace la valeur par v si elle vaut encore e ».</p>
+  <div class="code"><div class="bar"><span>Java</span></div><pre><code class="java">AtomicInteger n = new AtomicInteger();
+n.incrementAndGet();
+n.updateAndGet(x -&gt; Math.max(x, 10));        // fonction réessayée en boucle CAS : elle doit être sans effet de bord
+n.compareAndSet(10, 11);                     // true si la valeur était 10
+
+AtomicReference&lt;Config&gt; cfg = new AtomicReference&lt;&gt;(Config.DEFAUT);
+cfg.set(nouvelle);                           // publication sûre (sémantique volatile)
+
+LongAdder requetes = new LongAdder();        // plusieurs cellules : très peu de contention
+requetes.increment();
+long total = requetes.sum();</code></pre></div>
+  <p>Pour du code de bas niveau (structures de données sans verrou), <code>VarHandle</code> donne accès aux mêmes opérations sur un champ ou un élément de tableau quelconque, avec différents niveaux d'ordre mémoire.</p>
+
+  <h2 id="s22-7"><span class="sec">22.7</span>Collections concurrentes</h2>
+  <div class="tbl"><table>
+    <thead><tr><th>Classe</th><th>Principe</th><th>À savoir</th></tr></thead>
+    <tbody>
+      <tr><td><code>ConcurrentHashMap</code></td><td>verrous fins par compartiment, lectures sans verrou</td><td><code>compute</code>, <code>merge</code>, <code>computeIfAbsent</code> sont atomiques ; pas de clé ni de valeur <code>null</code> ; <code>size()</code> est une estimation sous concurrence</td></tr>
+      <tr><td><code>CopyOnWriteArrayList</code></td><td>chaque écriture copie le tableau</td><td>itération sans verrou ni <code>ConcurrentModificationException</code> ; écritures coûteuses</td></tr>
+      <tr><td><code>ConcurrentLinkedQueue</code> / <code>Deque</code></td><td>sans verrou (CAS)</td><td>non bloquant</td></tr>
+      <tr><td><code>ArrayBlockingQueue</code>, <code>LinkedBlockingQueue</code></td><td>file bloquante bornée</td><td><code>put</code> bloque si plein, <code>take</code> si vide : producteur-consommateur</td></tr>
+      <tr><td><code>SynchronousQueue</code></td><td>capacité zéro</td><td>chaque <code>put</code> attend un <code>take</code></td></tr>
+      <tr><td><code>ConcurrentSkipListMap</code> / <code>Set</code></td><td>liste à saut</td><td>triée et concurrente</td></tr>
+    </tbody>
+  </table></div>
+  <div class="trap"><span class="lbl">Vérifier puis agir</span></div>
+  <div class="code"><div class="bar"><span>Java</span></div><pre><code class="java">ConcurrentHashMap&lt;String, List&lt;String&gt;&gt; m = new ConcurrentHashMap&lt;&gt;();
+if (!m.containsKey(k)) m.put(k, new ArrayList&lt;&gt;());   // FAUX : deux threads peuvent passer le test
+m.computeIfAbsent(k, x -&gt; new CopyOnWriteArrayList&lt;&gt;()).add(v);   // correct et atomique
+
+ConcurrentHashMap&lt;String, LongAdder&gt; freq = new ConcurrentHashMap&lt;&gt;();
+freq.computeIfAbsent(mot, x -&gt; new LongAdder()).increment();</code></pre></div>
+
+  <h2 id="s22-8"><span class="sec">22.8</span>Synchroniseurs</h2>
+  <div class="grid2">
+    <div class="card"><b class="h">CountDownLatch</b>Un compteur qu'on décrémente ; <code>await()</code> attend zéro. Usage unique : « attendre que N services aient démarré ».</div>
+    <div class="card"><b class="h">CyclicBarrier</b>N threads s'attendent mutuellement à un point de rendez-vous, puis repartent ; réutilisable.</div>
+    <div class="card"><b class="h">Semaphore</b>N permis : <code>acquire()</code> / <code>release()</code>. Idéal pour limiter la concurrence des threads virtuels sur une ressource rare.</div>
+    <div class="card"><b class="h">Phaser</b>Barrière réutilisable à nombre de participants variable, par phases.</div>
+    <div class="card"><b class="h">Exchanger</b>Deux threads échangent un objet à un point de rendez-vous.</div>
+    <div class="card"><b class="h">CompletableFuture</b>Souvent le plus simple pour « attendre que plusieurs calculs soient finis » (<code>allOf</code>).</div>
+  </div>
+  <div class="code"><div class="bar"><span>Java · limiter à 10 connexions simultanées</span></div><pre><code class="java">Semaphore connexions = new Semaphore(10);
+try (var ex = Executors.newVirtualThreadPerTaskExecutor()) {
+    for (var req : requetes) ex.submit(() -&gt; {
+        connexions.acquire();
+        try { return base.executer(req); }
+        finally { connexions.release(); }
+    });
+}</code></pre></div>
+
+  <h2 id="s22-9"><span class="sec">22.9</span>Contexte partagé : ThreadLocal et ScopedValue</h2>
+  <p><code>ThreadLocal</code> donne à chaque thread sa propre copie d'une variable, mais elle est modifiable, vit aussi longtemps que le thread (fuites dans les pools) et coûte cher avec des millions de threads virtuels. <code>ScopedValue</code> (finalisé en Java 25, JEP 506) la remplace pour transmettre un contexte <b>immuable</b> à un appel et à tout ce qu'il appelle :</p>
+  <div class="code"><div class="bar"><span>Java 25+</span></div><pre><code class="java">static final ScopedValue&lt;Utilisateur&gt; UTILISATEUR = ScopedValue.newInstance();
+
+void traiterRequete(Requete r) {
+    ScopedValue.where(UTILISATEUR, authentifier(r))
+               .run(() -&gt; controleur.executer(r));   // lié seulement pendant run
+}
+void journaliser(String msg) {
+    String qui = UTILISATEUR.isBound() ? UTILISATEUR.get().nom() : "anonyme";
+}</code></pre></div>
+  <p>Les sous-tâches d'un <code>StructuredTaskScope</code> héritent automatiquement des valeurs liées : voir la section 27.4 pour la concurrence structurée, encore en preview en Java 27.</p>
+
+  <h2 id="s22-10"><span class="sec">22.10</span>Pièges et diagnostics</h2>
+  <div class="tbl"><table>
+    <thead><tr><th>Problème</th><th>Symptôme</th><th>Remède</th></tr></thead>
+    <tbody>
+      <tr><td>Interblocage (deadlock)</td><td>des threads bloqués pour toujours</td><td>ordre global d'acquisition des verrous ; <code>tryLock</code> avec délai ; <code>jstack</code> / <code>jcmd Thread.print</code> le détectent</td></tr>
+      <tr><td>Course de données</td><td>résultats faux, intermittents</td><td>verrou, atomique ou immuabilité (ch. 17)</td></tr>
+      <tr><td>Famine</td><td>un thread n'obtient jamais le verrou</td><td>verrous équitables, sections critiques courtes</td></tr>
+      <tr><td>Exception avalée dans un exécuteur</td><td>la tâche « disparaît »</td><td>vérifier les <code>Future</code> ; journaliser dans la tâche</td></tr>
+      <tr><td><code>InterruptedException</code> ignorée</td><td>impossible d'arrêter proprement</td><td>propager ou restaurer le statut (§17.2.3)</td></tr>
+      <tr><td>Bloquer le pool commun</td><td>les streams parallèles et CompletableFuture se figent</td><td>exécuteur dédié ou threads virtuels</td></tr>
+    </tbody>
+  </table></div>
+
+  <h2 id="s22-quiz">Vérifier ses acquis</h2>
+  <div data-w="quiz"><script type="application/json">[
+    {"q":"<code>volatile int n; n++;</code> est-il sûr entre threads ?","o":["Oui","Non : lire-modifier-écrire n'est pas atomique"],"a":1,"e":"Utilisez AtomicInteger, LongAdder ou un verrou."},
+    {"q":"Les threads virtuels accélèrent surtout…","o":["le calcul intensif","les tâches qui attendent des entrées-sorties","les streams parallèles"],"a":1,"e":"Le thread est démonté pendant l'attente, libérant le porteur."},
+    {"q":"Faut-il mettre les threads virtuels en pool ?","o":["Oui, comme les threads de plateforme","Non, un par tâche ; limiter avec un Semaphore si besoin"],"a":1,"e":"Ils sont bon marché ; le pool limite inutilement la concurrence."},
+    {"q":"Quel combinateur évite un <code>CompletableFuture&lt;CompletableFuture&lt;T&gt;&gt;</code> ?","o":["thenApply","thenCompose","thenCombine"],"a":1,"e":"thenCompose est l'équivalent de flatMap."},
+    {"q":"<code>if (!map.containsKey(k)) map.put(k, v);</code> sur une ConcurrentHashMap est-il atomique ?","o":["Oui","Non : utiliser putIfAbsent ou computeIfAbsent"],"a":1,"e":"Chaque appel est sûr, mais pas leur séquence."},
+    {"q":"Qu'apporte ScopedValue par rapport à ThreadLocal ?","o":["Une valeur modifiable par thread","Une valeur immuable, liée pour la durée d'un appel, héritée par les sous-tâches structurées","Rien"],"a":1,"e":"Finalisé en Java 25 (JEP 506)."},
+    {"q":"Où doit se trouver <code>unlock()</code> d'un ReentrantLock ?","o":["À la fin du try","Dans un finally","N'importe où"],"a":1,"e":"Sinon une exception laisse le verrou pris pour toujours."}
+  ]</script></div>
+</div>
+
+<script>
+ATLAS.w.vthreads = function(el){
+  el.classList.add('vt');
+  const S=[['n','Nombre de tâches',10000,100,100000,100],['w','Attente E/S par tâche (ms)',200,10,2000,10],['c','Calcul par tâche (ms)',0.1,0,20,0.1],['p','Taille du pool fixe',200,10,2000,10],['k','Cœurs',8,1,64,1]];
+  const v={}; S.forEach(s=>v[s[0]]=s[2]);
+  el.innerHTML='<div class="ctl">'+S.map(([k,l,d,mi,ma,st])=>'<label for="vt-'+k+'"><span>'+l+' <b class="o-'+k+'">'+d+'</b></span><input id="vt-'+k+'" type="range" min="'+mi+'" max="'+ma+'" step="'+st+'" value="'+d+'" data-k="'+k+'"></label>').join('')+'</div><div class="bars"></div><p class="note"></p>';
+  const bars=el.querySelector('.bars'), note=el.querySelector('.note');
+  const fmt=ms=> ms>=60000 ? (ms/60000).toFixed(1)+' min' : ms>=1000 ? (ms/1000).toFixed(1)+' s' : Math.round(ms)+' ms';
+  function run(){
+    const {n,w,c,p,k}=v;
+    const cpuBound = n*c/k;
+    const tPool = Math.max(Math.ceil(n/p)*(w+c), cpuBound + w);
+    const tSeq = n*(w+c)/1;
+    const tVirt = Math.max(w + c, cpuBound + w);
+    const rows=[['Un seul thread',tSeq,'f1'],['Pool fixe de '+p+' threads',tPool,'f2'],['Threads virtuels',tVirt,'f3']];
+    const max=Math.max(...rows.map(r=>r[1]));
+    bars.innerHTML=rows.map(([l,t,c])=>'<div class="br"><span>'+l+'</span><div class="track"><div class="fill '+c+'" style="width:'+Math.max(2,Math.sqrt(t/max)*100)+'%"></div><span class="lab">'+fmt(t)+'</span></div></div>').join('');
+    note.innerHTML='Échelle en racine carrée pour garder les petites barres lisibles. '+(cpuBound > w ? 'Ici, le <b>calcul</b> domine ('+fmt(cpuBound)+' de CPU répartis sur '+k+' cœurs) : les threads virtuels ne peuvent pas faire mieux que le nombre de cœurs.' : 'Ici, l\'<b>attente</b> domine : avec des threads virtuels, toutes les tâches attendent en même temps, et le pool fixe traite ses '+n+' tâches par vagues de '+p+'.');
+  }
+  el.querySelectorAll('input').forEach(i=>i.oninput=()=>{ v[i.dataset.k]=+i.value; el.querySelector('.o-'+i.dataset.k).textContent=i.value; run(); });
+  run();
+};
+</script>

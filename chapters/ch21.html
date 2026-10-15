@@ -1,0 +1,275 @@
+<style>
+.pl .cfg{display:flex; gap:8px; flex-wrap:wrap; margin-bottom:10px}
+.pl .stagebar{display:flex; gap:6px; flex-wrap:wrap; align-items:center; font-family:var(--f-mono); font-size:.8rem; margin-bottom:12px}
+.pl .stagebar span{padding:4px 10px; border-radius:999px; border:1px solid var(--rule); background:var(--paper)}
+.pl .stagebar span.st{border-color:var(--ember); background:var(--ember-soft)}
+.pl .stagebar b{color:var(--muted); font-weight:400}
+.pl .trace{font-family:var(--f-mono); font-size:.78rem; line-height:1.7; background:var(--code-bg); color:var(--code-fg); border-radius:8px; padding:10px 12px; max-height:340px; overflow:auto; white-space:pre}
+.pl .trace .x{color:#ff8a80} .pl .trace .ok{color:#8fe0a8} .pl .trace .t{color:var(--typ)}
+.pl .sum{font-family:var(--f-display); font-size:var(--s-1); color:var(--muted); margin-top:8px}
+</style>
+
+<div class="col">
+  <div class="eyebrow">Section 21 · Bibliothèque Java SE</div>
+  <h1>Streams et programmation fonctionnelle</h1>
+  <p class="lede">Les lambdas (§15.27) et les références de méthodes (§15.13) prennent tout leur sens avec l'API Stream : des pipelines déclaratifs, paresseux, éventuellement parallèles, pour transformer des données. Cette section couvre leur fonctionnement réel, les collecteurs, les gatherers de Java 24, <code>Optional</code> et les pièges.</p>
+  <div class="meta">
+    <span>Référence : <a href="https://docs.oracle.com/en/java/javase/27/docs/api/java.base/java/util/stream/package-summary.html" target="_blank" rel="noopener">API Java SE 27, java.util.stream</a></span>
+    <span>Liens avec la JLS : <b>§9.8, §15.13, §15.27, ch. 18</b></span>
+  </div>
+
+  <h2 id="s21-1"><span class="sec">21.1</span>Composer des fonctions</h2>
+  <p>Les interfaces de <code>java.util.function</code> (§9.8) ont des méthodes <code>default</code> qui permettent de composer sans écrire de nouvelle lambda :</p>
+  <div class="code"><div class="bar"><span>Java</span></div><pre><code class="java">Function&lt;String, String&gt; nettoyer = String::strip;
+Function&lt;String, Integer&gt; longueur = nettoyer.andThen(String::length);   // strip puis length
+Function&lt;Integer, Integer&gt; doubler = x -&gt; x * 2;
+doubler.compose(longueur).apply("  abc ");   // 6 : longueur d'abord, puis doubler
+
+Predicate&lt;String&gt; vide = String::isBlank;
+Predicate&lt;String&gt; utile = vide.negate().and(s -&gt; s.length() &lt; 80);
+liste.stream().filter(Predicate.not(String::isBlank));   // Predicate.not (Java 11)
+
+UnaryOperator&lt;String&gt; id = UnaryOperator.identity();
+BinaryOperator&lt;Integer&gt; max = BinaryOperator.maxBy(Comparator.naturalOrder());</code></pre></div>
+
+  <h2 id="s21-2"><span class="sec">21.2</span>Anatomie d'un stream</h2>
+  <p>Un stream n'est pas une structure de données : c'est une <b>description de calcul</b> sur une suite d'éléments. Il comporte une <b>source</b>, zéro ou plusieurs <b>opérations intermédiaires</b> (qui renvoient un stream) et une <b>opération terminale</b> (qui produit un résultat ou un effet).</p>
+  <div class="svgwrap"><svg viewBox="0 0 760 120" width="760" role="img" aria-label="Source, opérations intermédiaires paresseuses, opération terminale">
+    <g class="d-txt">
+      <rect class="d-box" x="10" y="35" width="130" height="50" rx="8"/><text class="d-b" x="75" y="56" text-anchor="middle">Source</text><text class="d-mut" x="75" y="72" text-anchor="middle">liste.stream()</text>
+      <rect class="d-acc" x="190" y="35" width="120" height="50" rx="8"/><text class="d-b" x="250" y="56" text-anchor="middle">filter</text><text class="d-mut" x="250" y="72" text-anchor="middle">paresseux</text>
+      <rect class="d-acc" x="340" y="35" width="120" height="50" rx="8"/><text class="d-b" x="400" y="56" text-anchor="middle">map</text><text class="d-mut" x="400" y="72" text-anchor="middle">paresseux</text>
+      <rect class="d-emb" x="490" y="35" width="120" height="50" rx="8"/><text class="d-b" x="550" y="56" text-anchor="middle">sorted</text><text class="d-mut" x="550" y="72" text-anchor="middle">avec état</text>
+      <rect class="d-ok" x="640" y="35" width="110" height="50" rx="8"/><text class="d-b" x="695" y="56" text-anchor="middle">toList()</text><text class="d-mut" x="695" y="72" text-anchor="middle">terminale</text>
+    </g>
+    <g class="d-line"><path d="M140,60 H188" marker-end="url(#arr)"/><path d="M310,60 H338" marker-end="url(#arr)"/><path d="M460,60 H488" marker-end="url(#arr)"/><path d="M610,60 H638" marker-end="url(#arr)"/></g>
+    <text class="d-mut" x="400" y="108" text-anchor="middle">rien ne s'exécute avant l'opération terminale ; un stream ne sert qu'une fois</text>
+  </svg></div>
+  <div class="rule"><span class="lbl">Propriétés fondamentales</span>
+    <ul style="margin:0">
+      <li><b>Paresse</b> : les opérations intermédiaires ne font rien tant qu'aucune opération terminale n'est appelée.</li>
+      <li><b>Traitement élément par élément</b> : chaque élément traverse toute la chaîne avant le suivant, sauf aux opérations <b>avec état</b> (<code>sorted</code>, <code>distinct</code>), qui doivent tout voir.</li>
+      <li><b>Court-circuit</b> : <code>limit</code>, <code>findFirst</code>, <code>anyMatch</code>… arrêtent dès que possible, ce qui permet de traiter des streams infinis.</li>
+      <li><b>Usage unique</b> : réutiliser un stream déjà consommé lève <code>IllegalStateException</code>.</li>
+      <li><b>Non-interférence</b> : la source ne doit pas être modifiée pendant le pipeline ; les lambdas devraient être sans effet de bord.</li>
+    </ul>
+  </div>
+  <p>Observez l'ordre réel des appels :</p>
+</div>
+
+<div class="wide">
+  <figure>
+    <p class="fig-title">Figure 21.1 · Trace d'exécution d'un pipeline</p>
+    <p class="fig-hint">Source : <code>IntStream.rangeClosed(1, 10)</code>. Activez ou désactivez les étapes et observez l'ordre des appels et leur nombre.</p>
+    <div data-w="pipeline"></div>
+  </figure>
+</div>
+
+<div class="col">
+  <h2 id="s21-3"><span class="sec">21.3</span>Créer un stream</h2>
+  <div class="code"><div class="bar"><span>Java</span></div><pre><code class="java">liste.stream();                                // depuis une collection
+Stream.of("a", "b", "c");
+Arrays.stream(tableau);                        // aussi IntStream pour un int[]
+IntStream.range(0, 10);                        // 0..9 ; rangeClosed(1, 10) : 1..10
+Stream.iterate(1, n -&gt; n &lt; 1000, n -&gt; n * 2);  // 1, 2, 4… tant que &lt; 1000 (Java 9)
+Stream.generate(UUID::randomUUID).limit(5);    // infini, donc limit
+Files.lines(Path.of("log.txt"));               // à fermer : try-with-resources
+"texte".chars();                               // IntStream des unités de code
+Pattern.compile(",").splitAsStream("a,b,,c"); // "a", "b", "", "c"
+new Random().ints(10, 0, 100);                 // 10 entiers aléatoires
+Stream.concat(s1, s2);
+Optional.of(x).stream();                       // 0 ou 1 élément</code></pre></div>
+
+  <h2 id="s21-4"><span class="sec">21.4</span>Opérations intermédiaires</h2>
+  <div class="tbl"><table>
+    <thead><tr><th>Opération</th><th>Effet</th><th>Sorte</th></tr></thead>
+    <tbody>
+      <tr><td><code>filter(p)</code></td><td>garde les éléments qui vérifient p</td><td>sans état</td></tr>
+      <tr><td><code>map(f)</code>, <code>mapToInt</code>, <code>mapToObj</code></td><td>transforme chaque élément</td><td>sans état</td></tr>
+      <tr><td><code>flatMap(f)</code></td><td>chaque élément devient un stream, aplati</td><td>sans état</td></tr>
+      <tr><td><code>mapMulti((x, sink) -&gt; …)</code></td><td>chaque élément produit 0..n éléments via un consommateur (Java 16)</td><td>sans état</td></tr>
+      <tr><td><code>distinct()</code></td><td>retire les doublons (equals)</td><td>avec état</td></tr>
+      <tr><td><code>sorted()</code>, <code>sorted(cmp)</code></td><td>trie</td><td>avec état, barrière</td></tr>
+      <tr><td><code>peek(action)</code></td><td>effet de bord pour déboguer</td><td>sans état</td></tr>
+      <tr><td><code>limit(n)</code>, <code>skip(n)</code></td><td>garde les n premiers / saute les n premiers</td><td>avec état, court-circuit</td></tr>
+      <tr><td><code>takeWhile(p)</code>, <code>dropWhile(p)</code></td><td>garde / saute tant que p est vrai (Java 9)</td><td>court-circuit</td></tr>
+      <tr><td><code>gather(g)</code></td><td>opération intermédiaire personnalisée (Java 24)</td><td>selon le gatherer</td></tr>
+      <tr><td><code>boxed()</code>, <code>asLongStream()</code></td><td>conversions entre streams primitifs et d'objets</td><td>sans état</td></tr>
+    </tbody>
+  </table></div>
+
+  <h2 id="s21-5"><span class="sec">21.5</span>Opérations terminales</h2>
+  <div class="code"><div class="bar"><span>Java</span></div><pre><code class="java">List&lt;String&gt; l = s.toList();                       // immuable, accepte null (Java 16)
+long n = s.count();
+Optional&lt;String&gt; premier = s.findFirst();
+boolean ok = s.anyMatch(x -&gt; x.isEmpty());         // aussi allMatch, noneMatch
+Optional&lt;Integer&gt; max = s.max(Comparator.naturalOrder());
+int total = IntStream.of(1, 2, 3).sum();           // 6 ; average() renvoie OptionalDouble
+IntSummaryStatistics st = ints.summaryStatistics(); // min, max, moyenne, somme, nombre
+int produit = Stream.of(1, 2, 3, 4).reduce(1, (a, b) -&gt; a * b);   // 24
+String[] t = s.toArray(String[]::new);
+s.forEach(System.out::println);                    // ordre non garanti en parallèle : forEachOrdered</code></pre></div>
+  <div class="trap"><span class="lbl">reduce : identité et associativité</span>
+    <p>L'élément identité doit vraiment être neutre (<code>0</code> pour la somme, <code>1</code> pour le produit), et l'opération associative : sinon le résultat change en parallèle. Pour accumuler dans un conteneur mutable, utilisez <code>collect</code>, pas <code>reduce</code>.</p>
+  </div>
+
+  <h2 id="s21-6"><span class="sec">21.6</span>Collecteurs</h2>
+  <p><code>collect(Collector)</code> est l'opération terminale la plus puissante. La classe <code>Collectors</code> fournit des collecteurs prêts à l'emploi, combinables entre eux :</p>
+</div>
+
+<div class="wide">
+  <figure>
+    <p class="fig-title">Figure 21.2 · Recettes de collecteurs</p>
+    <p class="fig-hint">Données : <code>record Vente(String vendeur, String ville, double montant)</code>, une liste <code>ventes</code>.</p>
+    <div data-w="explorer"><script type="application/json">{"items":[
+      {"k":"toList / toSet / toUnmodifiableList","sub":"rassembler","d":"<p>Le plus simple. Préférez <code>stream.toList()</code> (immuable) sauf besoin d'une liste modifiable.</p>","code":"List<String> villes = ventes.stream().map(Vente::ville).collect(Collectors.toList());\nSet<String> unique = ventes.stream().map(Vente::ville).collect(Collectors.toSet());"},
+      {"k":"toMap","sub":"vers une Map","d":"<p>Clé et valeur par fonction. <b>Attention</b> : une clé dupliquée lève <code>IllegalStateException</code>, sauf si l'on fournit une fonction de fusion. Une valeur <code>null</code> lève <code>NullPointerException</code>.</p>","code":"Map<String, Double> totalParVendeur = ventes.stream()\n    .collect(Collectors.toMap(Vente::vendeur, Vente::montant, Double::sum));\nMap<String, Double> trie = ventes.stream()\n    .collect(Collectors.toMap(Vente::vendeur, Vente::montant, Double::sum, TreeMap::new));"},
+      {"k":"groupingBy","sub":"regrouper","d":"<p>Regroupe par clé. Le second argument (collecteur aval) dit quoi faire de chaque groupe ; par défaut, une liste.</p>","code":"Map<String, List<Vente>> parVille = ventes.stream().collect(groupingBy(Vente::ville));\nMap<String, Long> nbParVille = ventes.stream().collect(groupingBy(Vente::ville, counting()));\nMap<String, Double> caParVille = ventes.stream().collect(groupingBy(Vente::ville, summingDouble(Vente::montant)));\nMap<String, Set<String>> vendeursParVille = ventes.stream()\n    .collect(groupingBy(Vente::ville, TreeMap::new, mapping(Vente::vendeur, toSet())));"},
+      {"k":"partitioningBy","sub":"deux groupes","d":"<p>Comme groupingBy avec un prédicat : une Map à deux clés, <code>true</code> et <code>false</code>, toujours présentes.</p>","code":"Map<Boolean, List<Vente>> grosses = ventes.stream()\n    .collect(partitioningBy(v -> v.montant() > 1000));"},
+      {"k":"joining","sub":"concaténer","d":"<p>Concatène des chaînes, avec séparateur, préfixe et suffixe facultatifs.</p>","code":"String s = ventes.stream().map(Vente::vendeur).distinct().sorted()\n    .collect(joining(\", \", \"[\", \"]\"));   // [Alice, Bob]"},
+      {"k":"Statistiques","sub":"counting, summing, averaging, summarizing","d":"<p>Agrégats numériques. <code>summarizingDouble</code> calcule tout en un seul passage.</p>","code":"DoubleSummaryStatistics st = ventes.stream().collect(summarizingDouble(Vente::montant));\nst.getAverage(); st.getMax(); st.getCount();"},
+      {"k":"teeing","sub":"deux collecteurs en un passage (Java 12)","d":"<p>Envoie chaque élément à deux collecteurs, puis combine leurs résultats.</p>","code":"record MinMax(double min, double max) { }\nMinMax mm = ventes.stream().map(Vente::montant).collect(teeing(\n    minBy(Comparator.naturalOrder()), maxBy(Comparator.naturalOrder()),\n    (a, b) -> new MinMax(a.orElse(0.0), b.orElse(0.0))));"},
+      {"k":"filtering / flatMapping / collectingAndThen","sub":"collecteurs aval","d":"<p>Filtrer ou aplatir à l'intérieur d'un groupe (Java 9) ; transformer le résultat final.</p>","code":"Map<String, List<Vente>> grossesParVille = ventes.stream()\n    .collect(groupingBy(Vente::ville, filtering(v -> v.montant() > 1000, toList())));\nList<String> figee = ventes.stream().map(Vente::ville)\n    .collect(collectingAndThen(toList(), Collections::unmodifiableList));"}
+    ]}</script></div>
+  </figure>
+</div>
+
+<div class="col">
+  <h2 id="s21-7"><span class="sec">21.7</span>Gatherers (Java 24)</h2>
+  <p>Les collecteurs personnalisent l'opération terminale ; les <b>gatherers</b> (JEP 485, finalisé en Java 24) personnalisent les opérations <b>intermédiaires</b>. <code>stream.gather(g)</code> applique un <code>Gatherer</code>, qui peut garder un état, émettre plusieurs éléments, s'arrêter tôt.</p>
+  <div class="code"><div class="bar"><span>Java 24+</span></div><pre><code class="java">Stream.of(1, 2, 3, 4, 5, 6, 7)
+      .gather(Gatherers.windowFixed(3))        // [[1, 2, 3], [4, 5, 6], [7]]
+      .toList();
+Stream.of(1, 2, 3, 4)
+      .gather(Gatherers.windowSliding(2))      // [[1, 2], [2, 3], [3, 4]]
+      .toList();
+Stream.of(1, 2, 3, 4)
+      .gather(Gatherers.scan(() -&gt; 0, Integer::sum))   // sommes cumulées : 1, 3, 6, 10
+      .toList();
+urls.stream()
+    .gather(Gatherers.mapConcurrent(16, Http::telecharger))  // jusqu'à 16 appels concurrents (threads virtuels), ordre conservé
+    .toList();
+
+// gatherer personnalisé : ne garder que les éléments différents du précédent
+Gatherer&lt;String, ?, String&gt; sansRepetition = Gatherer.ofSequential(
+    () -&gt; new String[1],
+    (etat, elt, aval) -&gt; {
+        if (!elt.equals(etat[0])) { etat[0] = elt; return aval.push(elt); }
+        return true;
+    });</code></pre></div>
+
+  <h2 id="s21-8"><span class="sec">21.8</span>Streams primitifs</h2>
+  <p><code>IntStream</code>, <code>LongStream</code> et <code>DoubleStream</code> évitent le boxing (§5.1.7) : sur de gros volumes, la différence de performance est importante. Passez de l'un à l'autre avec <code>mapToInt</code>, <code>mapToObj</code>, <code>boxed</code>.</p>
+  <div class="code"><div class="bar"><span>Java</span></div><pre><code class="java">int somme = ventes.stream().mapToInt(v -&gt; (int) v.montant()).sum();   // pas de Integer intermédiaires
+OptionalDouble moyenne = IntStream.range(0, 0).average();             // vide : OptionalDouble.empty()
+Stream&lt;Integer&gt; lent = Stream.iterate(0, i -&gt; i + 1).limit(1_000_000);   // un Integer par élément</code></pre></div>
+
+  <h2 id="s21-9"><span class="sec">21.9</span>Optional</h2>
+  <p><code>Optional&lt;T&gt;</code> représente un résultat qui peut être absent. Il est conçu comme <b>type de retour</b>, pour forcer l'appelant à traiter l'absence.</p>
+  <div class="code"><div class="bar"><span>Java</span></div><pre><code class="java">Optional&lt;Client&gt; c = repo.trouver(id);
+String nom = c.map(Client::nom).orElse("inconnu");
+Client cl = c.orElseThrow(() -&gt; new IntrouvableException(id));
+c.ifPresentOrElse(this::afficher, () -&gt; log("absent"));
+Optional&lt;Adresse&gt; a = c.flatMap(Client::adresse);      // si adresse() renvoie déjà un Optional
+c.filter(Client::actif).or(() -&gt; repo.trouverArchive(id));
+
+c.orElse(creerParDefaut());        // piège : creerParDefaut() est TOUJOURS appelé
+c.orElseGet(this::creerParDefaut); // appelé seulement si vide
+c.get();                           // NoSuchElementException si vide : préférer orElseThrow()</code></pre></div>
+  <div class="nn"><span class="lbl">Bonne pratique</span>
+    <p>N'utilisez pas <code>Optional</code> comme type de champ, de paramètre ou d'élément de collection, et ne renvoyez jamais <code>null</code> à la place d'un <code>Optional</code>. Pour les primitifs : <code>OptionalInt</code>, <code>OptionalLong</code>, <code>OptionalDouble</code>.</p>
+  </div>
+
+  <h2 id="s21-10"><span class="sec">21.10</span>Streams parallèles</h2>
+  <p><code>parallelStream()</code> ou <code>.parallel()</code> découpe la source (via son <code>Spliterator</code>) et traite les morceaux sur le <code>ForkJoinPool</code> commun, dont la taille par défaut est le nombre de cœurs moins un.</p>
+  <div class="tbl"><table>
+    <thead><tr><th>Favorable</th><th>Défavorable</th></tr></thead>
+    <tbody>
+      <tr><td>beaucoup d'éléments (au moins des dizaines de milliers)</td><td>peu d'éléments : le découpage coûte plus qu'il ne rapporte</td></tr>
+      <tr><td>calcul coûteux par élément, sans attente</td><td>entrées-sorties bloquantes (utilisez des threads virtuels, section 22)</td></tr>
+      <tr><td>source bien découpable : <code>ArrayList</code>, tableaux, <code>IntStream.range</code></td><td><code>LinkedList</code>, <code>Stream.iterate</code>, <code>Files.lines</code></td></tr>
+      <tr><td>opérations sans état ni ordre : <code>map</code>, <code>filter</code>, <code>sum</code></td><td><code>limit</code>, <code>findFirst</code>, <code>sorted</code>, <code>forEachOrdered</code> sur une source ordonnée</td></tr>
+    </tbody>
+  </table></div>
+  <div class="trap"><span class="lbl">Effets de bord en parallèle</span></div>
+  <div class="code"><div class="bar"><span>Java</span></div><pre><code class="java">List&lt;Integer&gt; resultats = new ArrayList&lt;&gt;();
+IntStream.range(0, 10_000).parallel().forEach(resultats::add);   // course de données : taille fausse, exceptions
+List&lt;Integer&gt; ok = IntStream.range(0, 10_000).parallel().boxed().toList();   // correct
+
+int[] compteur = {0};
+stream.forEach(x -&gt; compteur[0]++);   // contourne « effectivement final », mais faux en parallèle : utilisez count()</code></pre></div>
+
+  <h2 id="s21-11"><span class="sec">21.11</span>Pièges fréquents</h2>
+  <div class="grid2">
+    <div class="card"><b class="h">peek n'est pas garanti</b>Depuis Java 9, <code>count()</code> peut calculer la taille sans parcourir les éléments si la source la connaît : un <code>peek</code> ou un <code>map</code> en amont peut alors ne jamais s'exécuter.</div>
+    <div class="card"><b class="h">Stream infini sans arrêt</b><code>Stream.iterate(1, x -&gt; x + 1).filter(x -&gt; x &lt; 10).toList()</code> ne termine jamais : <code>filter</code> ne sait pas qu'il n'y aura plus d'éléments utiles. Utilisez <code>takeWhile</code>.</div>
+    <div class="card"><b class="h">Ressources</b><code>Files.lines</code> et <code>Files.list</code> ouvrent des fichiers : un stream implémente <code>AutoCloseable</code>, utilisez try-with-resources.</div>
+    <div class="card"><b class="h">Exceptions vérifiées</b>Une lambda passée à <code>map</code> ne peut pas lever d'exception vérifiée (§11.2.1). Enveloppez-la (<code>UncheckedIOException</code>) ou traitez-la dans la lambda.</div>
+    <div class="card"><b class="h">Tout n'est pas un stream</b>Une boucle simple reste plus lisible pour un traitement à effets de bord, avec <code>break</code> ou plusieurs accumulateurs. Les streams brillent pour les transformations déclaratives.</div>
+    <div class="card"><b class="h">sorted puis findFirst</b>Trier pour prendre le minimum coûte O(n log n) ; <code>min(cmp)</code> est en O(n).</div>
+  </div>
+
+  <h2 id="s21-quiz">Vérifier ses acquis</h2>
+  <div data-w="quiz"><script type="application/json">[
+    {"q":"Que fait <code>Stream.of(1,2,3).filter(x -&gt; { print(x); return true; });</code> sans opération terminale ?","o":["Affiche 1 2 3","N'affiche rien","Erreur"],"a":1,"e":"Les opérations intermédiaires sont paresseuses."},
+    {"q":"Avec filter → map → limit(2) sur 1..10, combien de fois map est-il appelé (filtre : pairs) ?","o":["5","2","10"],"a":1,"e":"Chaque élément traverse toute la chaîne ; limit arrête après deux éléments."},
+    {"q":"<code>Collectors.toMap</code> avec deux éléments de même clé, sans fonction de fusion…","o":["garde le dernier","lève IllegalStateException","garde le premier"],"a":1,"e":"Il faut un troisième argument pour fusionner."},
+    {"q":"Différence entre <code>orElse(f())</code> et <code>orElseGet(this::f)</code> ?","o":["Aucune","orElse évalue f() même si la valeur est présente","orElseGet lève une exception"],"a":1,"e":"L'argument d'orElse est évalué avant l'appel (§15.12.4.2)."},
+    {"q":"Quel outil permet une fenêtre glissante dans un stream (Java 24) ?","o":["Collectors.sliding","Gatherers.windowSliding","Stream.window"],"a":1,"e":"Les gatherers personnalisent les opérations intermédiaires (JEP 485)."},
+    {"q":"Un stream parallèle est-il adapté à des appels HTTP bloquants ?","o":["Oui","Non : il occupe le ForkJoinPool commun ; préférer les threads virtuels"],"a":1,"e":"Le pool commun est dimensionné pour du calcul, pas pour de l'attente."},
+    {"q":"<code>stream.toList()</code> renvoie une liste…","o":["modifiable","immuable"],"a":1,"e":"Contrairement à Collectors.toList(), dont la mutabilité n'est pas garantie."}
+  ]</script></div>
+</div>
+
+<script>
+ATLAS.w.pipeline = function(el){
+  el.classList.add('pl');
+  const st={filter:true, map:true, sorted:false, distinct:false, limit:true, term:'toList'};
+  el.innerHTML='<div class="cfg"></div><div class="stagebar"></div><div class="trace" aria-live="polite"></div><div class="sum"></div>';
+  const cfg=el.querySelector('.cfg'), bar=el.querySelector('.stagebar'), tr=el.querySelector('.trace'), sum=el.querySelector('.sum');
+  const opts=[['filter','filter(x pair)'],['map','map(x → x*x)'],['sorted','sorted(décroissant)'],['distinct','distinct()'],['limit','limit(2)']];
+  function draw(){
+    cfg.innerHTML=opts.map(([k,l])=>'<button type="button" class="btn'+(st[k]?' on':'')+'" data-k="'+k+'" aria-pressed="'+st[k]+'">'+l+'</button>').join('')+'<span style="flex-basis:100%"></span>'+['toList','findFirst','count'].map(t=>'<button type="button" class="btn'+(st.term===t?' on':'')+'" data-t="'+t+'">'+t+'()</button>').join('');
+    cfg.querySelectorAll('[data-k]').forEach(b=>b.onclick=()=>{ st[b.dataset.k]=!st[b.dataset.k]; draw(); });
+    cfg.querySelectorAll('[data-t]').forEach(b=>b.onclick=()=>{ st.term=b.dataset.t; draw(); });
+    const stages=[]; if(st.filter) stages.push('filter'); if(st.map) stages.push('map'); if(st.distinct) stages.push('distinct'); if(st.sorted) stages.push('sorted'); if(st.limit) stages.push('limit');
+    bar.innerHTML='<span>rangeClosed(1, 10)</span>'+stages.map(s=>'<b>→</b><span class="'+(s==='sorted'||s==='distinct'?'st':'')+'">'+s+'</span>').join('')+'<b>→</b><span>'+st.term+'()</span>';
+    run(stages);
+  }
+  function run(stages){
+    const out=[], calls={filter:0,map:0}; let lines=[], result=[];
+    // modèle : traitement élément par élément jusqu'à une barrière (sorted), puis reprise
+    const pre=[], post=[]; let barrier=stages.indexOf('sorted');
+    const before = barrier<0 ? stages : stages.slice(0,barrier), after = barrier<0 ? [] : stages.slice(barrier+1);
+    let limitCount=0, stop=false; const seen=new Set();
+    const needOne = st.term==='findFirst';
+    function pass(x, chain, lab){
+      for(const s of chain){
+        if(s==='filter'){ calls.filter++; if(x%2!==0){ lines.push(lab+'filter('+x+') <span class="x">✗ rejeté</span>'); return null; } lines.push(lab+'filter('+x+') <span class="ok">✓</span>'); }
+        else if(s==='map'){ calls.map++; const y=x*x; lines.push(lab+'map('+x+') = '+y); x=y; }
+        else if(s==='distinct'){ if(seen.has(x)){ lines.push(lab+'distinct('+x+') <span class="x">doublon</span>'); return null; } seen.add(x); }
+        else if(s==='limit'){ limitCount++; lines.push(lab+'limit : '+limitCount+'/2'); if(limitCount>=2) stop=true; }
+      }
+      return x;
+    }
+    if(barrier<0){
+      for(let x=1;x<=10;x++){
+        lines.push('<span class="t">source émet '+x+'</span>');
+        const r=pass(x,before,'  ');
+        if(r!==null){ result.push(r); lines.push('  <span class="ok">→ '+st.term+' reçoit '+r+'</span>'); if(needOne){ stop=true; } }
+        if(stop){ lines.push('<span class="t">court-circuit : la source s\'arrête</span>'); break; }
+      }
+    } else {
+      const buf=[];
+      for(let x=1;x<=10;x++){ lines.push('<span class="t">source émet '+x+'</span>'); const r=pass(x,before,'  '); if(r!==null){ buf.push(r); lines.push('  sorted mémorise '+r); } }
+      buf.sort((a,b)=>b-a);
+      lines.push('<span class="t">— barrière sorted : tous les éléments sont arrivés, tri : ['+buf.join(', ')+'] —</span>');
+      for(const v of buf){ const r=pass(v,after,'  '); if(r!==null){ result.push(r); lines.push('  <span class="ok">→ '+st.term+' reçoit '+r+'</span>'); if(needOne) stop=true; } if(stop){ lines.push('<span class="t">court-circuit après la barrière</span>'); break; } }
+    }
+    const res = st.term==='count' ? String(result.length) : st.term==='findFirst' ? (result.length?'Optional['+result[0]+']':'Optional.empty') : '['+result.join(', ')+']';
+    tr.innerHTML=lines.join('\n');
+    sum.innerHTML='Résultat : <b>'+res+'</b> · filter appelé '+calls.filter+' fois · map appelé '+calls.map+' fois'+(barrier>=0&&(st.limit||needOne)?' · la barrière sorted empêche le court-circuit en amont':'');
+  }
+  draw();
+};
+</script>
